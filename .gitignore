@@ -1,0 +1,49 @@
+# Binaries for programs and plugins
+*.exe
+*.exe~
+*.dll
+*.so
+*.so.*
+*.dylib
+
+# Test binary, built with `go test -c`
+*.test
+
+# Output of the go coverage tool
+*.out
+coverage.out
+*.prof
+*.pprof
+mem.prof
+cpu.prof
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+.DS_Store
+
+# Temporary files
+tmp/
+*.tmp
+*.bak
+
+# HAR files from tests
+*.har
+
+# Memory profiling
+*.mprof
+
+# Build artifacts
+dist/
+build/
+bin/
+
+# Claude Code local configuration (never commit)
+.claude/
+CLAUDE.md
+
+# Other directories
+.benchmarks

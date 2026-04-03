@@ -1,0 +1,89 @@
+# Codecov configuration for traverse
+# Defines coverage requirements, patch thresholds, and comment templates
+
+coverage:
+  precision: 2
+  round: down
+  range: "70...100"
+
+  # Per-component requirements
+  status:
+    project:
+      default:
+        target: 80
+        threshold: 2
+        base: auto
+        branches: null
+        if_ci_failed: error
+
+# Require specific coverage targets for critical components
+component_management:
+  individual_components:
+    - component_id: "core-odata"
+      paths:
+        - "*.go"
+        - "!cmd/**"
+        - "!benchmarks/**"
+        - "!examples/**"
+      statuses:
+        - type: project
+          target: 85
+          threshold: 2
+          base: auto
+
+    - component_id: "extensions"
+      paths:
+        - "ext/**/*.go"
+        - "!ext/**/benchmarks/**"
+      statuses:
+        - type: project
+          target: 70
+          threshold: 2
+          base: auto
+
+    - component_id: "testing-util"
+      paths:
+        - "testutil/**"
+      statuses:
+        - type: project
+          target: 50
+          threshold: 5
+          base: auto
+
+# Patch requirements (for PRs)
+patch:
+  # Only patch hits need to meet threshold, not overall
+  precision: 2
+  target: 80
+  threshold: 2
+
+# Comment settings for pull requests
+comment:
+  layout: "reach,diff,flags,tree"
+  behavior: default
+  require_changes: false
+  require_base: no
+  require_head: no
+  branches: null
+
+# Ignore patterns
+ignore:
+  - "cmd/**"  # CLI tools not ready
+  - "examples/**"  # Example code
+  - "benchmarks/**"  # Benchmark code, not tests
+  - "**/*_test.go"  # Tests themselves
+  - "internal/tokenizer/**"  # Generated code
+  - "internal/encoder/**"  # Internal utilities
+
+# GitHub notifications
+github:
+  checks:
+    annotations: true
+  statuses:
+    changes: true
+    patch: true
+    project: true
+
+# Archive settings
+archive:
+  uploads: false

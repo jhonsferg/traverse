@@ -1,0 +1,81 @@
+version: 2
+
+updates:
+  # Go Dependencies
+  - package-ecosystem: "gomod"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+      day: "sunday"
+      time: "02:00"
+    reviewers:
+      - "jhonsferg"
+    labels:
+      - "dependencies"
+      - "go"
+    allow:
+      - dependency-type: "direct"
+      - dependency-type: "indirect"
+    pull-request-branch-name:
+      separator: "/"
+    commit-message:
+      prefix: "chore(deps):"
+      prefix-major: "chore(deps)!:"
+      prefix-minor: "chore(deps):"
+      prefix-patch: "chore(deps):"
+      include: "scope"
+    rebase-strategy: "auto"
+    # Open a PR with dependency updates
+    open-pull-requests-limit: 5
+    # Only update indirect dependencies if they have vulnerabilities
+    ignore:
+      - dependency-name: "*"
+        # Uncomment to ignore specific versions
+        # update-types:
+        #   - "version-update:semver-patch"
+
+  # GitHub Actions
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+      day: "sunday"
+      time: "03:00"
+    reviewers:
+      - "jhonsferg"
+    labels:
+      - "ci"
+      - "github-actions"
+    pull-request-branch-name:
+      separator: "/"
+    commit-message:
+      prefix: "ci(actions):"
+    rebase-strategy: "auto"
+    open-pull-requests-limit: 5
+
+  # Python Requirements (if any)
+  # - package-ecosystem: "pip"
+  #   directory: "/"
+  #   schedule:
+  #     interval: "monthly"
+  #   reviewers:
+  #     - "jhonsferg"
+
+# Grouped security updates
+groups:
+  security-updates:
+    patterns:
+      - "security*"
+    update-types:
+      - "version-update:semver-major"
+      - "version-update:semver-minor"
+    schedule:
+      interval: "daily"
+
+  dependency-updates:
+    patterns:
+      - "*"
+    update-types:
+      - "version-update:semver-patch"
+    schedule:
+      interval: "weekly"

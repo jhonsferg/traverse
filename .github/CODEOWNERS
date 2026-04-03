@@ -1,0 +1,28 @@
+# Traverse OData Client - Code Owners
+
+# Default: All maintainers review
+* @jhonsferg
+
+# Core OData functionality
+traverse/ @jhonsferg
+
+# SAP-specific adaptations
+sap/ @jhonsferg
+
+# Internal utilities
+internal/ @jhonsferg
+
+# Tests
+*_test.go @jhonsferg
+testutil/ @jhonsferg
+
+# Documentation
+*.md @jhonsferg
+SECURITY.md @jhonsferg
+CONTRIBUTING.md @jhonsferg
+
+# CI/CD and configuration
+.github/ @jhonsferg
+.golangci.yml @jhonsferg
+Makefile @jhonsferg
+.goreleaser.yml @jhonsferg

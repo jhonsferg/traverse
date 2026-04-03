@@ -1,0 +1,35 @@
+# Lefthook configuration for Traverse
+# https://github.com/evilmartians/lefthook
+# Enforces code quality and commit standards
+
+pre-commit:
+  parallel: true
+  commands:
+    gofmt:
+      glob: "*.go"
+      run: gofmt -s -w {staged_files} && git add {staged_files}
+    golangci-lint:
+      glob: "*.go"
+      run: golangci-lint run --fix {staged_files}
+    govet:
+      glob: "*.go"
+      run: go vet ./...
+
+commit-msg:
+  commands:
+    lint-commit-msg:
+      run: |
+        # Regex for Conventional Commits
+        commit_msg=$(cat $1)
+        regex="^(feat|fix|docs|style|refactor|perf|test|build|ci|chore|revert)(\(.+\))?!?: .+"
+        if [[ ! $commit_msg =~ $regex ]]; then
+          echo "Error: Commit message does not follow Conventional Commits format."
+          echo "Allowed types: feat, fix, docs, style, refactor, perf, test, build, ci, chore, revert"
+          echo "Example: feat(query): add filter support"
+          exit 1
+        fi
+
+pre-push:
+  commands:
+    unit-tests:
+      run: go test -v -short ./...

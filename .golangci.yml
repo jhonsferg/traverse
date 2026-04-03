@@ -1,0 +1,76 @@
+# .golangci.yml
+# https://golangci-lint.run/usage/configuration/
+# Optimized configuration based on relay best practices
+
+version: "2"
+
+run:
+  timeout: 5m
+  modules-download-mode: readonly
+  tests: true
+
+linters:
+  default: none
+  enable:
+    # Core linters (from relay)
+    - errcheck      # check for unchecked errors
+    - govet         # standard go vet
+    - ineffassign   # detect ineffectual assignments
+    - staticcheck   # standard static analyzer
+    - unused        # find unused constants, variables, functions and types
+    - gosec         # security checker
+    - nakedret      # find naked returns in functions longer than a certain length
+    - prealloc      # find slice declarations that could potentially be pre-allocated
+    - unconvert     # remove unnecessary type conversions
+    # Additional linters for traverse (OData-focused)
+    - bodyclose     # HTTP response body unclosed (important for HTTP client)
+    - contextcheck  # context usage (important for async operations)
+    - noctx         # missing context in function calls
+
+settings:
+  govet:
+    enable:
+      - shadow
+  gosec:
+    excludes:
+      - G104        # Errors unhandled (often duplicated by errcheck)
+  contextcheck:
+    skip-type-assertions: false
+    skip-type-checks: false
+
+formatters:
+  enable:
+    - gofmt
+    - goimports
+  settings:
+    goimports:
+      local-prefixes:
+        - github.com/jhonsferg/traverse
+
+issues:
+  exclude-rules:
+    # Skip linting for CLI tools (under development)
+    - path: cmd/
+      linters:
+        - errcheck
+        - govet
+        - ineffassign
+        - staticcheck
+        - unused
+        - gosec
+        - nakedret
+        - prealloc
+        - unconvert
+        - bodyclose
+        - contextcheck
+        - noctx
+        - typecheck
+    # Skip certain linters for tests
+    - path: _test.go
+      linters:
+        - contextcheck
+  max-issues-per-linter: 0
+  max-same-issues: 0
+
+output:
+  format: colored-line-number

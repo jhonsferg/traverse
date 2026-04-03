@@ -1,0 +1,301 @@
+name: CI
+
+on:
+  push:
+    branches: [main, master]
+  pull_request:
+    branches: [main, master]
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    name: Test (${{ matrix.go-version }})
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    strategy:
+      fail-fast: false
+      matrix:
+        go-version: ["1.23", "1.24", "1.25"]
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version: ${{ matrix.go-version }}
+          cache: true
+
+      - name: Pin toolchain to installed Go
+        run: go env -w GOTOOLCHAIN=local
+
+      - name: Run tests with race detector
+        run: go test -v -race -count=1 -coverprofile=coverage.out -covermode=atomic ./...
+
+      - name: Upload coverage artifact
+        if: matrix.go-version == '1.25'
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage
+          path: coverage.out
+          retention-days: 1
+
+      - name: Upload coverage to Codecov
+        if: matrix.go-version == '1.25'
+        uses: codecov/codecov-action@v4
+        with:
+          files: ./coverage.out
+          flags: unittests
+          name: codecov-umbrella
+          fail_ci_if_error: false
+          verbose: true
+
+  lint:
+    name: Lint
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version: "1.25"
+          cache: true
+
+      - name: Pin toolchain
+        run: go env -w GOTOOLCHAIN=local
+
+      - name: golangci-lint
+        uses: golangci/golangci-lint-action@v4
+        with:
+          version: latest
+          args: --timeout=5m ./...
+
+  vet:
+    name: Vet
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version: "1.25"
+          cache: true
+
+      - name: Pin toolchain
+        run: go env -w GOTOOLCHAIN=local
+
+      - name: go vet
+        run: go vet ./...
+
+  build-examples:
+    name: Build Examples
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version: "1.25"
+          cache: true
+
+      - name: Pin toolchain
+        run: go env -w GOTOOLCHAIN=local
+
+      - name: Build examples
+        run: go build ./examples/...
+
+  benchmark:
+    name: Benchmark
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version: "1.25"
+          cache: true
+
+      - name: Pin toolchain
+        run: go env -w GOTOOLCHAIN=local
+
+      - name: Run benchmarks
+        run: go test -bench=. -benchmem -benchtime=3s -run=^$ ./...
+
+  # Auto-tag and notify pkg.go.dev on releases
+  auto-tag:
+    name: Auto Tag
+    needs: [test, lint, vet, build-examples]
+    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Tag and notify pkg.go.dev
+        run: |
+          set -euo pipefail
+
+          # Determine bump type from Conventional Commits
+          SUBJECT=$(git log -1 --format="%s")
+          BODY=$(git log -1 --format="%b")
+
+          if printf '%s\n%s' "$SUBJECT" "$BODY" | grep -qE 'BREAKING[[:space:]]CHANGE' \
+          || printf '%s' "$SUBJECT" | grep -qE '^[a-z]+(\([^)]*\))?!:'; then
+            BUMP=major
+          elif printf '%s' "$SUBJECT" | grep -qE '^feat(\([^)]*\))?:'; then
+            BUMP=minor
+          else
+            BUMP=patch
+          fi
+          echo "Bump type: $BUMP  (commit: $SUBJECT)"
+
+          # Skip if HEAD is already tagged
+          if git tag --points-at HEAD | grep -q .; then
+            echo "HEAD already tagged: $(git tag --points-at HEAD | tr '\n' ' ') - skipping"
+            exit 0
+          fi
+
+          # Get latest tag
+          latest=$(git tag -l 'v[0-9]*.[0-9]*.[0-9]*' | grep -v '/' | sed 's/^v//' | sort -V | tail -1)
+          
+          if [[ -z "$latest" ]]; then
+            next="0.1.0"
+          else
+            # Bump version
+            IFS='.' read -r major minor patch <<< "$latest"
+            case "$BUMP" in
+              major) ((major++)); minor=0; patch=0 ;;
+              minor) ((minor++)); patch=0 ;;
+              patch) ((patch++)) ;;
+            esac
+            next="${major}.${minor}.${patch}"
+          fi
+
+          new_tag="v${next}"
+
+          if git tag -l "$new_tag" | grep -q .; then
+            echo "Tag $new_tag already exists - skipping"
+            exit 0
+          fi
+
+          echo "Creating tag: $new_tag  (was: ${latest:-none})"
+          git tag "$new_tag"
+          git push origin "$new_tag"
+
+          # Notify pkg.go.dev
+          fetch_url="https://pkg.go.dev/fetch/github.com/jhonsferg/traverse@${new_tag}"
+          echo "Notifying pkg.go.dev: $fetch_url"
+          http_code=$(curl -sf -o /dev/null -w "%{http_code}" \
+            -X POST -H "Content-Length: 0" "$fetch_url" || true)
+          echo "  Response: $http_code"
+
+  # Update coverage badges
+  badges:
+    name: Update Badges
+    needs: [test]
+    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version: "1.25"
+          cache: true
+
+      - name: Pin toolchain
+        run: go env -w GOTOOLCHAIN=local
+
+      - name: Download coverage artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: coverage
+
+      - name: Compute coverage percentage and color
+        id: cov
+        run: |
+          PCT=$(go tool cover -func=coverage.out | grep '^total' | awk '{print $3}' | tr -d '%')
+          INT=${PCT%.*}
+          if   [ "$INT" -ge 80 ]; then COLOR=brightgreen
+          elif [ "$INT" -ge 70 ]; then COLOR=green
+          elif [ "$INT" -ge 60 ]; then COLOR=yellow
+          elif [ "$INT" -ge 50 ]; then COLOR=orange
+          else                         COLOR=red
+          fi
+          echo "pct=$PCT"   >> "$GITHUB_OUTPUT"
+          echo "color=$COLOR" >> "$GITHUB_OUTPUT"
+          echo "Coverage: ${PCT}% -> $COLOR"
+
+      - name: Push coverage.json to badges branch
+        run: |
+          PCT="${{ steps.cov.outputs.pct }}"
+          COLOR="${{ steps.cov.outputs.color }}"
+
+          printf '{"schemaVersion":1,"label":"coverage","message":"%s%%","color":"%s"}\n' \
+            "$PCT" "$COLOR" > /tmp/coverage.json
+
+          git config user.name  "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
+          git fetch origin badges 2>/dev/null || true
+
+          if git ls-remote --exit-code --heads origin badges > /dev/null 2>&1; then
+            git checkout -B badges origin/badges
+          else
+            git checkout --orphan badges
+            git rm -rf . --quiet 2>/dev/null || true
+          fi
+
+          cp /tmp/coverage.json coverage.json
+          git add coverage.json
+
+          if git diff --cached --quiet; then
+            echo "Badge unchanged - skipping push"
+            exit 0
+          fi
+
+          git commit -m "chore: update coverage badge [skip ci]"
+          git push origin badges
+
+  # Validate codecov configuration
+  validate-codecov:
+    name: Validate Codecov Config
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Validate codecov.yml
+        run: |
+          if [ ! -f codecov.yml ]; then
+            echo "❌ codecov.yml not found"
+            exit 1
+          fi
+          echo "✅ codecov.yml found"
+          
+          # Check required sections
+          for section in coverage component_management comment; do
+            if grep -q "^$section:" codecov.yml; then
+              echo "✅ Section '$section' found"
+            else
+              echo "⚠️  Section '$section' missing (optional)"
+            fi
+          done

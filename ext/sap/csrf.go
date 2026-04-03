@@ -1,0 +1,168 @@
+package sap
+
+import (
+	"context"
+	"fmt"
+	"sync"
+	"time"
+
+	"github.com/jhonsferg/relay"
+)
+
+// CSRFMiddleware manages the SAP CSRF token lifecycle.
+// SAP systems require an X-CSRF-Token header for all write operations (POST, PATCH, PUT, DELETE).
+// This middleware:
+// - Fetches tokens on-demand with X-CSRF-Token: Fetch header
+// - Caches tokens with ~30-minute expiry
+// - Auto-injects tokens on write operations
+// - Handles 403 errors by refreshing the token
+// - Is thread-safe via sync.RWMutex
+type CSRFMiddleware struct {
+	client  *relay.Client
+	baseURL string
+
+	mu        sync.RWMutex
+	token     string
+	expiresAt time.Time
+}
+
+// NewCSRFMiddleware creates a new CSRF token middleware.
+// The relay.Client is used for all HTTP operations.
+// BaseURL is the OData service root URL (used for metadata fetch).
+func NewCSRFMiddleware(client *relay.Client, baseURL string) *CSRFMiddleware {
+	return &CSRFMiddleware{
+		client:  client,
+		baseURL: baseURL,
+	}
+}
+
+// Fetch obtains a new CSRF token from the server.
+// Sends a GET request with X-CSRF-Token: Fetch header and extracts the token from response.
+// SAP returns the token in the X-CSRF-Token response header.
+func (c *CSRFMiddleware) Fetch(ctx context.Context) error {
+	// Use $metadata endpoint (available on all OData services)
+	req := c.client.Get("/$metadata")
+	req = req.WithHeader("X-CSRF-Token", "Fetch")
+	req = req.WithContext(ctx)
+
+	resp, err := c.client.Execute(req)
+	if err != nil {
+		return fmt.Errorf("traverse: csrf fetch failed: %w", err)
+	}
+
+	// Extract token from X-CSRF-Token response header
+	token := resp.Headers.Get("X-CSRF-Token")
+	if token == "" {
+		// Some systems might return in different case
+		token = resp.Headers.Get("x-csrf-token")
+	}
+
+	if token == "" {
+		return fmt.Errorf("traverse: csrf token not returned by server")
+	}
+
+	c.mu.Lock()
+	defer c.mu.Unlock()
+
+	c.token = token
+	// SAP tokens typically expire in 30 minutes
+	c.expiresAt = time.Now().Add(30 * time.Minute)
+
+	return nil
+}
+
+// GetToken returns the current token, fetching a new one if expired.
+// This is the main API for obtaining a token - it handles refresh logic.
+func (c *CSRFMiddleware) GetToken(ctx context.Context) (string, error) {
+	c.mu.RLock()
+
+	// Check if we have a valid token
+	if c.token != "" && time.Now().Before(c.expiresAt) {
+		defer c.mu.RUnlock()
+		return c.token, nil
+	}
+
+	c.mu.RUnlock()
+
+	// Token missing or expired - fetch a new one
+	if err := c.Fetch(ctx); err != nil {
+		return "", err
+	}
+
+	c.mu.RLock()
+	defer c.mu.RUnlock()
+
+	return c.token, nil
+}
+
+// InvalidateToken marks the current token as invalid.
+// Called when a 403 error is received (token expired on server).
+func (c *CSRFMiddleware) InvalidateToken() {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+
+	c.token = ""
+	c.expiresAt = time.Now()
+}
+
+// Inject injects the CSRF token into a request if needed.
+// Only injects for write operations (POST, PATCH, PUT, DELETE).
+// For GET requests, no token is needed.
+// This method can be used as a relay hook via WithOnBeforeRequest.
+func (c *CSRFMiddleware) Inject(ctx context.Context, req *relay.Request) (*relay.Request, error) {
+	// Only inject for write operations
+	method := req.Method()
+	if method != "POST" && method != "PATCH" && method != "PUT" && method != "DELETE" {
+		return req, nil
+	}
+
+	// Get a valid token
+	token, err := c.GetToken(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("traverse: failed to get csrf token: %w", err)
+	}
+
+	// Inject token header
+	req = req.WithHeader("X-CSRF-Token", token)
+	return req, nil
+}
+
+// HandleResponse processes responses for CSRF-related errors.
+// If a 403 error is received, the token is invalidated (likely expired on server).
+// The caller should retry the request after invalidation.
+// This method can be used as a relay hook via WithOnAfterResponse.
+func (c *CSRFMiddleware) HandleResponse(ctx context.Context, resp *relay.Response, err error) error {
+	// Only handle successful responses that have CSRF-related errors
+	if resp == nil {
+		return err
+	}
+
+	// Status 403 Forbidden often means CSRF token is invalid/expired
+	if resp.StatusCode == 403 {
+		// Check if it's a CSRF error (look for token-related message)
+		// This is optional - we invalidate on any 403 as precaution
+		c.InvalidateToken()
+
+		// Return a meaningful error that indicates retry might help
+		return fmt.Errorf("traverse: csrf token invalid (403 Forbidden), token invalidated - retry with new token")
+	}
+
+	return err
+}
+
+// Token returns the current cached token without checking expiry.
+// Used primarily for testing or diagnostic purposes.
+// For production code, use GetToken() instead.
+func (c *CSRFMiddleware) Token() string {
+	c.mu.RLock()
+	defer c.mu.RUnlock()
+	return c.token
+}
+
+// IsValid checks if the current token is still valid.
+// Returns true only if a token exists and hasn't expired.
+func (c *CSRFMiddleware) IsValid() bool {
+	c.mu.RLock()
+	defer c.mu.RUnlock()
+	return c.token != "" && time.Now().Before(c.expiresAt)
+}

@@ -1,0 +1,61 @@
+name: Notify pkg.go.dev
+
+# Triggers when a new version tag is pushed
+# Notifies pkg.go.dev to index the new version for godoc
+# This is separate from release.yml to ensure notification
+# happens even if release.yml is modified
+
+on:
+  push:
+    tags:
+      - 'v[0-9]*'  # Only semantic version tags: v0.1.0, v1.2.3, etc.
+
+permissions:
+  contents: read
+
+jobs:
+  notify:
+    name: Notify pkg.go.dev
+    runs-on: ubuntu-latest
+    steps:
+      - name: Extract version from tag
+        id: tag
+        run: |
+          TAG="${{ github.ref_name }}"
+          echo "tag=${TAG}" >> $GITHUB_OUTPUT
+
+      - name: Notify pkg.go.dev
+        run: |
+          TAG="${{ steps.tag.outputs.tag }}"
+          MODULE="github.com/jhonsferg/traverse"
+          VERSION="${TAG}"
+          
+          FETCH_URL="https://pkg.go.dev/fetch/${MODULE}@${VERSION}"
+          
+          echo "🔔 Notifying pkg.go.dev..."
+          echo "Module: ${MODULE}"
+          echo "Version: ${VERSION}"
+          echo "URL: ${FETCH_URL}"
+          echo ""
+          
+          # POST to pkg.go.dev/fetch endpoint
+          # This queues the module for indexing on pkg.go.dev
+          http_code=$(curl -sf -o /dev/null -w "%{http_code}" \
+            -X POST \
+            -H "Content-Length: 0" \
+            "${FETCH_URL}" || echo "000")
+          
+          echo "Response code: ${http_code}"
+          echo ""
+          
+          case ${http_code} in
+            200|202)
+              echo "✅ Success: Module queued for indexing"
+              exit 0
+              ;;
+            *)
+              echo "⚠️  Unexpected response code: ${http_code}"
+              echo "Module will be indexed on next periodic scan"
+              exit 0  # Don't fail the workflow
+              ;;
+          esac

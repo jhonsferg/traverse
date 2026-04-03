@@ -1,0 +1,98 @@
+version: 2
+
+project_name: traverse
+
+env:
+  - GO111MODULE=on
+  - CGO_ENABLED=0
+
+builds:
+  - id: default
+    goos:
+      - linux
+      - windows
+      - darwin
+    goarch:
+      - amd64
+      - arm64
+      - arm
+    goarm:
+      - "6"
+      - "7"
+    ldflags:
+      - -s -w
+      - -X github.com/jhonsferg/traverse.Version={{.Version}}
+      - -X github.com/jhonsferg/traverse.Commit={{.Commit}}
+      - -X github.com/jhonsferg/traverse.Date={{.Date}}
+    ignore:
+      - goos: windows
+        goarch: arm
+      - goos: windows
+        goarch: arm64
+
+archives:
+  - format: tar.gz
+    name_template: >-
+      {{ .ProjectName }}_
+      {{- .Version }}_
+      {{- title .Os }}_
+      {{- if eq .Arch "amd64" }}x86_64
+      {{- else if eq .Arch "386" }}i386
+      {{- else }}{{ .Arch }}{{ end }}
+      {{- if .Arm }}v{{ .Arm }}{{ end }}
+    format_overrides:
+      - goos: windows
+        format: zip
+
+checksum:
+  name_template: 'checksums.txt'
+  algorithm: sha256
+
+source:
+  enabled: true
+  name_template: '{{ .ProjectName }}-{{ .Version }}-source'
+
+changelog:
+  use: github-native
+  sort: asc
+  filters:
+    exclude:
+      - '^docs:'
+      - '^test:'
+      - '^ci:'
+      - Merge pull request
+      - Merge remote-tracking branch
+      - go mod tidy
+
+release:
+  github:
+    owner: jhonsferg
+    name: traverse
+  header: |
+    ## Traverse OData Client v{{ .Version }}
+    
+    A production-grade OData v2/v4 client for Go.
+    
+    ### Release Date
+    {{ .Date }}
+    
+    ### Downloads
+    Pre-built binaries for various platforms are available below.
+  footer: |
+    ### What Changed
+    See the [CHANGELOG](./CHANGELOG.md) for detailed information.
+    
+    ### Installation
+    
+    Via Go modules:
+    ```bash
+    go get github.com/jhonsferg/traverse@{{ .Version }}
+    ```
+    
+    ### Documentation
+    - [README](./README.md)
+    - [API Reference](https://pkg.go.dev/github.com/jhonsferg/traverse)
+    - [Examples](./examples)
+
+announce:
+  skip: true
