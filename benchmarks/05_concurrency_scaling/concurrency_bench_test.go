@@ -2,6 +2,7 @@ package benchmarks
 
 import (
 	"context"
+	"fmt"
 	"sync"
 	"sync/atomic"
 	"testing"
@@ -309,7 +310,7 @@ func BenchmarkGoroutineScaling(b *testing.B) {
 	goroutineCounts := []int{1, 2, 4, 8, 16}
 
 	for _, count := range goroutineCounts {
-		b.Run(string(rune('0'+byte(count))), func(b *testing.B) {
+		b.Run(fmt.Sprintf("concurrency_%d", count), func(b *testing.B) {
 			var wg sync.WaitGroup
 
 			b.ResetTimer()

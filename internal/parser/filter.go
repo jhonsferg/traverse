@@ -220,17 +220,20 @@ func ParseFilterExpression(expr string) error {
 	for i := 0; i < len(expr); i++ {
 		ch := expr[i]
 
-		if ch == '\'' {
+		switch ch {
+		case '\'':
 			if i+1 < len(expr) && expr[i+1] == '\'' {
 				// Escaped quote ''
 				i++
 			} else {
 				quoteOpen = !quoteOpen
 			}
-		} else if !quoteOpen {
-			if ch == '(' {
+		case '(':
+			if !quoteOpen {
 				parenCount++
-			} else if ch == ')' {
+			}
+		case ')':
+			if !quoteOpen {
 				parenCount--
 				if parenCount < 0 {
 					return fmt.Errorf("unbalanced parentheses in filter")

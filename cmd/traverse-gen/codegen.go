@@ -141,7 +141,7 @@ func (cg *CodeGenerator) buildQueryData() QueryTemplateData {
 	builders := make([]QueryBuilderData, 0, len(cg.metadata.EntityTypes))
 
 	for _, et := range cg.metadata.EntityTypes {
-		keys := make([]string, 0)
+		keys := make([]string, 0, len(et.Key))
 		for _, k := range et.Key {
 			keys = append(keys, k.Name)
 		}

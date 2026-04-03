@@ -11,16 +11,6 @@ import (
 	"github.com/jhonsferg/traverse"
 )
 
-// Benchmark payload sizes and complexity
-var testPayloads = map[string]int{
-	"tiny":   100,    // 100 bytes
-	"small":  500,    // 500 bytes
-	"medium": 2000,   // 2KB
-	"large":  10000,  // 10KB
-	"xlarge": 50000,  // 50KB
-	"huge":   500000, // 500KB
-}
-
 // BenchmarkErrorHandling tests error handling overhead
 func BenchmarkErrorHandling(b *testing.B) {
 	server := NewMockODataServer(ServerConfig{

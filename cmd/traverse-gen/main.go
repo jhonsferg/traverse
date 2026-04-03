@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"flag"
 	"fmt"
 	"io"
@@ -38,7 +39,12 @@ func main() {
 func run(metadataURL, pkgName, outputDir string) error {
 	// Fetch metadata from the URL
 	fmt.Printf("Fetching metadata from %s...\n", metadataURL)
-	resp, err := http.Get(metadataURL)
+	//nolint:gosec // Tool is intended to fetch from user-provided URLs
+	req, err := http.NewRequestWithContext(context.Background(), http.MethodGet, metadataURL, nil)
+	if err != nil {
+		return fmt.Errorf("failed to create request: %w", err)
+	}
+	resp, err := http.DefaultClient.Do(req)
 	if err != nil {
 		return fmt.Errorf("failed to fetch metadata: %w", err)
 	}
@@ -66,7 +72,7 @@ func run(metadataURL, pkgName, outputDir string) error {
 	}
 
 	// Create output directory
-	if err := os.MkdirAll(outputDir, 0755); err != nil {
+	if err := os.MkdirAll(outputDir, 0750); err != nil {
 		return fmt.Errorf("failed to create output directory: %w", err)
 	}
 
@@ -99,7 +105,7 @@ func run(metadataURL, pkgName, outputDir string) error {
 }
 
 func writeFile(path string, content string) error {
-	return os.WriteFile(path, []byte(content), 0644)
+	return os.WriteFile(path, []byte(content), 0600)
 }
 
 func printUsage() {

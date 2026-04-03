@@ -19,7 +19,9 @@ func TestMockServer_EnqueueAndServe(t *testing.T) {
 		},
 	})
 
-	resp, err := http.Get(ms.URL() + "/test")
+	ctx := context.Background()
+	req, _ := http.NewRequestWithContext(ctx, http.MethodGet, ms.URL()+"/test", nil)
+	resp, err := http.DefaultClient.Do(req)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -40,7 +42,8 @@ func TestMockServer_RecordedRequests(t *testing.T) {
 
 	ms.Enqueue(MockResponse{Status: http.StatusOK})
 
-	req, err := http.NewRequest(http.MethodPost, ms.URL()+"/api/data", nil)
+	ctx := context.Background()
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, ms.URL()+"/api/data", nil)
 	if err != nil {
 		t.Fatalf("failed to create request: %v", err)
 	}
@@ -81,8 +84,10 @@ func TestMockServer_MultipleResponses(t *testing.T) {
 	ms.Enqueue(MockResponse{Status: http.StatusCreated, Body: "second"})
 	ms.Enqueue(MockResponse{Status: http.StatusNotFound, Body: "third"})
 
+	ctx := context.Background()
 	for i, expectedStatus := range []int{http.StatusOK, http.StatusCreated, http.StatusNotFound} {
-		resp, err := http.Get(ms.URL())
+		req, _ := http.NewRequestWithContext(ctx, http.MethodGet, ms.URL(), nil)
+		resp, err := http.DefaultClient.Do(req)
 		if err != nil {
 			t.Fatalf("request %d: unexpected error: %v", i, err)
 		}
@@ -104,9 +109,13 @@ func TestMockServer_Delay(t *testing.T) {
 	})
 
 	start := time.Now()
-	resp, err := http.Get(ms.URL())
+	ctx := context.Background()
+	req, _ := http.NewRequestWithContext(ctx, http.MethodGet, ms.URL(), nil)
+	resp, err := http.DefaultClient.Do(req)
 	elapsed := time.Since(start)
-	_ = resp.Body.Close()
+	if resp != nil && resp.Body != nil {
+		_ = resp.Body.Close()
+	}
 
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
@@ -125,8 +134,10 @@ func TestMockServer_RequestCount(t *testing.T) {
 	ms.Enqueue(MockResponse{Status: http.StatusOK})
 	ms.Enqueue(MockResponse{Status: http.StatusOK})
 
+	ctx := context.Background()
 	for i := 0; i < 3; i++ {
-		resp, _ := http.Get(ms.URL())
+		req, _ := http.NewRequestWithContext(ctx, http.MethodGet, ms.URL(), nil)
+		resp, _ := http.DefaultClient.Do(req)
 		if resp != nil && resp.Body != nil {
 			_ = resp.Body.Close()
 		}

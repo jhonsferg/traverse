@@ -11,12 +11,6 @@ import (
 
 func TestProfileCreate(t *testing.T) {
 	// Use temporary directory for testing
-	originalHome := os.Getenv("HOME")
-	if originalHome == "" {
-		// Windows
-		originalHome = os.Getenv("USERPROFILE")
-	}
-
 	tempDir := t.TempDir()
 	t.Setenv("HOME", tempDir)
 	t.Setenv("USERPROFILE", tempDir)
@@ -231,7 +225,9 @@ func TestExportToCSV(t *testing.T) {
 	if err != nil {
 		t.Fatalf("failed to create temp file: %v", err)
 	}
-	defer tmpFile.Close()
+	defer func() {
+		_ = tmpFile.Close()
+	}()
 
 	err = exportToCSV(tmpFile, data)
 	if err != nil {
@@ -426,7 +422,7 @@ func TestLoadProfilesNonExistent(t *testing.T) {
 	}
 
 	if cfg == nil {
-		t.Errorf("expected config, got nil")
+		t.Fatalf("expected config, got nil")
 	}
 
 	if len(cfg.Profiles) != 0 {

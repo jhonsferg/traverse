@@ -1,6 +1,8 @@
 package traverse
 
 import (
+	"context"
+	"fmt"
 	"net/url"
 	"strings"
 	"testing"
@@ -134,7 +136,7 @@ func TestQueryParallelOrder(t *testing.T) {
 
 // TestQueryParallelEmpty verifies that QueryParallel handles empty input.
 func TestQueryParallelEmpty(t *testing.T) {
-	results, err := QueryParallel(nil)
+	results, err := QueryParallel(context.TODO())
 	if err != nil {
 		t.Errorf("QueryParallel with empty input should not error, got %v", err)
 	}
@@ -152,8 +154,8 @@ func TestMemoryCacheLockFree(t *testing.T) {
 	for i := 0; i < 10; i++ {
 		go func(idx int) {
 			defer func() { done <- true }()
-			metadata := &Metadata{EntityTypes: []EntityType{{Name: "Entity" + string(rune('A'+idx))}}}
-			cache.Set("key"+string(rune('0'+idx)), metadata)
+			metadata := &Metadata{EntityTypes: []EntityType{{Name: fmt.Sprintf("Entity%c", 'A'+idx)}}}
+			cache.Set(fmt.Sprintf("key%d", idx), metadata)
 		}(i)
 	}
 

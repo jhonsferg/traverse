@@ -12,11 +12,8 @@ import (
 
 // BenchmarkResult represents a single benchmark result line
 type BenchmarkResult struct {
-	name  string
-	count int64
-	time  float64 // nanoseconds
-	bytes int64
-	alloc int64
+	name string
+	time float64 // nanoseconds
 }
 
 func main() {

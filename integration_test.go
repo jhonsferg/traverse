@@ -233,7 +233,8 @@ func TestIntegration_MultipleResponses(t *testing.T) {
 
 	// Make requests
 	for i := 0; i < len(responses); i++ {
-		resp, _ := http.Get(ms.URL())
+		req, _ := http.NewRequestWithContext(context.Background(), http.MethodGet, ms.URL(), nil)
+		resp, _ := http.DefaultClient.Do(req)
 		_ = resp.Body.Close()
 	}
 
@@ -285,7 +286,8 @@ func TestIntegration_ErrorResponse(t *testing.T) {
 		Body:   testutil.ODataErrorResponse("INVALID_REQUEST", "Bad request format"),
 	})
 
-	resp, _ := http.Get(ms.URL())
+	req, _ := http.NewRequestWithContext(context.Background(), http.MethodGet, ms.URL(), nil)
+	resp, _ := http.DefaultClient.Do(req)
 	if resp.StatusCode != http.StatusBadRequest {
 		t.Errorf("got status %d, want 400", resp.StatusCode)
 	}
