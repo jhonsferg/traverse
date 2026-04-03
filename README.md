@@ -2,7 +2,12 @@
 
 [![Go Reference](https://pkg.go.dev/badge/github.com/jhonsferg/traverse.svg)](https://pkg.go.dev/github.com/jhonsferg/traverse)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
-[![codecov](https://img.shields.io/badge/coverage-94.4%25-brightgreen)](https://codecov.io/gh/jhonsferg/traverse)
+[![Tests](https://img.shields.io/badge/tests-9%20OS%2FGo%20combos-0099ff?style=flat-square&logo=github)](https://github.com/jhonsferg/traverse/actions/workflows/ci.yml)
+[![Codecov](https://img.shields.io/badge/coverage-tracked-41B883?style=flat-square&logo=codecov)](https://codecov.io/gh/jhonsferg/traverse)
+[![CodeQL](https://img.shields.io/github/actions/workflow/status/jhonsferg/traverse/codeql.yml?style=flat-square&logo=github&label=CodeQL)](https://github.com/jhonsferg/traverse/actions/workflows/codeql.yml)
+[![Trivy](https://img.shields.io/badge/vulnerability%20scan-Trivy-1f77b4?style=flat-square&logo=github)](https://github.com/jhonsferg/traverse/actions/workflows/trivy.yml)
+[![API Check](https://img.shields.io/badge/api%20compatibility-checked-4CAF50?style=flat-square&logo=github)](https://github.com/jhonsferg/traverse/actions/workflows/api-check.yml)
+[![License Check](https://img.shields.io/badge/license%20compliance-checked-FFC107?style=flat-square&logo=github)](https://github.com/jhonsferg/traverse/actions/workflows/license-check.yml)
 [![Go 1.23+](https://img.shields.io/badge/Go-1.23%2B-blue)](https://golang.org/)
 
 **Traverse** is a comprehensive, **ultra-optimized** OData v2 and v4 client library for Go, designed for SAP systems and beyond. It efficiently processes **millions of records** without excessive memory usage through its **streaming-first architecture**. Optimized for massive scale with **-81% memory allocations** and **+30-50% throughput improvements** over baseline implementations.
