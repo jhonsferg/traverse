@@ -74,4 +74,5 @@ issues:
 
 output:
   formats:
-    - text
+    text:
+      print-linter-name: true
