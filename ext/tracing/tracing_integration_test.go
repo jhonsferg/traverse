@@ -18,9 +18,9 @@ func TestTracingIntegration_QueryTracing(t *testing.T) {
 	tracer.SetAttribute(span, "entity_set", "Customers")
 	tracer.SetAttribute(span, "filter", "Status eq 'active'")
 	tracer.AddEvent(span, "query_started", map[string]interface{}{})
-	
+
 	time.Sleep(20 * time.Millisecond)
-	
+
 	tracer.AddEvent(span, "query_completed", map[string]interface{}{
 		"row_count": 42,
 	})
@@ -41,7 +41,7 @@ func TestTracingIntegration_ErrorTracing(t *testing.T) {
 
 	_, span := tracer.StartSpan(ctx, "create_entity")
 	tracer.SetAttribute(span, "entity_type", "Order")
-	
+
 	queryErr := errors.New("entity validation failed")
 	tracer.EndSpan(span, queryErr)
 
@@ -148,7 +148,7 @@ func TestTracingIntegration_PerformanceMonitoring(t *testing.T) {
 
 	stats := tracer.GetStats()
 	avgDuration := stats["average_duration"].(time.Duration)
-	
+
 	if avgDuration == 0 {
 		t.Fatalf("Expected non-zero average duration")
 	}
@@ -192,7 +192,7 @@ func TestTracingIntegration_W3CContextPropagation(t *testing.T) {
 
 	// Get W3C trace context
 	ctx := tracer.GetTraceContext()
-	
+
 	// Should contain trace ID and span ID
 	if len(ctx) == 0 {
 		t.Fatalf("Expected W3C trace context")
@@ -247,14 +247,14 @@ func TestTracingIntegration_MultiServiceScenario(t *testing.T) {
 // TestTracingIntegration_SamplingDecision verifies tracing can be disabled.
 func TestTracingIntegration_SamplingDecision(t *testing.T) {
 	tracer := New("odata-service")
-	
+
 	// Simulate sampling decision (record 50% of traces)
 	shouldTrace := true // 50% decision
 	tracer.SetEnabled(shouldTrace)
 
 	ctx := context.Background()
 	_, span := tracer.StartSpan(ctx, "sampled_operation")
-	
+
 	if span == nil && shouldTrace {
 		t.Fatalf("Expected span to be created when tracing enabled")
 	}

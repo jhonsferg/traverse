@@ -90,10 +90,10 @@ func TestGetConnection(t *testing.T) {
 			expectError: false,
 		},
 		{
-			name:          "missing URL",
-			url:           "",
-			profile:       "",
-			expectError:   true,
+			name:        "missing URL",
+			url:         "",
+			profile:     "",
+			expectError: true,
 		},
 		{
 			name:        "connection with auth",

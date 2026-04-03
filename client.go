@@ -3,6 +3,7 @@
 // Traverse is designed for high-performance querying and manipulation of OData services,
 // with special optimizations for SAP systems. It offers:
 //   - Streaming-first architecture for processing large datasets without memory overhead
+//
 // - Ultra-low memory allocations (-81% vs baseline) through object pooling and zero-allocation patterns
 // - Fluent query builder API for ergonomic OData query construction
 // - Support for OData batch operations, delta queries, functions, and actions
@@ -882,9 +883,10 @@ func (c *Client) Delete(ctx context.Context, entitySet string, key interface{}) 
 // Returns an error if the key type is not supported (e.g., bool, slice, map).
 //
 // Example encodings:
-//   encodeKey("Product A")   → "'Product%20A'"
-//   encodeKey(123)           → "123"
-//   encodeKey(45.67)         → "45.67"
+//
+//	encodeKey("Product A")   → "'Product%20A'"
+//	encodeKey(123)           → "123"
+//	encodeKey(45.67)         → "45.67"
 func encodeKey(key interface{}) (string, error) {
 	switch v := key.(type) {
 	case string:
@@ -1406,8 +1408,8 @@ type ActionInfo struct {
 
 // FunctionInfo represents an OData function (v4).
 type FunctionInfo struct {
-	Name       string
-	Parameters []FunctionParameter
-	ReturnType string
+	Name         string
+	Parameters   []FunctionParameter
+	ReturnType   string
 	IsComposable bool
 }

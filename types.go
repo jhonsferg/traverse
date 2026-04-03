@@ -63,7 +63,7 @@ func (d *DateTime) UnmarshalJSON(b []byte) error {
 	}
 
 	dateStr := s[6 : len(s)-2] // Remove /Date( and )/
-	
+
 	// Extract milliseconds and offset if present
 	var millis int64
 	if idx := strings.IndexAny(dateStr, "+-"); idx != -1 {
@@ -499,5 +499,5 @@ type ResponseFormat int
 
 const (
 	FormatJSON ResponseFormat = iota // JSON (default)
-	FormatAtom                        // XML/ATOM (legacy OData v2)
+	FormatAtom                       // XML/ATOM (legacy OData v2)
 )

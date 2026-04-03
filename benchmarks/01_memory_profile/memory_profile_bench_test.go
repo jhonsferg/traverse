@@ -53,14 +53,14 @@ func BenchmarkMemoryGrowth(b *testing.B) {
 		maxRecords int
 		recordSize RecordSize
 	}{
-		"Small_SmallRecords":    {1000, RecordSizeSmall},
-		"Small_MediumRecords":   {1000, RecordSizeMedium},
-		"Small_LargeRecords":    {1000, RecordSizeLarge},
-		"Medium_SmallRecords":   {10000, RecordSizeSmall},
-		"Medium_MediumRecords":  {10000, RecordSizeMedium},
-		"Medium_LargeRecords":   {10000, RecordSizeLarge},
-		"Large_SmallRecords":    {50000, RecordSizeSmall},
-		"Large_MediumRecords":   {50000, RecordSizeMedium},
+		"Small_SmallRecords":   {1000, RecordSizeSmall},
+		"Small_MediumRecords":  {1000, RecordSizeMedium},
+		"Small_LargeRecords":   {1000, RecordSizeLarge},
+		"Medium_SmallRecords":  {10000, RecordSizeSmall},
+		"Medium_MediumRecords": {10000, RecordSizeMedium},
+		"Medium_LargeRecords":  {10000, RecordSizeLarge},
+		"Large_SmallRecords":   {50000, RecordSizeSmall},
+		"Large_MediumRecords":  {50000, RecordSizeMedium},
 	}
 
 	for name, size := range sizes {
@@ -91,9 +91,9 @@ func BenchmarkMemoryGrowth(b *testing.B) {
 // BenchmarkMemoryPressure tests behavior under memory-intensive scenarios
 func BenchmarkMemoryPressure(b *testing.B) {
 	tests := map[string]struct {
-		name   string
-		setup  func() (*MockODataServer, *traverse.Client)
-		query  func(*traverse.Client) error
+		name  string
+		setup func() (*MockODataServer, *traverse.Client)
+		query func(*traverse.Client) error
 	}{
 		"Multiple_Concurrent_Queries": {
 			name: "Multiple_Concurrent_Queries",
@@ -169,7 +169,7 @@ func BenchmarkMemoryPressure(b *testing.B) {
 		b.Run(name, func(b *testing.B) {
 			server, client := test.setup()
 			defer server.Close()
-			defer client.Close()
+			defer func() { _ = client.Close() }()
 
 			b.ResetTimer()
 			b.ReportAllocs()
@@ -288,7 +288,7 @@ func BenchmarkMemoryLeakDetection(b *testing.B) {
 						traverse.WithODataVersion(traverse.ODataV4),
 					)
 					_, _ = client.From("Products").Collect(context.Background())
-					client.Close()
+					_ = client.Close()
 				}
 			},
 		},
@@ -299,7 +299,7 @@ func BenchmarkMemoryLeakDetection(b *testing.B) {
 			server, client := scenario.setup(b.N)
 			defer server.Close()
 			if client != nil {
-				defer client.Close()
+				defer func() { _ = client.Close() }()
 			}
 
 			b.ResetTimer()

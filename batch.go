@@ -221,7 +221,7 @@ func (b *BatchRequest) Create(entitySet string, data interface{}) *BatchRequest 
 		URL:     entitySet,
 		Headers: acquireHeaders(),
 	}
-	
+
 	if data != nil {
 		if err := op.SetBody(data); err != nil {
 			// Log error but continue - don't break the chain
@@ -598,6 +598,7 @@ func (b *BatchRequest) streamChangesetResponse(ctx context.Context, part *multip
 
 	return nil
 }
+
 // buildMultipartBody constructs the multipart/mixed request body for the batch.
 //
 // buildMultipartBody creates a multipart/mixed MIME message containing all batch
@@ -616,7 +617,9 @@ func (b *BatchRequest) buildMultipartBody() ([]byte, string, error) {
 	boundaryBuilder.WriteString(strconv.FormatInt(time.Now().UnixNano(), 10))
 	boundary := boundaryBuilder.String()
 	w := multipart.NewWriter(buf)
-	w.SetBoundary(boundary)
+	if err := w.SetBoundary(boundary); err != nil {
+		return nil, "", err
+	}
 
 	// Write non-changeset operations first
 	for _, op := range b.ops {
@@ -634,7 +637,9 @@ func (b *BatchRequest) buildMultipartBody() ([]byte, string, error) {
 		}
 	}
 
-	w.Close()
+	if err := w.Close(); err != nil {
+		return nil, "", err
+	}
 	return buf.Bytes(), boundary, nil
 }
 
@@ -661,7 +666,7 @@ func (b *BatchRequest) writeBatchOperation(w *multipart.Writer, op *BatchOperati
 	// Use strings.Builder to efficiently construct request line and headers
 	var reqBuilder strings.Builder
 	reqBuilder.Grow(256) // Pre-allocate for typical request
-	
+
 	// Serialize the operation as HTTP request
 	reqBuilder.WriteString(op.Method)
 	reqBuilder.WriteByte(' ')
@@ -683,7 +688,7 @@ func (b *BatchRequest) writeBatchOperation(w *multipart.Writer, op *BatchOperati
 		reqBuilder.WriteString("Content-Length: ")
 		reqBuilder.WriteString(strconv.Itoa(len(bodyBytes)))
 		reqBuilder.WriteString("\r\n\r\n")
-		
+
 		if _, err := part.Write([]byte(reqBuilder.String())); err != nil {
 			return err
 		}
@@ -725,7 +730,9 @@ func (b *BatchRequest) writeChangeset(w *multipart.Writer, cs *changeset, parent
 
 	// Create changeset writer
 	csWriter := multipart.NewWriter(part)
-	csWriter.SetBoundary(csBoundary)
+	if err := csWriter.SetBoundary(csBoundary); err != nil {
+		return err
+	}
 
 	// Write all operations in the changeset
 	for i, op := range cs.ops {
@@ -776,7 +783,9 @@ func (b *BatchRequest) writeChangeset(w *multipart.Writer, cs *changeset, parent
 		}
 	}
 
-	csWriter.Close()
+	if err := csWriter.Close(); err != nil {
+		return err
+	}
 	return nil
 }
 
@@ -912,7 +921,9 @@ func (b *BatchRequest) parseResponsePart(part *multipart.Part) (BatchResult, err
 	}
 
 	// Parse status code
-	fmt.Sscanf(statusLine[1], "%d", &result.StatusCode)
+	if _, err := fmt.Sscanf(statusLine[1], "%d", &result.StatusCode); err != nil {
+		result.StatusCode = 500
+	}
 
 	// Parse headers and body
 	bodyStart := 0

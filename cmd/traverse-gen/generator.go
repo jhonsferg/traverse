@@ -69,14 +69,14 @@ func MapODataType(odataType string, nullable bool) (string, bool) {
 // isBasicScalarType checks if a Go type is a basic scalar (not a pointer-compatible type).
 func isBasicScalarType(goType string) bool {
 	basicTypes := map[string]bool{
-		"string":   true,
-		"int32":    true,
-		"int64":    true,
-		"bool":     true,
-		"float32":  true,
-		"float64":  true,
-		"byte":     true,
-		"int8":     true,
+		"string":  true,
+		"int32":   true,
+		"int64":   true,
+		"bool":    true,
+		"float32": true,
+		"float64": true,
+		"byte":    true,
+		"int8":    true,
 	}
 	return basicTypes[goType]
 }

@@ -115,9 +115,9 @@ func BenchmarkMemoryByDataSize(b *testing.B) {
 // BenchmarkMemoryPayloadSize tests allocation impact of payload size
 func BenchmarkMemoryPayloadSize(b *testing.B) {
 	payloadSizes := map[string]RecordSize{
-		"Small":   RecordSizeSmall,
-		"Medium":  RecordSizeMedium,
-		"Large":   RecordSizeLarge,
+		"Small":  RecordSizeSmall,
+		"Medium": RecordSizeMedium,
+		"Large":  RecordSizeLarge,
 	}
 
 	for name, size := range payloadSizes {

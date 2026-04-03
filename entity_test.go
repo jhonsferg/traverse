@@ -36,7 +36,7 @@ func TestMapToStruct(t *testing.T) {
 			wantErr: false,
 		},
 		{
-			name: "Empty map",
+			name:  "Empty map",
 			input: map[string]interface{}{},
 			want: TestEntity{
 				ID:    "",
@@ -63,7 +63,7 @@ func TestMapToStruct(t *testing.T) {
 		{
 			name: "Type conversion (int to string)",
 			input: map[string]interface{}{
-				"ID":    "123",    // Keep as string to avoid JSON conversion issue
+				"ID":    "123", // Keep as string to avoid JSON conversion issue
 				"Name":  "Test3",
 				"Value": 50,
 			},
@@ -116,7 +116,7 @@ func TestCreateAs(t *testing.T) {
 // TestStreamAs tests the StreamAs generic function.
 func TestStreamAs(t *testing.T) {
 	type Order struct {
-		OrderID string `json:"OrderID"`
+		OrderID string  `json:"OrderID"`
 		Amount  float64 `json:"Amount"`
 	}
 
@@ -151,8 +151,8 @@ func TestStreamAs(t *testing.T) {
 // TestCollectAs tests the CollectAs generic function (basic structure test).
 func TestCollectAsStructure(t *testing.T) {
 	type Product struct {
-		ProductID string `json:"ProductID"`
-		Name      string `json:"Name"`
+		ProductID string  `json:"ProductID"`
+		Name      string  `json:"Name"`
 		Price     float64 `json:"Price"`
 	}
 

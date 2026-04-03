@@ -13,12 +13,12 @@ import (
 
 // Benchmark payload sizes and complexity
 var testPayloads = map[string]int{
-	"tiny":    100,      // 100 bytes
-	"small":   500,      // 500 bytes
-	"medium":  2000,     // 2KB
-	"large":   10000,    // 10KB
-	"xlarge":  50000,    // 50KB
-	"huge":    500000,   // 500KB
+	"tiny":   100,    // 100 bytes
+	"small":  500,    // 500 bytes
+	"medium": 2000,   // 2KB
+	"large":  10000,  // 10KB
+	"xlarge": 50000,  // 50KB
+	"huge":   500000, // 500KB
 }
 
 // BenchmarkErrorHandling tests error handling overhead
@@ -44,7 +44,7 @@ func BenchmarkErrorHandling(b *testing.B) {
 
 	b.Run("NetworkError", func(b *testing.B) {
 		badClient, _ := traverse.New(traverse.WithBaseURL("http://localhost:9999"))
-		defer badClient.Close()
+		defer func() { _ = badClient.Close() }()
 
 		ctx, cancel := context.WithTimeout(context.Background(), 100*time.Millisecond)
 		for i := 0; i < b.N; i++ {
@@ -103,7 +103,7 @@ func BenchmarkQueryCachingScenarios(b *testing.B) {
 	defer server.Close()
 
 	client, _ := traverse.New(traverse.WithBaseURL(server.URL))
-	defer client.Close()
+	defer func() { _ = client.Close() }()
 
 	b.Run("RepeatedSameQuery", func(b *testing.B) {
 		// Same query 100 times - should benefit from caching
@@ -127,7 +127,7 @@ func BenchmarkQueryCachingScenarios(b *testing.B) {
 	b.Run("CacheWarmThenQuery", func(b *testing.B) {
 		// Warm cache, then query
 		ctx := context.Background()
-		client.From("Products").Collect(ctx)
+		_, _ = client.From("Products").Collect(ctx)
 		b.ResetTimer()
 		for i := 0; i < b.N; i++ {
 			_, _ = client.From("Products").Collect(ctx)
@@ -141,7 +141,7 @@ func BenchmarkMemoryLeaks(b *testing.B) {
 	defer server.Close()
 
 	client, _ := traverse.New(traverse.WithBaseURL(server.URL))
-	defer client.Close()
+	defer func() { _ = client.Close() }()
 
 	ctx := context.Background()
 
@@ -183,7 +183,7 @@ func BenchmarkConcurrentContentionLevels(b *testing.B) {
 	defer server.Close()
 
 	client, _ := traverse.New(traverse.WithBaseURL(server.URL))
-	defer client.Close()
+	defer func() { _ = client.Close() }()
 
 	contentionLevels := []int{1, 2, 4, 8, 16, 32, 64}
 
@@ -210,14 +210,14 @@ func BenchmarkFilterComplexity(b *testing.B) {
 	defer server.Close()
 
 	client, _ := traverse.New(traverse.WithBaseURL(server.URL))
-	defer client.Close()
+	defer func() { _ = client.Close() }()
 
 	filters := map[string]string{
-		"Simple":       "Price gt 10",
-		"TwoConditions": "Price gt 10 and Status eq 'Active'",
+		"Simple":          "Price gt 10",
+		"TwoConditions":   "Price gt 10 and Status eq 'Active'",
 		"ThreeConditions": "Price gt 10 and Status eq 'Active' and Rating ge 4",
-		"Nested":       "(Price gt 10 and Status eq 'Active') or (Rating ge 4 and InStock eq true)",
-		"Complex":      "(Price gt 10 and Price lt 100) and (Status eq 'Active' or Status eq 'Pending') and (Rating ge 4 or Rating eq 0)",
+		"Nested":          "(Price gt 10 and Status eq 'Active') or (Rating ge 4 and InStock eq true)",
+		"Complex":         "(Price gt 10 and Price lt 100) and (Status eq 'Active' or Status eq 'Pending') and (Rating ge 4 or Rating eq 0)",
 	}
 
 	for name, filter := range filters {
@@ -235,7 +235,7 @@ func BenchmarkSelectFieldCount(b *testing.B) {
 	defer server.Close()
 
 	client, _ := traverse.New(traverse.WithBaseURL(server.URL))
-	defer client.Close()
+	defer func() { _ = client.Close() }()
 
 	fieldCounts := map[string][]string{
 		"1Field":   {"Name"},
@@ -259,7 +259,7 @@ func BenchmarkTopSkipCombinations(b *testing.B) {
 	defer server.Close()
 
 	client, _ := traverse.New(traverse.WithBaseURL(server.URL))
-	defer client.Close()
+	defer func() { _ = client.Close() }()
 
 	combinations := map[string]struct {
 		top  int
@@ -288,7 +288,7 @@ func BenchmarkOrderByVariations(b *testing.B) {
 	defer server.Close()
 
 	client, _ := traverse.New(traverse.WithBaseURL(server.URL))
-	defer client.Close()
+	defer func() { _ = client.Close() }()
 
 	b.Run("SingleAscending", func(b *testing.B) {
 		for i := 0; i < b.N; i++ {
@@ -333,7 +333,7 @@ func BenchmarkConcurrentVsSequential(b *testing.B) {
 	defer server.Close()
 
 	client, _ := traverse.New(traverse.WithBaseURL(server.URL))
-	defer client.Close()
+	defer func() { _ = client.Close() }()
 
 	queries := []string{"Products", "Orders", "Customers", "Invoices", "Shipments"}
 
@@ -383,7 +383,7 @@ func BenchmarkAllocationPatterns(b *testing.B) {
 	defer server.Close()
 
 	client, _ := traverse.New(traverse.WithBaseURL(server.URL))
-	defer client.Close()
+	defer func() { _ = client.Close() }()
 
 	b.Run("QueryBuild", func(b *testing.B) {
 		b.ReportAllocs()
@@ -431,12 +431,12 @@ func generateJSONPayload(size int) []byte {
 	results := make([]map[string]interface{}, numItems)
 	for i := 0; i < numItems; i++ {
 		results[i] = map[string]interface{}{
-			"ID":       i,
-			"Name":     fmt.Sprintf("Product%d", i),
-			"Price":    100.50 + float64(i),
-			"Status":   "Active",
-			"Rating":   4.5,
-			"InStock":  true,
+			"ID":      i,
+			"Name":    fmt.Sprintf("Product%d", i),
+			"Price":   100.50 + float64(i),
+			"Status":  "Active",
+			"Rating":  4.5,
+			"InStock": true,
 		}
 	}
 

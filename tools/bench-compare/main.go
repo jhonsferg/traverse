@@ -77,7 +77,7 @@ func parseBenchmarks(filename string) map[string]BenchmarkResult {
 		fmt.Fprintf(os.Stderr, "error opening file: %v\n", err)
 		return results
 	}
-	defer file.Close()
+	defer func() { _ = file.Close() }()
 
 	// Pattern: "Benchmark..." lines from `go test -bench`
 	benchRegex := regexp.MustCompile(`^Benchmark(\S+)\s+\d+\s+(\d+(?:\.\d+)?)\s+ns/op`)

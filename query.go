@@ -25,17 +25,17 @@ import (
 var (
 	// validOpsSet - Valid OData comparison operators
 	validOpsSet = map[string]bool{
-		"eq":   true,
-		"ne":   true,
-		"gt":   true,
-		"ge":   true,
-		"lt":   true,
-		"le":   true,
-		"and":  true,
-		"or":   true,
-		"not":  true,
-		"in":   true,
-		"has":  true,
+		"eq":  true,
+		"ne":  true,
+		"gt":  true,
+		"ge":  true,
+		"lt":  true,
+		"le":  true,
+		"and": true,
+		"or":  true,
+		"not": true,
+		"in":  true,
+		"has": true,
 	}
 
 	// validFuncsSet contains all valid OData function names.
@@ -51,33 +51,33 @@ var (
 	// Used by ValidateFilter to catch invalid function names before sending to service.
 	// validFuncsSet - Valid OData functions
 	validFuncsSet = map[string]bool{
-		"startswith":        true,
-		"endswith":          true,
-		"contains":          true,
-		"substringof":       true,
-		"length":            true,
-		"indexof":           true,
-		"substring":         true,
-		"tolower":           true,
-		"toupper":           true,
-		"trim":              true,
-		"concat":            true,
-		"year":              true,
-		"month":             true,
-		"day":               true,
-		"hour":              true,
-		"minute":            true,
-		"second":            true,
-		"fractionalseconds": true,
-		"date":              true,
-		"time":              true,
+		"startswith":         true,
+		"endswith":           true,
+		"contains":           true,
+		"substringof":        true,
+		"length":             true,
+		"indexof":            true,
+		"substring":          true,
+		"tolower":            true,
+		"toupper":            true,
+		"trim":               true,
+		"concat":             true,
+		"year":               true,
+		"month":              true,
+		"day":                true,
+		"hour":               true,
+		"minute":             true,
+		"second":             true,
+		"fractionalseconds":  true,
+		"date":               true,
+		"time":               true,
 		"totaloffsetminutes": true,
-		"now":               true,
-		"round":             true,
-		"floor":             true,
-		"ceiling":           true,
-		"cast":              true,
-		"isof":              true,
+		"now":                true,
+		"round":              true,
+		"floor":              true,
+		"ceiling":            true,
+		"cast":               true,
+		"isof":               true,
 	}
 )
 
@@ -298,7 +298,8 @@ func (q *QueryBuilder) Select(fields ...string) *QueryBuilder {
 //
 // Escaping:
 // String literals in expressions must be single-quoted with internal quotes doubled:
-//   'John''s Company' for the value John's Company
+//
+//	'John''s Company' for the value John's Company
 //
 // Returns:
 //   - *QueryBuilder: For method chaining
@@ -818,7 +819,6 @@ func (q *QueryBuilder) WithDeltaToken(token string) *QueryBuilder {
 	return q
 }
 
-
 // Stream executes the query and returns a channel of results.
 //
 // Stream streams all matching records from all pages using adaptive buffering.
@@ -1002,7 +1002,7 @@ func (q *QueryBuilder) FindByKey(ctx context.Context, key interface{}) (map[stri
 
 	// Parse response based on OData version
 	var result map[string]interface{}
-	
+
 	if q.client.version == ODataV2 {
 		// OData v2: response is wrapped in {"d": {...}}
 		var wrapped struct {
@@ -1068,7 +1068,7 @@ func (q *QueryBuilder) FindByCompositeKey(ctx context.Context, keys map[string]i
 
 	// Parse response based on OData version
 	var result map[string]interface{}
-	
+
 	if q.client.version == ODataV2 {
 		// OData v2: response is wrapped in {"d": {...}}
 		var wrapped struct {
@@ -1195,10 +1195,10 @@ func (q *QueryBuilder) Count(ctx context.Context) (int64, error) {
 // automatic multi-page streaming.
 //
 // Typical Pagination Loop:
-//   1. query.Top(pageSize).WithCount().Page(ctx) - Get first page with total count
-//   2. Check page.NextLink to see if more results exist
-//   3. Call next query with Skip((page-1)*pageSize) for subsequent pages
-//   4. Repeat until page.NextLink is empty
+//  1. query.Top(pageSize).WithCount().Page(ctx) - Get first page with total count
+//  2. Check page.NextLink to see if more results exist
+//  3. Call next query with Skip((page-1)*pageSize) for subsequent pages
+//  4. Repeat until page.NextLink is empty
 //
 // Alternative to Manual Pagination:
 // For simpler code, use Collect() to fetch all results at once, or Stream() for
@@ -1285,6 +1285,7 @@ func (q *QueryBuilder) Page(ctx context.Context) (*Page, error) {
 // usage can be problematic:
 //   - 1M records × 1 KB each = ~1 GB
 //   - 10M records × 1 KB each = ~10 GB
+//
 // Use Stream() for large datasets to avoid memory exhaustion.
 //
 // When to Use Collect:
@@ -1346,7 +1347,7 @@ func (q *QueryBuilder) Collect(ctx context.Context) ([]map[string]interface{}, e
 	// Estimate capacity from query parameters if available
 	// If $top is set, use that as a hint; otherwise use reasonable default
 	estimatedCapacity := 1000 // Default estimate
-	
+
 	if q.top != nil {
 		estimatedCapacity = *q.top
 		// If we're skipping, add skip count to estimate
@@ -1354,7 +1355,7 @@ func (q *QueryBuilder) Collect(ctx context.Context) ([]map[string]interface{}, e
 			estimatedCapacity += *q.skip
 		}
 	}
-	
+
 	// Pre-allocate slice with capacity hint to avoid repeated allocations
 	results := make([]map[string]interface{}, 0, estimatedCapacity)
 
@@ -1617,14 +1618,15 @@ func (q *QueryBuilder) buildURL() string {
 //
 // Chaining Pattern:
 // Where() methods return *QueryBuilder, enabling seamless method chaining:
-//   query.Where("Field1").Eq(value1).
-//         Where("Field2").Gt(value2).
-//         Where("Field3").StartsWith("prefix")
+//
+//	query.Where("Field1").Eq(value1).
+//	      Where("Field2").Gt(value2).
+//	      Where("Field3").StartsWith("prefix")
 //
 // Type Safety:
 // Comparison methods accept interface{} and automatically handle type conversion:
 //   - int, int64: Converted to decimal notation
-//   - string: Quoted with escape handling ('value' with '' for internal quotes)
+//   - string: Quoted with escape handling ('value' with ” for internal quotes)
 //   - bool: Converted to "true" or "false"
 //   - time.Time: Formatted per OData version (v2: /Date(ms)/, v4: RFC3339)
 //   - nil: Converted to "null"
@@ -1708,7 +1710,8 @@ func (f *FilterBuilder) buildExpr(op string, value interface{}) *QueryBuilder {
 //
 // Chaining:
 // Eq returns *QueryBuilder to chain with other filters or query methods:
-//   query.Where("Status").Eq("Active").Where("Age").Gt(30)
+//
+//	query.Where("Status").Eq("Active").Where("Age").Gt(30)
 //
 // Returns:
 //   - *QueryBuilder: For method chaining
@@ -2006,7 +2009,8 @@ func (f *FilterBuilder) Le(value interface{}) *QueryBuilder {
 //
 // OData Implementation:
 // Contains uses the substringof() function (OData standard):
-//   OData: substringof('substring', FieldName)
+//
+//	OData: substringof('substring', FieldName)
 //
 // Performance Note:
 // Substring searches typically require full table scans without indexes.
@@ -2288,19 +2292,19 @@ func (f *FilterBuilder) In(values ...interface{}) *QueryBuilder {
 	buf := bufferPool.Get().(*bytes.Buffer)
 	buf.WriteString(f.field)
 	buf.WriteString(" in (")
-	
+
 	for i, v := range values {
 		if i > 0 {
 			buf.WriteString(", ")
 		}
 		buf.WriteString(serializeValue(v))
 	}
-	
+
 	buf.WriteRune(')')
 	f.query.filterExpr = buf.String()
 	buf.Reset()
 	bufferPool.Put(buf)
-	
+
 	q := f.query
 	f.release()
 	return q
@@ -2540,45 +2544,57 @@ func buildNestedExpand(navProp string, cfg *expandConfig) string {
 		buf.Reset()
 		bufferPool.Put(buf)
 	}()
-	
+
 	buf.WriteString(navProp)
 	buf.WriteString("($")
-	
+
 	first := true
-	
+
 	if len(cfg.selectFields) > 0 {
-		if !first { buf.WriteRune(';') }
+		if !first {
+			buf.WriteRune(';')
+		}
 		buf.WriteString("select=")
 		for i, field := range cfg.selectFields {
-			if i > 0 { buf.WriteRune(',') }
+			if i > 0 {
+				buf.WriteRune(',')
+			}
 			buf.WriteString(field)
 		}
 		first = false
 	}
 
 	if cfg.filterExpr != "" {
-		if !first { buf.WriteRune(';') }
+		if !first {
+			buf.WriteRune(';')
+		}
 		buf.WriteString("filter=")
 		buf.WriteString(url.QueryEscape(cfg.filterExpr))
 		first = false
 	}
 
 	if cfg.orderByExpr != "" {
-		if !first { buf.WriteRune(';') }
+		if !first {
+			buf.WriteRune(';')
+		}
 		buf.WriteString("orderby=")
 		buf.WriteString(url.QueryEscape(cfg.orderByExpr))
 		first = false
 	}
 
 	if cfg.topCount != nil {
-		if !first { buf.WriteRune(';') }
+		if !first {
+			buf.WriteRune(';')
+		}
 		buf.WriteString("top=")
 		buf.WriteString(strconv.Itoa(*cfg.topCount))
 		first = false
 	}
 
 	if cfg.skipCount != nil {
-		if !first { buf.WriteRune(';') }
+		if !first {
+			buf.WriteRune(';')
+		}
 		buf.WriteString("skip=")
 		buf.WriteString(strconv.Itoa(*cfg.skipCount))
 	}
@@ -2648,7 +2664,7 @@ func ValidateFilter(expr string) error {
 		return fmt.Errorf("traverse: invalid filter: unbalanced parentheses")
 	}
 
-	if strings.Count(expr, "'") % 2 != 0 {
+	if strings.Count(expr, "'")%2 != 0 {
 		return fmt.Errorf("traverse: invalid filter: unbalanced quotes")
 	}
 

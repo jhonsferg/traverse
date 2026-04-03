@@ -298,7 +298,7 @@ func createClient(conn *Connection) (*traverse.Client, error) {
 	if !strings.HasSuffix(baseURL, "/") {
 		baseURL += "/"
 	}
-	
+
 	opts := []traverse.Option{
 		traverse.WithBaseURL(baseURL),
 	}

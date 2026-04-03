@@ -80,12 +80,12 @@ func (cg *CodeGenerator) buildTypesData() TypesTemplateData {
 			isKey := isKeyField(et, prop.Name)
 
 			fd := FieldData{
-				Name:        prop.Name,
-				GoName:      PascalCase(prop.Name),
-				Type:        goType,
-				IsKey:       isKey,
-				IsNullable:  prop.Nullable,
-				JSONTag:     FormatJSONTag(prop.Name, prop.Nullable),
+				Name:       prop.Name,
+				GoName:     PascalCase(prop.Name),
+				Type:       goType,
+				IsKey:      isKey,
+				IsNullable: prop.Nullable,
+				JSONTag:    FormatJSONTag(prop.Name, prop.Nullable),
 			}
 
 			ed.Fields = append(ed.Fields, fd)
@@ -98,11 +98,11 @@ func (cg *CodeGenerator) buildTypesData() TypesTemplateData {
 		// Add navigation properties
 		for _, navProp := range et.NavigationProperties {
 			nd := NavPropData{
-				Name:     navProp.Name,
-				GoName:   PascalCase(navProp.Name),
-				JSONTag:  FormatJSONTag(navProp.Name, true),
+				Name:       navProp.Name,
+				GoName:     PascalCase(navProp.Name),
+				JSONTag:    FormatJSONTag(navProp.Name, true),
 				TargetType: PascalCase(navProp.Name),
-				IsSingle: false, // Default to collection
+				IsSingle:   false, // Default to collection
 			}
 
 			ed.NavProps = append(ed.NavProps, nd)

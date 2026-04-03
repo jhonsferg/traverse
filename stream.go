@@ -118,7 +118,7 @@ func newGoroutinePool(workers int) *goroutinePool {
 		taskChan: make(chan func(), workers*2),
 		doneChan: make(chan struct{}),
 	}
-	
+
 	// Start worker goroutines
 	pool.wg.Add(workers)
 	for i := 0; i < workers; i++ {
@@ -129,7 +129,7 @@ func newGoroutinePool(workers int) *goroutinePool {
 			}
 		}()
 	}
-	
+
 	return pool
 }
 
@@ -326,7 +326,6 @@ func (q *QueryBuilder) doStreamPagesRaw(ctx context.Context, out chan<- RawResul
 	}
 }
 
-
 // fetchPageStreamed fetches and parses a single page of results using streaming.
 //
 // fetchPageStreamed executes an HTTP GET request for the given pageURL and
@@ -348,7 +347,7 @@ func (q *QueryBuilder) fetchPageStreamed(ctx context.Context, pageURL string) (*
 	if err != nil {
 		return nil, fmt.Errorf("ExecuteStream failed: %w", err)
 	}
-	defer stream.Body.Close()
+	defer func() { _ = stream.Body.Close() }()
 
 	// Check response status
 	if stream.StatusCode != 200 {

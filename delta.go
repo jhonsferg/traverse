@@ -17,11 +17,11 @@ import (
 //
 // Typical workflow:
 //
-//	1. Initialize: ds := client.NewDeltaSync("Customers")
-//	2. Full sync: records, token, err := ds.Full(ctx)   // Read all records
-//	3. Save token for later
-//	4. Incremental: changes, newToken, err := ds.Incremental(ctx, token)  // Only changes
-//	5. Process changes, save new token, repeat step 4
+//  1. Initialize: ds := client.NewDeltaSync("Customers")
+//  2. Full sync: records, token, err := ds.Full(ctx)   // Read all records
+//  3. Save token for later
+//  4. Incremental: changes, newToken, err := ds.Incremental(ctx, token)  // Only changes
+//  5. Process changes, save new token, repeat step 4
 //
 // This approach significantly reduces bandwidth and latency for large datasets
 // that change infrequently.

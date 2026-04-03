@@ -245,7 +245,7 @@ func (f *FunctionImportBuilder) buildParameterString() string {
 //	"filter=null"
 func formatParameterBytes(key string, value interface{}) []byte {
 	var buf bytes.Buffer
-	
+
 	switch v := value.(type) {
 	case string:
 		// Strings are quoted and need escaping
@@ -296,7 +296,7 @@ func formatParameterBytes(key string, value interface{}) []byte {
 		buf.WriteString(escaped)
 		buf.WriteByte('\'')
 	}
-	
+
 	return buf.Bytes()
 }
 

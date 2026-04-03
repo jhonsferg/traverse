@@ -179,8 +179,8 @@ func BenchmarkThroughputPeak(b *testing.B) {
 // BenchmarkThroughputDistribution measures throughput across different entity types
 func BenchmarkThroughputDistribution(b *testing.B) {
 	entities := map[string]string{
-		"Products": "Products",
-		"Orders":   "Orders",
+		"Products":  "Products",
+		"Orders":    "Orders",
 		"Customers": "Customers",
 	}
 
@@ -245,10 +245,10 @@ func BenchmarkThroughputPayloadSize(b *testing.B) {
 // BenchmarkThroughputWithFilters measures throughput impact of filters
 func BenchmarkThroughputWithFilters(b *testing.B) {
 	filters := map[string]string{
-		"NoFilter":       "",
-		"SimpleFilter":   "Price gt 100",
-		"ComplexFilter":  "Price gt 100 and Status eq 'Active' and Category eq 'Electronics'",
-		"MultipleOr":     "Status eq 'Active' or Status eq 'Pending' or Status eq 'Processing'",
+		"NoFilter":      "",
+		"SimpleFilter":  "Price gt 100",
+		"ComplexFilter": "Price gt 100 and Status eq 'Active' and Category eq 'Electronics'",
+		"MultipleOr":    "Status eq 'Active' or Status eq 'Pending' or Status eq 'Processing'",
 	}
 
 	for name, filter := range filters {
@@ -328,8 +328,8 @@ func BenchmarkThroughputVariability(b *testing.B) {
 		latency time.Duration
 		payload RecordSize
 	}{
-		"Stable_LowLatency":     {1 * time.Millisecond, RecordSizeSmall},
-		"Variable_HighLatency":  {50 * time.Millisecond, RecordSizeLarge},
+		"Stable_LowLatency":      {1 * time.Millisecond, RecordSizeSmall},
+		"Variable_HighLatency":   {50 * time.Millisecond, RecordSizeLarge},
 		"Balanced_MediumLatency": {5 * time.Millisecond, RecordSizeMedium},
 	}
 
