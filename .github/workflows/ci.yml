@@ -22,9 +22,9 @@ jobs:
         go-version: ["1.24", "1.25"]
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4
 
-      - uses: actions/setup-go@v5
+      - uses: actions/setup-go@d35c59abb061a4a6fb18e82ac0862c26744d6ab5 # v5
         with:
           go-version: ${{ matrix.go-version }}
           cache: true
@@ -38,7 +38,7 @@ jobs:
 
       - name: Upload coverage artifact
         if: matrix.go-version == '1.25' && matrix.os == 'ubuntu-latest'
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@5f331343abcdcc037adad89f1cebcc779d03a1b9 # v4
         with:
           name: coverage
           path: coverage.out
@@ -46,7 +46,7 @@ jobs:
 
       - name: Upload coverage to Codecov
         if: matrix.go-version == '1.25' && matrix.os == 'ubuntu-latest'
-        uses: codecov/codecov-action@v4
+        uses: codecov/codecov-action@6d798873191c1d5c1e89cfe7ce03b50eed86ac9d # v4
         with:
           files: ./coverage.out
           flags: unittests
