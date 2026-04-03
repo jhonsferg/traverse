@@ -1614,7 +1614,7 @@ func (q *QueryBuilder) buildURL() string {
 // Lifecycle and Pooling:
 // FilterBuilder instances are managed by an internal sync.Pool to reduce allocations
 // during filtering operations. Instances obtained from Where() should NOT be retained
-// after the method returns—they may be reused for subsequent Where() calls.
+// after the method returns-they may be reused for subsequent Where() calls.
 //
 // Object Pooling Benefits:
 // - -1 allocation per Where() call (amortized)

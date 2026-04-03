@@ -198,7 +198,7 @@ func EscapeFilterExpression(expr string) string {
 //  3. Proper quote escaping: single quotes within strings are doubled (”)
 //
 // This is a lightweight validation suitable for catching obvious syntax errors.
-// It does NOT validate OData operator names, function calls, or semantic correctness—
+// It does NOT validate OData operator names, function calls, or semantic correctness-
 // those are validated by the OData service itself.
 //
 // Returns nil if the expression is structurally valid, or an error describing

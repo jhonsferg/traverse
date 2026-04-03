@@ -17,7 +17,7 @@ import (
 // used to build complete OData query URLs. Each field corresponds to one or more OData system
 // query options as defined in the OData v4 specification.
 //
-// Zero values are safe—unset fields simply result in that query parameter being omitted from
+// Zero values are safe-unset fields simply result in that query parameter being omitted from
 // the constructed URL. Pointers (Top, Skip) use nil to indicate "not set", allowing zero to
 // be a valid value (e.g., $top=0).
 //
