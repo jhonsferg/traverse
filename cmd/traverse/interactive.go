@@ -11,7 +11,6 @@ import (
 
 func startInteractive() error {
 	var currentConn *Connection
-	var err error
 	reader := bufio.NewReader(os.Stdin)
 
 	fmt.Println("Traverse - OData CLI Explorer (Interactive Mode)")
@@ -20,10 +19,9 @@ func startInteractive() error {
 
 	for {
 		fmt.Print("> ")
-		var input string
-		input, err = reader.ReadString('\n')
-		if err != nil {
-			return err
+		input, inputErr := reader.ReadString('\n')
+		if inputErr != nil {
+			return inputErr
 		}
 
 		input = strings.TrimSpace(input)
@@ -43,10 +41,9 @@ func startInteractive() error {
 			printInteractiveHelp()
 
 		case "connect":
-			var conn *Connection
-			conn, err = interactiveConnect(reader)
-			if err != nil {
-				fmt.Fprintf(os.Stderr, "Error: %v\n", err)
+			conn, connErr := interactiveConnect(reader)
+			if connErr != nil {
+				fmt.Fprintf(os.Stderr, "Error: %v\n", connErr)
 				continue
 			}
 			currentConn = conn
@@ -57,9 +54,8 @@ func startInteractive() error {
 				fmt.Println("Error: Not connected. Use 'connect' first.")
 				continue
 			}
-			err = interactiveMetadata(currentConn)
-			if err != nil {
-				fmt.Fprintf(os.Stderr, "Error: %v\n", err)
+			if entErr := interactiveMetadata(currentConn); entErr != nil {
+				fmt.Fprintf(os.Stderr, "Error: %v\n", entErr)
 			}
 
 		case "describe":
@@ -71,9 +67,8 @@ func startInteractive() error {
 				fmt.Println("Usage: describe <entity_name>")
 				continue
 			}
-			err = describeCommand(currentConn, parts[1], "text")
-			if err != nil {
-				fmt.Fprintf(os.Stderr, "Error: %v\n", err)
+			if descErr := describeCommand(currentConn, parts[1], "text"); descErr != nil {
+				fmt.Fprintf(os.Stderr, "Error: %v\n", descErr)
 			}
 
 		case "count":
@@ -89,9 +84,8 @@ func startInteractive() error {
 			if len(parts) > 2 {
 				filter = strings.Join(parts[2:], " ")
 			}
-			err = countCommand(currentConn, parts[1], filter)
-			if err != nil {
-				fmt.Fprintf(os.Stderr, "Error: %v\n", err)
+			if countErr := countCommand(currentConn, parts[1], filter); countErr != nil {
+				fmt.Fprintf(os.Stderr, "Error: %v\n", countErr)
 			}
 
 		case "sample":
@@ -106,15 +100,15 @@ func startInteractive() error {
 			count := 5
 			if len(parts) > 2 {
 				var n int
-				n, err = fmt.Sscanf(parts[2], "%d", &count)
-				if err != nil || n != 1 {
-					fmt.Fprintf(os.Stderr, "Warning: invalid count: %v\n", err)
+				var scanErr error
+				n, scanErr = fmt.Sscanf(parts[2], "%d", &count)
+				if scanErr != nil || n != 1 {
+					fmt.Fprintf(os.Stderr, "Warning: invalid count: %v\n", scanErr)
 					count = 5 // use default
 				}
 			}
-			err = sampleCommand(currentConn, parts[1], count, "", "", "table")
-			if err != nil {
-				fmt.Fprintf(os.Stderr, "Error: %v\n", err)
+			if sampleErr := sampleCommand(currentConn, parts[1], count, "", "", "table"); sampleErr != nil {
+				fmt.Fprintf(os.Stderr, "Error: %v\n", sampleErr)
 			}
 
 		case "query":
@@ -122,9 +116,8 @@ func startInteractive() error {
 				fmt.Println("Error: Not connected. Use 'connect' first.")
 				continue
 			}
-			err = interactiveQuery(reader, currentConn)
-			if err != nil {
-				fmt.Fprintf(os.Stderr, "Error: %v\n", err)
+			if queryErr := interactiveQuery(reader, currentConn); queryErr != nil {
+				fmt.Fprintf(os.Stderr, "Error: %v\n", queryErr)
 			}
 
 		case "export":
@@ -132,9 +125,8 @@ func startInteractive() error {
 				fmt.Println("Error: Not connected. Use 'connect' first.")
 				continue
 			}
-			err = interactiveExport(reader, currentConn)
-			if err != nil {
-				fmt.Fprintf(os.Stderr, "Error: %v\n", err)
+			if exportErr := interactiveExport(reader, currentConn); exportErr != nil {
+				fmt.Fprintf(os.Stderr, "Error: %v\n", exportErr)
 			}
 
 		case "disconnect":
