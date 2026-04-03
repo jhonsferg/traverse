@@ -2,6 +2,7 @@ package benchmarks
 
 import (
 	"context"
+	"fmt"
 	"testing"
 	"time"
 
@@ -77,7 +78,7 @@ func BenchmarkMemoryByDataSize(b *testing.B) {
 	sizes := []int{100, 1000, 10000, 100000}
 
 	for _, maxRecs := range sizes {
-		b.Run(string(rune(maxRecs/1000)), func(b *testing.B) {
+		b.Run(fmt.Sprintf("records_%d", maxRecs), func(b *testing.B) {
 			server := NewMockODataServer(ServerConfig{
 				Latency:         5 * time.Millisecond,
 				DefaultPageSize: 100,
@@ -115,9 +116,9 @@ func BenchmarkMemoryByDataSize(b *testing.B) {
 // BenchmarkMemoryPayloadSize tests allocation impact of payload size
 func BenchmarkMemoryPayloadSize(b *testing.B) {
 	payloadSizes := map[string]RecordSize{
-		"Small":   RecordSizeSmall,
-		"Medium":  RecordSizeMedium,
-		"Large":   RecordSizeLarge,
+		"Small":  RecordSizeSmall,
+		"Medium": RecordSizeMedium,
+		"Large":  RecordSizeLarge,
 	}
 
 	for name, size := range payloadSizes {

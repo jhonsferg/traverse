@@ -19,11 +19,11 @@ type TypesTemplateData struct {
 
 // EntityData represents entity information for templating.
 type EntityData struct {
-	Name       string
-	GoName     string
-	Fields     []FieldData
-	NavProps   []NavPropData
-	Keys       []string
+	Name     string
+	GoName   string
+	Fields   []FieldData
+	NavProps []NavPropData
+	Keys     []string
 }
 
 // FieldData represents a field in an entity struct.
@@ -39,11 +39,11 @@ type FieldData struct {
 
 // NavPropData represents a navigation property.
 type NavPropData struct {
-	Name     string
-	GoName   string
-	JSONTag  string
+	Name       string
+	GoName     string
+	JSONTag    string
 	TargetType string
-	IsSingle bool
+	IsSingle   bool
 }
 
 // ClientTemplateData contains data for the client.go template.
@@ -61,17 +61,17 @@ type EntitySetData struct {
 
 // QueryTemplateData contains data for the queries.go template.
 type QueryTemplateData struct {
-	PackageName string
+	PackageName   string
 	QueryBuilders []QueryBuilderData
 }
 
 // QueryBuilderData represents a query builder for templating.
 type QueryBuilderData struct {
-	EntityName     string
-	EntityGoName   string
-	QueryName      string
-	Keys           []string
-	HasKeyAccess   bool
+	EntityName   string
+	EntityGoName string
+	QueryName    string
+	Keys         []string
+	HasKeyAccess bool
 }
 
 // NewTemplateRegistry creates a new template registry with default templates.

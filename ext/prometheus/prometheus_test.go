@@ -236,9 +236,9 @@ func TestMetrics_ErrorTracking(t *testing.T) {
 	metrics := New()
 
 	// Record mixed success and failure
-	metrics.RecordQuery(100*time.Millisecond, nil)      // success
-	metrics.RecordQuery(50*time.Millisecond, errors.New("error1"))  // error
-	metrics.RecordQuery(200*time.Millisecond, nil)      // success
+	metrics.RecordQuery(100*time.Millisecond, nil)                   // success
+	metrics.RecordQuery(50*time.Millisecond, errors.New("error1"))   // error
+	metrics.RecordQuery(200*time.Millisecond, nil)                   // success
 	metrics.RecordCreate(150*time.Millisecond, errors.New("error2")) // error
 
 	if metrics.GetQueryCount() != 3 {
@@ -265,7 +265,7 @@ func TestMetrics_CacheMetrics(t *testing.T) {
 
 	stats := metrics.GetStats()
 	cache := stats["cache"].(map[string]interface{})
-	
+
 	if cache["hits"].(int64) != 15 {
 		t.Fatalf("Expected 15 cache hits")
 	}

@@ -153,99 +153,99 @@ func BenchmarkODataErrorError(b *testing.B) {
 
 // BenchmarkURLCaching benchmarks URL caching efficiency
 func BenchmarkURLCaching(b *testing.B) {
-client, _ := New(WithBaseURL("http://localhost:8080/odata"))
-qb := client.From("Products").
-Select("ID", "Name", "Price").
-Filter("Status eq 'Active'").
-OrderBy("Price").
-Top(100)
+	client, _ := New(WithBaseURL("http://localhost:8080/odata"))
+	qb := client.From("Products").
+		Select("ID", "Name", "Price").
+		Filter("Status eq 'Active'").
+		OrderBy("Price").
+		Top(100)
 
-b.ReportAllocs()
-b.ResetTimer()
+	b.ReportAllocs()
+	b.ResetTimer()
 
-for i := 0; i < b.N; i++ {
-_ = qb.buildURL()
-}
+	for i := 0; i < b.N; i++ {
+		_ = qb.buildURL()
+	}
 }
 
 // BenchmarkURLCachingWithoutCaching benchmarks URL building with forced invalidation
 func BenchmarkURLCachingWithoutCaching(b *testing.B) {
-client, _ := New(WithBaseURL("http://localhost:8080/odata"))
-qb := client.From("Products").
-Select("ID", "Name", "Price").
-Filter("Status eq 'Active'").
-OrderBy("Price").
-Top(100)
+	client, _ := New(WithBaseURL("http://localhost:8080/odata"))
+	qb := client.From("Products").
+		Select("ID", "Name", "Price").
+		Filter("Status eq 'Active'").
+		OrderBy("Price").
+		Top(100)
 
-b.ReportAllocs()
-b.ResetTimer()
+	b.ReportAllocs()
+	b.ResetTimer()
 
-for i := 0; i < b.N; i++ {
-// Force URL rebuild each time
-qb.urlDirty = true
-_ = qb.buildURL()
-}
+	for i := 0; i < b.N; i++ {
+		// Force URL rebuild each time
+		qb.urlDirty = true
+		_ = qb.buildURL()
+	}
 }
 
 // BenchmarkSelectFields benchmarks Select() method performance
 func BenchmarkSelectFields(b *testing.B) {
-client, _ := New(WithBaseURL("http://localhost:8080/odata"))
-qb := client.From("Products")
+	client, _ := New(WithBaseURL("http://localhost:8080/odata"))
+	qb := client.From("Products")
 
-b.ReportAllocs()
-b.ResetTimer()
+	b.ReportAllocs()
+	b.ResetTimer()
 
-for i := 0; i < b.N; i++ {
-qb.Select("ID", "Name", "Price", "Category", "Stock", "LastUpdated")
-}
+	for i := 0; i < b.N; i++ {
+		qb.Select("ID", "Name", "Price", "Category", "Stock", "LastUpdated")
+	}
 }
 
 // BenchmarkValidateFilter benchmarks filter validation performance
 func BenchmarkValidateFilter(b *testing.B) {
-filterExprs := []string{
-"Status eq 'Active'",
-"Name eq 'John' and Age gt 18",
-"startswith(Email, 'admin') or endswith(Email, '@admin.com')",
-"Year(CreatedDate) eq 2024 and Price gt 100",
-"Category in ('Electronics', 'Books', 'Media')",
-}
+	filterExprs := []string{
+		"Status eq 'Active'",
+		"Name eq 'John' and Age gt 18",
+		"startswith(Email, 'admin') or endswith(Email, '@admin.com')",
+		"Year(CreatedDate) eq 2024 and Price gt 100",
+		"Category in ('Electronics', 'Books', 'Media')",
+	}
 
-b.ReportAllocs()
-b.ResetTimer()
+	b.ReportAllocs()
+	b.ResetTimer()
 
-for i := 0; i < b.N; i++ {
-ValidateFilter(filterExprs[i%len(filterExprs)])
-}
+	for i := 0; i < b.N; i++ {
+		_ = ValidateFilter(filterExprs[i%len(filterExprs)])
+	}
 }
 
 // BenchmarkValidateFilterComplex benchmarks validation of complex filters
 func BenchmarkValidateFilterComplex(b *testing.B) {
-complexFilter := "((Status eq 'Active' or Status eq 'Pending') and (Price gt 100 and Price lt 1000)) or " +
-"(startswith(Name, 'Special') and endswith(Category, 'Premium'))"
+	complexFilter := "((Status eq 'Active' or Status eq 'Pending') and (Price gt 100 and Price lt 1000)) or " +
+		"(startswith(Name, 'Special') and endswith(Category, 'Premium'))"
 
-b.ReportAllocs()
-b.ResetTimer()
+	b.ReportAllocs()
+	b.ResetTimer()
 
-for i := 0; i < b.N; i++ {
-ValidateFilter(complexFilter)
-}
+	for i := 0; i < b.N; i++ {
+		_ = ValidateFilter(complexFilter)
+	}
 }
 
 // BenchmarkQueryBuilderWithURLCache benchmarks full query building with caching
 func BenchmarkQueryBuilderWithURLCache(b *testing.B) {
-client, _ := New(WithBaseURL("http://localhost:8080/odata"))
+	client, _ := New(WithBaseURL("http://localhost:8080/odata"))
 
-b.ReportAllocs()
-b.ResetTimer()
+	b.ReportAllocs()
+	b.ResetTimer()
 
-for i := 0; i < b.N; i++ {
-qb := client.From("Orders").
-Select("OrderID", "CustomerID", "OrderDate", "Total").
-Filter("Status eq 'Completed'").
-OrderBy("OrderDate").
-Top(1000)
+	for i := 0; i < b.N; i++ {
+		qb := client.From("Orders").
+			Select("OrderID", "CustomerID", "OrderDate", "Total").
+			Filter("Status eq 'Completed'").
+			OrderBy("OrderDate").
+			Top(1000)
 
-_ = qb.buildURL()
-_ = qb.buildURL() // Should hit cache
-}
+		_ = qb.buildURL()
+		_ = qb.buildURL() // Should hit cache
+	}
 }

@@ -29,7 +29,7 @@ func TestNewSAPClient(t *testing.T) {
 func TestWithSAPBaseURL(t *testing.T) {
 	cfg := &sapConfig{}
 	opt := WithSAPBaseURL("https://s4h.example.com", "200", "MM_MATERIAL_SRV")
-	
+
 	if err := opt(cfg); err != nil {
 		t.Fatalf("Failed to apply option: %v", err)
 	}
@@ -118,13 +118,13 @@ func TestCSRFMiddlewareConcurrency(t *testing.T) {
 func TestSAPClientBackwardCompatibility(t *testing.T) {
 	// Import the old package for backward compatibility test
 	// This ensures the deprecation layer works
-	
+
 	// Create a new SAP client
 	client, err := NewSAPClient(
 		WithSAPBaseURL("http://example.com", "100", "TEST_SRV"),
 		WithSAPLanguage("EN"),
 	)
-	
+
 	if err != nil {
 		t.Fatalf("Failed to create SAP client: %v", err)
 	}

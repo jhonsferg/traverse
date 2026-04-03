@@ -16,43 +16,43 @@ var spanCounter int64
 // Tracer provides distributed tracing capabilities for OData operations.
 type Tracer struct {
 	// Trace context
-	traceID     string
-	spanID      string
+	traceID      string
+	spanID       string
 	parentSpanID string
-	
+
 	// Baggage (key-value pairs propagated with trace)
-	baggage     map[string]string
-	
+	baggage map[string]string
+
 	// Spans tracking
 	activeSpans map[string]*Span
-	
+
 	// Configuration
 	serviceName string
 	enabled     bool
-	
-	mu          sync.RWMutex
+
+	mu sync.RWMutex
 }
 
 // Span represents a single unit of work in a trace.
 type Span struct {
-	SpanID      string
-	TraceID     string
-	ParentID    string
-	Name        string
-	StartTime   time.Time
-	EndTime     time.Time
-	Duration    time.Duration
-	Status      string // active, success, error
-	Attributes  map[string]interface{}
-	Events      []SpanEvent
-	Error       error
+	SpanID     string
+	TraceID    string
+	ParentID   string
+	Name       string
+	StartTime  time.Time
+	EndTime    time.Time
+	Duration   time.Duration
+	Status     string // active, success, error
+	Attributes map[string]interface{}
+	Events     []SpanEvent
+	Error      error
 }
 
 // SpanEvent represents an event that occurred during span execution.
 type SpanEvent struct {
-	Timestamp   time.Time
-	Name        string
-	Attributes  map[string]interface{}
+	Timestamp  time.Time
+	Name       string
+	Attributes map[string]interface{}
 }
 
 // New creates a new Tracer instance.
@@ -71,11 +71,11 @@ func New(serviceName string) *Tracer {
 func (t *Tracer) StartSpan(ctx context.Context, spanName string) (context.Context, *Span) {
 	t.mu.Lock()
 	defer t.mu.Unlock()
-	
+
 	if !t.enabled {
 		return ctx, nil
 	}
-	
+
 	span := &Span{
 		SpanID:     generateSpanID(),
 		TraceID:    t.traceID,
@@ -86,13 +86,13 @@ func (t *Tracer) StartSpan(ctx context.Context, spanName string) (context.Contex
 		Attributes: make(map[string]interface{}),
 		Events:     make([]SpanEvent, 0),
 	}
-	
+
 	t.activeSpans[span.SpanID] = span
-	
+
 	// Create new context with trace information
 	newCtx := context.WithValue(ctx, "trace_id", t.traceID)
 	newCtx = context.WithValue(newCtx, "span_id", span.SpanID)
-	
+
 	return newCtx, span
 }
 
@@ -101,20 +101,20 @@ func (t *Tracer) EndSpan(span *Span, err error) {
 	if span == nil {
 		return
 	}
-	
+
 	t.mu.Lock()
 	defer t.mu.Unlock()
-	
+
 	span.EndTime = time.Now()
 	span.Duration = span.EndTime.Sub(span.StartTime)
-	
+
 	if err != nil {
 		span.Status = "error"
 		span.Error = err
 	} else {
 		span.Status = "success"
 	}
-	
+
 	// Keep span for later retrieval
 	t.activeSpans[span.SpanID] = span
 }
@@ -124,16 +124,16 @@ func (t *Tracer) AddEvent(span *Span, eventName string, attrs map[string]interfa
 	if span == nil {
 		return
 	}
-	
+
 	t.mu.Lock()
 	defer t.mu.Unlock()
-	
+
 	event := SpanEvent{
 		Timestamp:  time.Now(),
 		Name:       eventName,
 		Attributes: attrs,
 	}
-	
+
 	span.Events = append(span.Events, event)
 }
 
@@ -142,10 +142,10 @@ func (t *Tracer) SetAttribute(span *Span, key string, value interface{}) {
 	if span == nil {
 		return
 	}
-	
+
 	t.mu.Lock()
 	defer t.mu.Unlock()
-	
+
 	span.Attributes[key] = value
 }
 
@@ -153,7 +153,7 @@ func (t *Tracer) SetAttribute(span *Span, key string, value interface{}) {
 func (t *Tracer) AddBaggage(key, value string) {
 	t.mu.Lock()
 	defer t.mu.Unlock()
-	
+
 	t.baggage[key] = value
 }
 
@@ -161,7 +161,7 @@ func (t *Tracer) AddBaggage(key, value string) {
 func (t *Tracer) GetBaggage(key string) string {
 	t.mu.RLock()
 	defer t.mu.RUnlock()
-	
+
 	return t.baggage[key]
 }
 
@@ -169,11 +169,11 @@ func (t *Tracer) GetBaggage(key string) string {
 func (t *Tracer) GetTraceContext() string {
 	t.mu.RLock()
 	defer t.mu.RUnlock()
-	
+
 	if !t.enabled {
 		return ""
 	}
-	
+
 	// Format: version-traceID-spanID-traceFlags
 	// version: 00 (current)
 	// traceFlags: 01 (trace must be recorded)
@@ -184,7 +184,7 @@ func (t *Tracer) GetTraceContext() string {
 func (t *Tracer) GetTraceID() string {
 	t.mu.RLock()
 	defer t.mu.RUnlock()
-	
+
 	return t.traceID
 }
 
@@ -192,7 +192,7 @@ func (t *Tracer) GetTraceID() string {
 func (t *Tracer) GetSpanID() string {
 	t.mu.RLock()
 	defer t.mu.RUnlock()
-	
+
 	return t.spanID
 }
 
@@ -200,7 +200,7 @@ func (t *Tracer) GetSpanID() string {
 func (t *Tracer) GetActiveSpans() []*Span {
 	t.mu.RLock()
 	defer t.mu.RUnlock()
-	
+
 	spans := make([]*Span, 0, len(t.activeSpans))
 	for _, span := range t.activeSpans {
 		spans = append(spans, span)
@@ -212,7 +212,7 @@ func (t *Tracer) GetActiveSpans() []*Span {
 func (t *Tracer) GetSpan(spanID string) *Span {
 	t.mu.RLock()
 	defer t.mu.RUnlock()
-	
+
 	return t.activeSpans[spanID]
 }
 
@@ -220,7 +220,7 @@ func (t *Tracer) GetSpan(spanID string) *Span {
 func (t *Tracer) ClearSpans() {
 	t.mu.Lock()
 	defer t.mu.Unlock()
-	
+
 	t.activeSpans = make(map[string]*Span)
 }
 
@@ -228,7 +228,7 @@ func (t *Tracer) ClearSpans() {
 func (t *Tracer) SetEnabled(enabled bool) {
 	t.mu.Lock()
 	defer t.mu.Unlock()
-	
+
 	t.enabled = enabled
 }
 
@@ -236,7 +236,7 @@ func (t *Tracer) SetEnabled(enabled bool) {
 func (t *Tracer) IsEnabled() bool {
 	t.mu.RLock()
 	defer t.mu.RUnlock()
-	
+
 	return t.enabled
 }
 
@@ -244,12 +244,12 @@ func (t *Tracer) IsEnabled() bool {
 func (t *Tracer) GetStats() map[string]interface{} {
 	t.mu.RLock()
 	defer t.mu.RUnlock()
-	
+
 	totalSpans := len(t.activeSpans)
 	successCount := 0
 	errorCount := 0
 	totalDuration := time.Duration(0)
-	
+
 	for _, span := range t.activeSpans {
 		if span.Status == "success" {
 			successCount++
@@ -258,20 +258,20 @@ func (t *Tracer) GetStats() map[string]interface{} {
 		}
 		totalDuration += span.Duration
 	}
-	
+
 	avgDuration := time.Duration(0)
 	if totalSpans > 0 {
 		avgDuration = totalDuration / time.Duration(totalSpans)
 	}
-	
+
 	return map[string]interface{}{
-		"total_spans":     totalSpans,
-		"successful":      successCount,
-		"errors":          errorCount,
-		"total_duration":  totalDuration,
+		"total_spans":      totalSpans,
+		"successful":       successCount,
+		"errors":           errorCount,
+		"total_duration":   totalDuration,
 		"average_duration": avgDuration,
-		"trace_id":        t.traceID,
-		"service":         t.serviceName,
+		"trace_id":         t.traceID,
+		"service":          t.serviceName,
 	}
 }
 
@@ -316,17 +316,17 @@ func Extract(carrier *ContextCarrier) *Tracer {
 func (t *Tracer) Inject() *ContextCarrier {
 	t.mu.RLock()
 	defer t.mu.RUnlock()
-	
+
 	carrier := &ContextCarrier{
 		TraceID:      t.traceID,
 		SpanID:       t.spanID,
 		ParentSpanID: t.parentSpanID,
 		Baggage:      make(map[string]string),
 	}
-	
+
 	for k, v := range t.baggage {
 		carrier.Baggage[k] = v
 	}
-	
+
 	return carrier
 }

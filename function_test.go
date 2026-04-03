@@ -10,7 +10,7 @@ func TestBuilderBasics(t *testing.T) {
 
 	qb := c.From("Products")
 	if qb == nil {
-		t.Error("From() returned nil")
+		t.Fatalf("From() returned nil")
 	}
 
 	if qb.entitySet != "Products" {
@@ -24,7 +24,7 @@ func TestFunctionBuilderConstruction(t *testing.T) {
 	fb := mockClient.Function("GetMaterials")
 
 	if fb == nil {
-		t.Error("Function() returned nil")
+		t.Fatalf("Function() returned nil")
 	}
 
 	if fb.name != "GetMaterials" {
@@ -42,7 +42,7 @@ func TestActionBuilderConstruction(t *testing.T) {
 	ab := mockClient.Action("CreateMaterial")
 
 	if ab == nil {
-		t.Error("Action() returned nil")
+		t.Fatalf("Action() returned nil")
 	}
 
 	if ab.name != "CreateMaterial" {
@@ -56,7 +56,7 @@ func TestFunctionImportBuilderConstruction(t *testing.T) {
 	fib := mockClient.FunctionImport("GetMaterialInfo")
 
 	if fib == nil {
-		t.Error("FunctionImport() returned nil")
+		t.Fatalf("FunctionImport() returned nil")
 	}
 
 	if fib.name != "GetMaterialInfo" {

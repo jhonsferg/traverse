@@ -2,6 +2,7 @@ package benchmarks
 
 import (
 	"context"
+	"fmt"
 	"testing"
 	"time"
 
@@ -56,7 +57,7 @@ func BenchmarkPageSizeOptimization(b *testing.B) {
 	pageSizes := []int{10, 50, 100, 500, 1000, 5000}
 
 	for _, pageSize := range pageSizes {
-		b.Run(string(rune(pageSize)), func(b *testing.B) {
+		b.Run(fmt.Sprintf("pageSize_%d", pageSize), func(b *testing.B) {
 			server := NewMockODataServer(ServerConfig{
 				Latency:         5 * time.Millisecond,
 				DefaultPageSize: pageSize,

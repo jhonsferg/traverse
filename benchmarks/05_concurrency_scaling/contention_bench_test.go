@@ -2,6 +2,7 @@ package benchmarks
 
 import (
 	"context"
+	"fmt"
 	"sync"
 	"sync/atomic"
 	"testing"
@@ -54,7 +55,7 @@ func BenchmarkCacheContention(b *testing.B) {
 				wg.Add(1)
 				go func(idx int) {
 					defer wg.Done()
-					entity := "Entity" + string(rune(idx))
+					entity := fmt.Sprintf("Entity%d", idx)
 					_, _ = client.From(entity).Collect(context.Background())
 					atomic.AddInt64(&operations, 1)
 				}(g)

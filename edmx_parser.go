@@ -36,16 +36,16 @@ import (
 //	}
 func ParseEDMX(reader io.Reader) (*Metadata, error) {
 	var edmx struct {
-		XMLName xml.Name `xml:"Edmx"`
-		Version string   `xml:"Version,attr"`
+		XMLName      xml.Name `xml:"Edmx"`
+		Version      string   `xml:"Version,attr"`
 		DataServices struct {
 			Schema []struct {
-				XMLName      xml.Name `xml:"Schema"`
-				Namespace    string   `xml:"Namespace,attr"`
-				EntityTypes  []struct {
-					XMLName            xml.Name `xml:"EntityType"`
-					Name               string   `xml:"Name,attr"`
-					Key                []struct {
+				XMLName     xml.Name `xml:"Schema"`
+				Namespace   string   `xml:"Namespace,attr"`
+				EntityTypes []struct {
+					XMLName xml.Name `xml:"EntityType"`
+					Name    string   `xml:"Name,attr"`
+					Key     []struct {
 						XMLName      xml.Name `xml:"Key"`
 						PropertyRefs []struct {
 							XMLName xml.Name `xml:"PropertyRef"`
@@ -53,17 +53,17 @@ func ParseEDMX(reader io.Reader) (*Metadata, error) {
 						} `xml:"PropertyRef"`
 					} `xml:"Key"`
 					Properties []struct {
-						XMLName      xml.Name `xml:"Property"`
-						Name         string   `xml:"Name,attr"`
-						Type         string   `xml:"Type,attr"`
-						Nullable     *bool    `xml:"Nullable,attr"`
-						MaxLength    *string  `xml:"MaxLength,attr"`
-						Precision    *string  `xml:"Precision,attr"`
-						Scale        *string  `xml:"Scale,attr"`
-						SAPPID       *string  `xml:"sap:parameter-type,attr"`
-						SAPLabel     *string  `xml:"sap:label,attr"`
-						SAPSortable  *string  `xml:"sap:sortable,attr"`
-						SAPFilterable *string `xml:"sap:filterable,attr"`
+						XMLName       xml.Name `xml:"Property"`
+						Name          string   `xml:"Name,attr"`
+						Type          string   `xml:"Type,attr"`
+						Nullable      *bool    `xml:"Nullable,attr"`
+						MaxLength     *string  `xml:"MaxLength,attr"`
+						Precision     *string  `xml:"Precision,attr"`
+						Scale         *string  `xml:"Scale,attr"`
+						SAPPID        *string  `xml:"sap:parameter-type,attr"`
+						SAPLabel      *string  `xml:"sap:label,attr"`
+						SAPSortable   *string  `xml:"sap:sortable,attr"`
+						SAPFilterable *string  `xml:"sap:filterable,attr"`
 					} `xml:"Property"`
 					NavigationProperties []struct {
 						XMLName      xml.Name `xml:"NavigationProperty"`
@@ -74,23 +74,23 @@ func ParseEDMX(reader io.Reader) (*Metadata, error) {
 					} `xml:"NavigationProperty"`
 				} `xml:"EntityType"`
 				EntityContainers []struct {
-					XMLName  xml.Name `xml:"EntityContainer"`
-					Name     string   `xml:"Name,attr"`
-					IsDefault string   `xml:"m:IsDefaultEntityContainer,attr"`
+					XMLName    xml.Name `xml:"EntityContainer"`
+					Name       string   `xml:"Name,attr"`
+					IsDefault  string   `xml:"m:IsDefaultEntityContainer,attr"`
 					EntitySets []struct {
-						XMLName      xml.Name `xml:"EntitySet"`
-						Name         string   `xml:"Name,attr"`
-						EntityType   string   `xml:"EntityType,attr"`
-						Sap          string   `xml:"sap:label,attr"`
+						XMLName    xml.Name `xml:"EntitySet"`
+						Name       string   `xml:"Name,attr"`
+						EntityType string   `xml:"EntityType,attr"`
+						Sap        string   `xml:"sap:label,attr"`
 					} `xml:"EntitySet"`
 					FunctionImports []struct {
-						XMLName  xml.Name `xml:"FunctionImport"`
-						Name     string   `xml:"Name,attr"`
+						XMLName   xml.Name `xml:"FunctionImport"`
+						Name      string   `xml:"Name,attr"`
 						IsBinding *bool    `xml:"m:IsBindingParameter,attr"`
 						Parameter []struct {
-							XMLName      xml.Name `xml:"Parameter"`
-							Name         string   `xml:"Name,attr"`
-							Type         string   `xml:"Type,attr"`
+							XMLName        xml.Name `xml:"Parameter"`
+							Name           string   `xml:"Name,attr"`
+							Type           string   `xml:"Type,attr"`
 							IsBindingParam *bool    `xml:"m:IsBindingParameter,attr"`
 						} `xml:"Parameter"`
 					} `xml:"FunctionImport"`
@@ -116,9 +116,9 @@ func ParseEDMX(reader io.Reader) (*Metadata, error) {
 
 	// Build Metadata from parsed EDMX
 	metadata := &Metadata{
-		Version:     edmx.Version,
-		EntityTypes: make([]EntityType, 0),
-		EntitySets:  make([]EntitySetInfo, 0),
+		Version:      edmx.Version,
+		EntityTypes:  make([]EntityType, 0),
+		EntitySets:   make([]EntitySetInfo, 0),
 		Associations: make([]Association, 0),
 	}
 

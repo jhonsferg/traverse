@@ -12,11 +12,8 @@ import (
 
 // BenchmarkResult represents a single benchmark result line
 type BenchmarkResult struct {
-	name  string
-	count int64
-	time  float64 // nanoseconds
-	bytes int64
-	alloc int64
+	name string
+	time float64 // nanoseconds
 }
 
 func main() {
@@ -72,12 +69,12 @@ func main() {
 func parseBenchmarks(filename string) map[string]BenchmarkResult {
 	results := make(map[string]BenchmarkResult)
 
-	file, err := os.Open(filename)
+	file, err := os.Open(filename) // #nosec G304 - filename is from command-line arguments
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "error opening file: %v\n", err)
 		return results
 	}
-	defer file.Close()
+	defer func() { _ = file.Close() }()
 
 	// Pattern: "Benchmark..." lines from `go test -bench`
 	benchRegex := regexp.MustCompile(`^Benchmark(\S+)\s+\d+\s+(\d+(?:\.\d+)?)\s+ns/op`)

@@ -11,14 +11,15 @@
 //   - ODataVersion: Enumeration for OData protocol versions
 //
 // Usage example (OData v4):
-//   streamer := NewArrayStreamer(responseBody, ODataV4)
-//   for streamer.Next() {
-//       var record map[string]interface{}
-//       if err := streamer.Decode(&record); err != nil {
-//           break
-//       }
-//       // Process record
-//   }
+//
+//	streamer := NewArrayStreamer(responseBody, ODataV4)
+//	for streamer.Next() {
+//	    var record map[string]interface{}
+//	    if err := streamer.Decode(&record); err != nil {
+//	        break
+//	    }
+//	    // Process record
+//	}
 package tokenizer
 
 import (
@@ -50,18 +51,19 @@ const (
 // ArrayStreamer yields one record at a time via Next() and Decode().
 //
 // Typical usage pattern:
-//   streamer := NewArrayStreamer(responseBody, ODataV4)
-//   defer streamer.Close()
-//   for streamer.Next() {
-//       var product map[string]interface{}
-//       if err := streamer.Decode(&product); err != nil {
-//           log.Fatal(err)
-//       }
-//       // Process individual product record
-//   }
-//   if err := streamer.Err(); err != nil {
-//       log.Fatal(err)
-//   }
+//
+//	streamer := NewArrayStreamer(responseBody, ODataV4)
+//	defer streamer.Close()
+//	for streamer.Next() {
+//	    var product map[string]interface{}
+//	    if err := streamer.Decode(&product); err != nil {
+//	        log.Fatal(err)
+//	    }
+//	    // Process individual product record
+//	}
+//	if err := streamer.Err(); err != nil {
+//	    log.Fatal(err)
+//	}
 //
 // The streamer handles both OData v2 and v4 response formats automatically.
 // It also captures metadata like nextLink and deltaLink for pagination and delta queries.
@@ -112,10 +114,11 @@ type StreamMetadata struct {
 // and should be closed with Close() when done.
 //
 // Example:
-//   resp, _ := http.Get("http://service/odata/Products")
-//   defer resp.Body.Close()
-//   streamer := NewArrayStreamer(resp.Body, ODataV4)
-//   defer streamer.Close()
+//
+//	resp, _ := http.Get("http://service/odata/Products")
+//	defer resp.Body.Close()
+//	streamer := NewArrayStreamer(resp.Body, ODataV4)
+//	defer streamer.Close()
 func NewArrayStreamer(r io.Reader, version ODataVersion) *ArrayStreamer {
 	return &ArrayStreamer{
 		dec:     json.NewDecoder(r),
@@ -133,16 +136,17 @@ func NewArrayStreamer(r io.Reader, version ODataVersion) *ArrayStreamer {
 // or simply reached the end of the array.
 //
 // Typical loop pattern:
-//   for streamer.Next() {
-//       var item MyType
-//       if err := streamer.Decode(&item); err != nil {
-//           break
-//       }
-//       // Process item
-//   }
-//   if err := streamer.Err(); err != nil {
-//       log.Fatal(err)
-//   }
+//
+//	for streamer.Next() {
+//	    var item MyType
+//	    if err := streamer.Decode(&item); err != nil {
+//	        break
+//	    }
+//	    // Process item
+//	}
+//	if err := streamer.Err(); err != nil {
+//	    log.Fatal(err)
+//	}
 //
 // Returns false without error when iteration completes normally (array exhausted).
 // Returns false if any decoding or streaming error occurred earlier.
@@ -174,14 +178,15 @@ func (s *ArrayStreamer) Next() bool {
 //   - The JSON cannot be unmarshaled into the target type
 //
 // Example:
-//   var product struct {
-//       ID    int    `json:"ID"`
-//       Name  string `json:"Name"`
-//       Price float64 `json:"Price"`
-//   }
-//   if err := streamer.Decode(&product); err != nil {
-//       log.Fatal(err)
-//   }
+//
+//	var product struct {
+//	    ID    int    `json:"ID"`
+//	    Name  string `json:"Name"`
+//	    Price float64 `json:"Price"`
+//	}
+//	if err := streamer.Decode(&product); err != nil {
+//	    log.Fatal(err)
+//	}
 func (s *ArrayStreamer) Decode(v interface{}) error {
 	if s.err != nil {
 		return s.err
@@ -210,11 +215,12 @@ func (s *ArrayStreamer) Decode(v interface{}) error {
 //   - Progress tracking: Check Count to know total records being fetched
 //
 // Example:
-//   // After streaming completes
-//   meta := streamer.Meta()
-//   if meta.NextLink != "" {
-//       // There's another page to fetch
-//   }
+//
+//	// After streaming completes
+//	meta := streamer.Meta()
+//	if meta.NextLink != "" {
+//	    // There's another page to fetch
+//	}
 func (s *ArrayStreamer) Meta() StreamMetadata {
 	return s.meta
 }
@@ -228,14 +234,15 @@ func (s *ArrayStreamer) Meta() StreamMetadata {
 // Returns the first error that occurred during Next() or Decode() operations.
 //
 // Typical usage:
-//   for streamer.Next() {
-//       var item MyType
-//       streamer.Decode(&item)
-//       // Process item...
-//   }
-//   if err := streamer.Err(); err != nil {
-//       log.Printf("streaming error: %v", err)
-//   }
+//
+//	for streamer.Next() {
+//	    var item MyType
+//	    streamer.Decode(&item)
+//	    // Process item...
+//	}
+//	if err := streamer.Err(); err != nil {
+//	    log.Printf("streaming error: %v", err)
+//	}
 func (s *ArrayStreamer) Err() error {
 	return s.err
 }
@@ -249,8 +256,8 @@ func (s *ArrayStreamer) Err() error {
 // Calling Close() is idempotent—multiple Close() calls are safe and return nil.
 // It's good practice to always defer Close():
 //
-//   streamer := NewArrayStreamer(resp.Body, ODataV4)
-//   defer streamer.Close()
+//	streamer := NewArrayStreamer(resp.Body, ODataV4)
+//	defer streamer.Close()
 func (s *ArrayStreamer) Close() error {
 	s.closed = true
 	return nil
@@ -281,10 +288,11 @@ func (s *ArrayStreamer) Close() error {
 //   - The handler returns an error (indirectly, through handler behavior)
 //
 // Example:
-//   err := StreamArrayRecords(resp.Body, ODataV4, func(record map[string]interface{}) bool {
-//       fmt.Printf("ID: %v, Name: %v\n", record["ID"], record["Name"])
-//       return true // Continue streaming
-//   })
+//
+//	err := StreamArrayRecords(resp.Body, ODataV4, func(record map[string]interface{}) bool {
+//	    fmt.Printf("ID: %v, Name: %v\n", record["ID"], record["Name"])
+//	    return true // Continue streaming
+//	})
 func StreamArrayRecords(r io.Reader, version ODataVersion, handler func(map[string]interface{}) bool) error {
 	dec := json.NewDecoder(r)
 

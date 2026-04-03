@@ -97,7 +97,7 @@ func TestWithBeforeQueryMultipleHooks(t *testing.T) {
 	// Call hooks in order
 	qb := &QueryBuilder{}
 	for _, h := range client.beforeQuery {
-		h(qb)
+		_ = h(qb)
 	}
 
 	if len(callOrder) != 2 || callOrder[0] != 1 || callOrder[1] != 2 {
@@ -178,7 +178,7 @@ func TestWithAfterExecuteMultipleHooks(t *testing.T) {
 	// Call hooks in order
 	qb := &QueryBuilder{}
 	for _, h := range client.afterExecute {
-		h(qb)
+		_ = h(qb)
 	}
 
 	if len(callOrder) != 2 || callOrder[0] != 1 || callOrder[1] != 2 {
@@ -277,8 +277,8 @@ func TestCombinedOptions(t *testing.T) {
 
 	// Execute hooks
 	qb := &QueryBuilder{}
-	client.beforeQuery[0](qb)
-	client.afterExecute[0](qb)
+	_ = client.beforeQuery[0](qb)
+	_ = client.afterExecute[0](qb)
 
 	if !beforeQueryHookCalled || !afterExecuteHookCalled {
 		t.Fatalf("Hooks were not called")

@@ -420,6 +420,27 @@ go test -bench=. -benchmem > results.txt
 
 ## 🔍 Performance Profiling
 
+### Running Benchmarks Locally
+
+Traverse includes comprehensive benchmarks designed to measure performance at scale. These are **not run in CI** due to resource constraints but should be executed locally during development:
+
+```bash
+# Run all benchmarks (standard benchmark suite)
+go test -bench=. -benchmem -benchtime=3s -run=^$ ./...
+
+# Using Make (recommended)
+make bench          # Run benchmarks
+make bench-save     # Save benchmark results for comparison
+
+# Run specific benchmark
+go test -bench=BenchmarkQuery -benchmem -run=^$ ./...
+
+# Profile during benchmarking
+go test -bench=. -benchmem -cpuprofile=cpu.prof -run=^$ ./...
+```
+
+**Note:** Benchmarks are intensive and may take 10-30 minutes to complete depending on your hardware. They're designed for local development and should be run on consistent hardware for accurate comparisons.
+
 ### CPU Profiling
 
 ```go
@@ -545,12 +566,14 @@ See [CONTRIBUTING.md](CONTRIBUTING.md) for complete guidelines.
 
 All tests run automatically on:
 - Push to main branches
-- Pull requests
+- Pull requests  
 - Weekly scheduled runs
 
 Test matrix:
-- Go versions: 1.23, 1.24, 1.25
+- Go versions: 1.24, 1.25
 - Platforms: Linux, macOS, Windows
+
+**Note on Benchmarks:** Performance benchmarks are excluded from CI/CD due to resource constraints in GitHub Actions. Use `make bench` locally to measure performance during development. See [Performance Profiling](#-performance-profiling) for details.
 
 ### Deployment Process
 

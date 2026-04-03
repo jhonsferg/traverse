@@ -17,7 +17,7 @@ func TestPrometheusIntegration_MetricsWithClient(t *testing.T) {
 	metrics.RecordDelete(80*time.Millisecond, nil)
 
 	stats := metrics.GetStats()
-	
+
 	queries := stats["queries"].(map[string]int64)
 	if queries["total"] != 1 {
 		t.Fatalf("Expected 1 query")
@@ -74,7 +74,7 @@ func TestPrometheusIntegration_CacheAndQueryMetrics(t *testing.T) {
 	}
 
 	stats := metrics.GetStats()
-	
+
 	cache := stats["cache"].(map[string]interface{})
 	if cache["hits"].(int64) != 30 {
 		t.Fatalf("Expected 30 cache hits")
