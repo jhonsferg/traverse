@@ -92,6 +92,21 @@ func acquireHeaders() map[string]string {
 	return headerMapPool.Get().(map[string]string)
 }
 
+// releaseHeaders returns a headers map to the pool after clearing.
+//
+// releaseHeaders clears all entries from the map and returns it to headerMapPool
+// for reuse, reducing allocations in batch operation processing.
+func releaseHeaders(h map[string]string) {
+	if h == nil {
+		return
+	}
+	// Clear all entries before returning to pool
+	for k := range h {
+		delete(h, k)
+	}
+	headerMapPool.Put(h)
+}
+
 // SetBody sets the Body field, marshaling data if needed.
 //
 // SetBody converts the provided data to JSON and stores it as a [json.RawMessage]
@@ -401,6 +416,9 @@ func (b *BatchRequest) Execute(ctx context.Context) (*BatchResponse, error) {
 	if err != nil {
 		return nil, fmt.Errorf("traverse: batch parse failed: %w", err)
 	}
+
+	// Clean up and return header maps to pool
+	b.release()
 
 	return &BatchResponse{Results: results}, nil
 }
@@ -958,4 +976,18 @@ func extractBoundary(contentType string) string {
 		}
 	}
 	return ""
+}
+
+// release returns all header maps from operations back to the pool.
+func (b *BatchRequest) release() {
+	for i := range b.ops {
+		releaseHeaders(b.ops[i].Headers)
+		b.ops[i].Headers = nil
+	}
+	for _, cs := range b.changesets {
+		for i := range cs.ops {
+			releaseHeaders(cs.ops[i].Headers)
+			cs.ops[i].Headers = nil
+		}
+	}
 }
