@@ -381,6 +381,7 @@ func writeJSONResponse(w http.ResponseWriter, data interface{}) error {
 }
 
 // writeXMLResponse writes an XML response with proper headers and formatting.
+//nolint:errcheck // w.Write errors are not recoverable in HTTP response context
 func writeXMLResponse(w http.ResponseWriter, data interface{}) error {
 	w.Header().Set("Content-Type", "application/xml; charset=utf-8")
 	w.Write([]byte(`<?xml version="1.0" encoding="utf-8"?>`))

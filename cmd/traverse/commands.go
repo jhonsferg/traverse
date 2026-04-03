@@ -269,7 +269,11 @@ func exportCommand(conn *Connection, entityName string, opts ExportOptions) erro
 	if err != nil {
 		return fmt.Errorf("failed to create output file: %w", err)
 	}
-	defer file.Close()
+	defer func() {
+		if closeErr := file.Close(); closeErr != nil {
+			fmt.Fprintf(os.Stderr, "warning: failed to close file %s: %v\n", opts.Output, closeErr)
+		}
+	}()
 
 	switch opts.Format {
 	case "json":

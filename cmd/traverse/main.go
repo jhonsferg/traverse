@@ -210,7 +210,7 @@ func runMetadata(args []string) {
 	formatFlag := fs.String("format", "text", "Output format: json, text")
 	timeoutFlag := fs.Int("timeout", 30, "Request timeout in seconds")
 
-	fs.Parse(args)
+	_ = fs.Parse(args) // fs has ExitOnError, never returns error // fs has ExitOnError, never returns error
 
 	conn, err := getConnection(*urlFlag, *userFlag, *passFlag, *tokenFlag, *profileFlag, *timeoutFlag)
 	if err != nil {
@@ -241,7 +241,7 @@ func runDescribe(args []string) {
 	formatFlag := fs.String("format", "text", "Output format: json, text")
 	timeoutFlag := fs.Int("timeout", 30, "Request timeout in seconds")
 
-	fs.Parse(args)
+	_ = fs.Parse(args) // fs has ExitOnError, never returns error // fs has ExitOnError, never returns error
 
 	conn, err := getConnection(*urlFlag, *userFlag, *passFlag, *tokenFlag, *profileFlag, *timeoutFlag)
 	if err != nil {
@@ -272,7 +272,7 @@ func runCount(args []string) {
 	profileFlag := fs.String("profile", "", "Use a saved connection profile")
 	timeoutFlag := fs.Int("timeout", 30, "Request timeout in seconds")
 
-	fs.Parse(args)
+	_ = fs.Parse(args) // fs has ExitOnError, never returns error
 
 	conn, err := getConnection(*urlFlag, *userFlag, *passFlag, *tokenFlag, *profileFlag, *timeoutFlag)
 	if err != nil {
@@ -306,7 +306,7 @@ func runSample(args []string) {
 	formatFlag := fs.String("format", "table", "Output format: json, text, table")
 	timeoutFlag := fs.Int("timeout", 30, "Request timeout in seconds")
 
-	fs.Parse(args)
+	_ = fs.Parse(args) // fs has ExitOnError, never returns error
 
 	conn, err := getConnection(*urlFlag, *userFlag, *passFlag, *tokenFlag, *profileFlag, *timeoutFlag)
 	if err != nil {
@@ -342,7 +342,7 @@ func runQuery(args []string) {
 	formatFlag := fs.String("format", "table", "Output format: json, text, table")
 	timeoutFlag := fs.Int("timeout", 30, "Request timeout in seconds")
 
-	fs.Parse(args)
+	_ = fs.Parse(args) // fs has ExitOnError, never returns error
 
 	conn, err := getConnection(*urlFlag, *userFlag, *passFlag, *tokenFlag, *profileFlag, *timeoutFlag)
 	if err != nil {
@@ -385,7 +385,7 @@ func runExport(args []string) {
 	profileFlag := fs.String("profile", "", "Use a saved connection profile")
 	timeoutFlag := fs.Int("timeout", 30, "Request timeout in seconds")
 
-	fs.Parse(args)
+	_ = fs.Parse(args) // fs has ExitOnError, never returns error
 
 	conn, err := getConnection(*urlFlag, *userFlag, *passFlag, *tokenFlag, *profileFlag, *timeoutFlag)
 	if err != nil {
@@ -427,7 +427,7 @@ func runProfile(args []string) {
 		userFlag := fs.String("user", "", "Username for basic authentication")
 		passFlag := fs.String("pass", "", "Password for basic authentication")
 		tokenFlag := fs.String("token", "", "Bearer token for authentication")
-		fs.Parse(args[1:])
+		_ = fs.Parse(args[1:]) // fs has ExitOnError, never returns error
 
 		err := profileCreateCommand(*nameFlag, *urlFlag, *userFlag, *passFlag, *tokenFlag)
 		if err != nil {

@@ -102,7 +102,10 @@ func startInteractive() error {
 			}
 			count := 5
 			if len(parts) > 2 {
-				fmt.Sscanf(parts[2], "%d", &count)
+				if n, err := fmt.Sscanf(parts[2], "%d", &count); err != nil || n != 1 {
+					fmt.Fprintf(os.Stderr, "Warning: invalid count: %v\n", err)
+					count = 5 // use default
+				}
 			}
 			err := sampleCommand(currentConn, parts[1], count, "", "", "table")
 			if err != nil {
@@ -255,12 +258,16 @@ func interactiveQuery(reader *bufio.Reader, conn *Connection) error {
 	fmt.Print("Skip count (0 for none): ")
 	skipStr, _ := reader.ReadString('\n')
 	skip := 0
-	fmt.Sscanf(strings.TrimSpace(skipStr), "%d", &skip)
+	if n, err := fmt.Sscanf(strings.TrimSpace(skipStr), "%d", &skip); err != nil || n != 1 {
+		skip = 0 // use default
+	}
 
 	fmt.Print("Top count (0 for all): ")
 	topStr, _ := reader.ReadString('\n')
 	top := 0
-	fmt.Sscanf(strings.TrimSpace(topStr), "%d", &top)
+	if n, err := fmt.Sscanf(strings.TrimSpace(topStr), "%d", &top); err != nil || n != 1 {
+		top = 0 // use default
+	}
 
 	fmt.Print("Output format (json, table, text) [default: table]: ")
 	format, _ := reader.ReadString('\n')
@@ -319,7 +326,9 @@ func interactiveExport(reader *bufio.Reader, conn *Connection) error {
 	fmt.Print("Limit records (0 for no limit): ")
 	limitStr, _ := reader.ReadString('\n')
 	limit := 0
-	fmt.Sscanf(strings.TrimSpace(limitStr), "%d", &limit)
+	if n, err := fmt.Sscanf(strings.TrimSpace(limitStr), "%d", &limit); err != nil || n != 1 {
+		limit = 0 // use default
+	}
 
 	opts := ExportOptions{
 		Format: format,
