@@ -288,7 +288,14 @@ func formatParameterBytes(key string, value interface{}) []byte {
 		buf.WriteString("=null")
 	default:
 		// For complex types, serialize to JSON
-		jsonBytes, _ := json.Marshal(v)
+		jsonBytes, err := json.Marshal(v)
+		if err != nil {
+			// If marshaling fails, use string representation
+			buf.WriteString(key)
+			buf.WriteString("=")
+			buf.WriteString(fmt.Sprintf("%v", v))
+			break
+		}
 		escaped := strings.ReplaceAll(string(jsonBytes), "'", "''")
 		buf.WriteString(key)
 		buf.WriteByte('=')
@@ -399,7 +406,10 @@ func (a *ActionBuilder) Execute(ctx context.Context) (map[string]interface{}, er
 		req = req.WithJSON(a.body)
 	} else if len(a.parameters) > 0 {
 		// If no body but parameters exist, POST with JSON parameters
-		paramJSON, _ := json.Marshal(a.parameters)
+		paramJSON, err := json.Marshal(a.parameters)
+		if err != nil {
+			return nil, fmt.Errorf("traverse: failed to marshal parameters: %w", err)
+		}
 		req = a.client.http.Post(url)
 		req = req.WithBody(paramJSON)
 		req = req.WithHeader("Content-Type", "application/json")

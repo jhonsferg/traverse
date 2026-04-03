@@ -2,6 +2,7 @@
 package traverse
 
 import (
+	"context"
 	"net/http"
 	"testing"
 
@@ -186,7 +187,7 @@ func TestIntegration_RequestRecorderMiddleware(t *testing.T) {
 	recordingTransport := recorder.Middleware()(mockTransport)
 
 	// Create and record a request
-	req, _ := http.NewRequest(http.MethodPost, "https://example.com/api/data", nil)
+	req, _ := http.NewRequestWithContext(context.Background(), http.MethodPost, "https://example.com/api/data", nil)
 	req.Header.Set("Authorization", "Bearer test-token")
 
 	resp, _ := recordingTransport.RoundTrip(req)
@@ -299,7 +300,7 @@ func TestIntegration_RequestRecorderReset(t *testing.T) {
 	transport := recorder.Middleware()(http.DefaultTransport)
 
 	// Record first request
-	req, _ := http.NewRequest(http.MethodGet, "https://example.com/1", nil)
+	req, _ := http.NewRequestWithContext(context.Background(), http.MethodGet, "https://example.com/1", nil)
 	resp, _ := transport.RoundTrip(req)
 	if resp != nil && resp.Body != nil {
 		_ = resp.Body.Close()
@@ -317,7 +318,7 @@ func TestIntegration_RequestRecorderReset(t *testing.T) {
 	}
 
 	// Record second request
-	req, _ = http.NewRequest(http.MethodPost, "https://example.com/2", nil)
+	req, _ = http.NewRequestWithContext(context.Background(), http.MethodPost, "https://example.com/2", nil)
 	resp, _ = transport.RoundTrip(req)
 	if resp != nil && resp.Body != nil {
 		_ = resp.Body.Close()

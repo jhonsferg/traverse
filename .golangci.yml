@@ -47,3 +47,9 @@ formatters:
 issues:
   max-issues-per-linter: 0
   max-same-issues: 0
+  exclude-rules:
+    # Allow fmt.Fprintf errors to be ignored in benchmark mock servers (test infrastructure)
+    - path: benchmarks/.*/mock_server\.go
+      linters:
+        - errcheck
+      text: "fmt.Fprintf"

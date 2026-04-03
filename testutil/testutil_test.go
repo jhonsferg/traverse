@@ -1,6 +1,7 @@
 package testutil
 
 import (
+	"context"
 	"net/http"
 	"testing"
 	"time"
@@ -141,14 +142,14 @@ func TestRequestRecorder_RecordRequests(t *testing.T) {
 
 	roundTrip := recorder.Middleware()(http.DefaultTransport)
 
-	req1, _ := http.NewRequest(http.MethodGet, "https://example.com/api", nil)
+	req1, _ := http.NewRequestWithContext(context.Background(), http.MethodGet, "https://example.com/api", nil)
 	req1.Header.Set("X-Custom", "value1")
 	resp1, _ := roundTrip.RoundTrip(req1)
 	if resp1 != nil && resp1.Body != nil {
 		_ = resp1.Body.Close()
 	}
 
-	req2, _ := http.NewRequest(http.MethodPost, "https://example.com/api", nil)
+	req2, _ := http.NewRequestWithContext(context.Background(), http.MethodPost, "https://example.com/api", nil)
 	req2.Header.Set("X-Custom", "value2")
 	resp2, _ := roundTrip.RoundTrip(req2)
 	if resp2 != nil && resp2.Body != nil {
@@ -173,7 +174,7 @@ func TestRequestRecorder_Reset(t *testing.T) {
 	recorder := NewRequestRecorder()
 	roundTrip := recorder.Middleware()(http.DefaultTransport)
 
-	req, _ := http.NewRequest(http.MethodGet, "https://example.com", nil)
+	req, _ := http.NewRequestWithContext(context.Background(), http.MethodGet, "https://example.com", nil)
 	resp, _ := roundTrip.RoundTrip(req)
 	if resp != nil && resp.Body != nil {
 		_ = resp.Body.Close()

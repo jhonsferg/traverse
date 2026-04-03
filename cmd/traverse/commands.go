@@ -417,7 +417,10 @@ func toString(v interface{}) string {
 	case json.Number:
 		return val.String()
 	default:
-		b, _ := json.Marshal(v)
+		b, err := json.Marshal(v)
+		if err != nil {
+			return fmt.Sprintf("%v", v)
+		}
 		return string(b)
 	}
 }

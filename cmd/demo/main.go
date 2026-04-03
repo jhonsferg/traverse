@@ -444,17 +444,21 @@ func streamJSONProducts(w http.ResponseWriter, generator DataGenerator, format s
 	// Write products to response
 	for i, product := range products {
 		if format == "xml" {
-			xmlData, _ := xml.Marshal(product)
-			w.Write([]byte("    "))
-			w.Write(xmlData)
-			w.Write([]byte("\n"))
-		} else {
-			data, _ := json.Marshal(product)
-			w.Write(data)
-			if i < len(products)-1 {
-				w.Write([]byte(","))
+			xmlData, err := xml.Marshal(product)
+			if err == nil {
+				w.Write([]byte("    "))
+				w.Write(xmlData)
+				w.Write([]byte("\n"))
 			}
-			w.Write([]byte("\n"))
+		} else {
+			data, err := json.Marshal(product)
+			if err == nil {
+				w.Write(data)
+				if i < len(products)-1 {
+					w.Write([]byte(","))
+				}
+				w.Write([]byte("\n"))
+			}
 		}
 
 		count++
