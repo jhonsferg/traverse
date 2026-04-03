@@ -401,7 +401,8 @@ func parseODataResponse(decoder *json.Decoder, page *Page, version ODataVersion)
 		case "value":
 			// OData v4 format: "value": [...]
 			if version == ODataV4 {
-				if err := parseValueArray(decoder, page); err != nil {
+				err = parseValueArray(decoder, page)
+				if err != nil {
 					return err
 				}
 			}
@@ -409,7 +410,8 @@ func parseODataResponse(decoder *json.Decoder, page *Page, version ODataVersion)
 		case "d":
 			// OData v2 format: "d": {"results": [...], "__next": "..."}
 			if version == ODataV2 {
-				if err := parseODataV2Wrapper(decoder, page); err != nil {
+				err = parseODataV2Wrapper(decoder, page)
+				if err != nil {
 					return err
 				}
 			}
@@ -417,7 +419,8 @@ func parseODataResponse(decoder *json.Decoder, page *Page, version ODataVersion)
 		case "@odata.nextLink":
 			// OData v4 next link
 			var nextLink string
-			if err := decoder.Decode(&nextLink); err != nil {
+			err = decoder.Decode(&nextLink)
+			if err != nil {
 				return fmt.Errorf("failed to decode @odata.nextLink: %w", err)
 			}
 			page.NextLink = nextLink
@@ -425,7 +428,8 @@ func parseODataResponse(decoder *json.Decoder, page *Page, version ODataVersion)
 		case "__next":
 			// OData v2 next link (also can be in the "d" wrapper)
 			var nextLink string
-			if err := decoder.Decode(&nextLink); err != nil {
+			err = decoder.Decode(&nextLink)
+			if err != nil {
 				return fmt.Errorf("failed to decode __next: %w", err)
 			}
 			page.NextLink = nextLink
@@ -433,7 +437,8 @@ func parseODataResponse(decoder *json.Decoder, page *Page, version ODataVersion)
 		case "@odata.count":
 			// Total count
 			var count int64
-			if err := decoder.Decode(&count); err != nil {
+			err = decoder.Decode(&count)
+			if err != nil {
 				return fmt.Errorf("failed to decode @odata.count: %w", err)
 			}
 			page.Count = &count
@@ -441,7 +446,8 @@ func parseODataResponse(decoder *json.Decoder, page *Page, version ODataVersion)
 		case "@odata.context":
 			// Metadata context URI
 			var ctx string
-			if err := decoder.Decode(&ctx); err != nil {
+			err = decoder.Decode(&ctx)
+			if err != nil {
 				return fmt.Errorf("failed to decode @odata.context: %w", err)
 			}
 			page.Context = ctx
@@ -449,7 +455,8 @@ func parseODataResponse(decoder *json.Decoder, page *Page, version ODataVersion)
 		case "@odata.deltaLink":
 			// Delta link for incremental sync
 			var deltaLink string
-			if err := decoder.Decode(&deltaLink); err != nil {
+			err = decoder.Decode(&deltaLink)
+			if err != nil {
 				return fmt.Errorf("failed to decode @odata.deltaLink: %w", err)
 			}
 			page.DeltaLink = deltaLink
@@ -504,13 +511,15 @@ func parseODataV2Wrapper(decoder *json.Decoder, page *Page) error {
 
 		switch key {
 		case "results":
-			if err := parseValueArray(decoder, page); err != nil {
+			err = parseValueArray(decoder, page)
+			if err != nil {
 				return err
 			}
 
 		case "__next":
 			var nextLink string
-			if err := decoder.Decode(&nextLink); err != nil {
+			err = decoder.Decode(&nextLink)
+			if err != nil {
 				return fmt.Errorf("failed to decode __next: %w", err)
 			}
 			page.NextLink = nextLink
@@ -518,7 +527,8 @@ func parseODataV2Wrapper(decoder *json.Decoder, page *Page) error {
 		case "__count":
 			// OData v2 count format
 			var count interface{}
-			if err := decoder.Decode(&count); err != nil {
+			err = decoder.Decode(&count)
+			if err != nil {
 				return fmt.Errorf("failed to decode __count: %w", err)
 			}
 			// Convert to int64 if possible
