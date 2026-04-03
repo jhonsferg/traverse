@@ -64,7 +64,6 @@ issues:
         - bodyclose
         - contextcheck
         - noctx
-        - typecheck
     # Skip certain linters for tests
     - path: _test.go
       linters:
