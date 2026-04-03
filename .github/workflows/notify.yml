@@ -1,14 +1,12 @@
 name: Notify pkg.go.dev
 
-# Triggers when a new version tag is pushed
-# Notifies pkg.go.dev to index the new version for godoc
-# This is separate from release.yml to ensure notification
-# happens even if release.yml is modified
-
+# Fires on every tag push - both from the auto-tag job in ci.yml and from
+# manually pushed tags. This ensures pkg.go.dev always indexes new versions.
 on:
   push:
     tags:
-      - 'v[0-9]*'  # Only semantic version tags: v0.1.0, v1.2.3, etc.
+      - 'v[0-9]*'
+      - 'ext/**/v[0-9]*'
 
 permissions:
   contents: read
@@ -17,45 +15,39 @@ jobs:
   notify:
     name: Notify pkg.go.dev
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
     steps:
-      - name: Extract version from tag
-        id: tag
+      - name: Resolve module path and notify pkg.go.dev
         run: |
-          TAG="${{ github.ref_name }}"
-          echo "tag=${TAG}" >> $GITHUB_OUTPUT
+          set -euo pipefail
 
-      - name: Notify pkg.go.dev
-        run: |
-          TAG="${{ steps.tag.outputs.tag }}"
-          MODULE="github.com/jhonsferg/traverse"
-          VERSION="${TAG}"
-          
+          TAG="${{ github.ref_name }}"
+          BASE="github.com/jhonsferg/traverse"
+
+          if [[ "$TAG" != */* ]]; then
+            # Core module: v0.1.2
+            MODULE="${BASE}"
+            VERSION="${TAG}"
+          else
+            # Ext module: ext/tracing/v0.2.1
+            VERSION="${TAG##*/}"
+            MOD_PATH="${TAG%/v*}"
+            MODULE="${BASE}/${MOD_PATH}"
+          fi
+
           FETCH_URL="https://pkg.go.dev/fetch/${MODULE}@${VERSION}"
-          
-          echo "🔔 Notifying pkg.go.dev..."
-          echo "Module: ${MODULE}"
-          echo "Version: ${VERSION}"
-          echo "URL: ${FETCH_URL}"
-          echo ""
-          
-          # POST to pkg.go.dev/fetch endpoint
-          # This queues the module for indexing on pkg.go.dev
+          echo "Tag:     $TAG"
+          echo "Module:  $MODULE"
+          echo "Version: $VERSION"
+          echo "URL:     $FETCH_URL"
+
           http_code=$(curl -sf -o /dev/null -w "%{http_code}" \
-            -X POST \
-            -H "Content-Length: 0" \
-            "${FETCH_URL}" || echo "000")
-          
-          echo "Response code: ${http_code}"
-          echo ""
-          
-          case ${http_code} in
-            200|202)
-              echo "✅ Success: Module queued for indexing"
-              exit 0
-              ;;
-            *)
-              echo "⚠️  Unexpected response code: ${http_code}"
-              echo "Module will be indexed on next periodic scan"
-              exit 0  # Don't fail the workflow
-              ;;
-          esac
+            -X POST -H "Content-Length: 0" "$FETCH_URL" || true)
+          echo "pkg.go.dev response: $http_code"
+
+          if [[ "$http_code" == "200" || "$http_code" == "202" ]]; then
+            echo "Indexing queued successfully"
+          else
+            echo "Warning: unexpected response $http_code - pkg.go.dev may index it later via its crawler"
+          fi
