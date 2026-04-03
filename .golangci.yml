@@ -1,5 +1,5 @@
 # .golangci.yml
-# https://golangci-lint.run/usage/configuration/
+# https://golangci-lint.run/docs/configuration/
 # Optimized configuration based on relay best practices
 
 version: "2"
@@ -27,16 +27,16 @@ linters:
     - contextcheck  # context usage (important for async operations)
     - noctx         # missing context in function calls
 
-settings:
-  govet:
-    enable:
-      - shadow
-  gosec:
-    excludes:
-      - G104        # Errors unhandled (often duplicated by errcheck)
-  contextcheck:
-    skip-type-assertions: false
-    skip-type-checks: false
+  settings:
+    govet:
+      enable:
+        - shadow
+    gosec:
+      excludes:
+        - G104        # Errors unhandled (often duplicated by errcheck)
+    contextcheck:
+      skip-type-assertions: false
+      skip-type-checks: false
 
 formatters:
   enable:
@@ -48,28 +48,30 @@ formatters:
         - github.com/jhonsferg/traverse
 
 issues:
-  exclude-rules:
-    # Skip linting for CLI tools (under development)
-    - path: cmd/
-      linters:
-        - errcheck
-        - govet
-        - ineffassign
-        - staticcheck
-        - unused
-        - gosec
-        - nakedret
-        - prealloc
-        - unconvert
-        - bodyclose
-        - contextcheck
-        - noctx
-    # Skip certain linters for tests
-    - path: _test.go
-      linters:
-        - contextcheck
   max-issues-per-linter: 0
   max-same-issues: 0
+  exclusions:
+    rules:
+      # Skip linting for CLI tools (under development)
+      - path: cmd/
+        linters:
+          - errcheck
+          - govet
+          - ineffassign
+          - staticcheck
+          - unused
+          - gosec
+          - nakedret
+          - prealloc
+          - unconvert
+          - bodyclose
+          - contextcheck
+          - noctx
+      # Skip certain linters for tests
+      - path: _test\.go
+        linters:
+          - contextcheck
 
 output:
-  format: colored-line-number
+  formats:
+    - text
