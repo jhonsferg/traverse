@@ -233,7 +233,7 @@ func (g *Guid) UnmarshalJSON(b []byte) error {
 			if b1 < 0 || b2 < 0 {
 				return fmt.Errorf("invalid GUID hex: %s", parts[idx])
 			}
-			result[seg.pos+i/2] = byte(b1<<4 | b2)
+			result[seg.pos+i/2] = byte((b1 << 4) | b2) // #nosec G115
 		}
 		idx++
 	}

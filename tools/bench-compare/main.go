@@ -72,7 +72,7 @@ func main() {
 func parseBenchmarks(filename string) map[string]BenchmarkResult {
 	results := make(map[string]BenchmarkResult)
 
-	file, err := os.Open(filename)
+	file, err := os.Open(filename) // #nosec G304 - filename is from command-line arguments
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "error opening file: %v\n", err)
 		return results
