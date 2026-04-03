@@ -220,6 +220,10 @@ Issues and discussion are open on GitHub.
 
 ---
 
-## License
+<div align="center">
 
-MIT - see [LICENSE](LICENSE).
+Distributed under the MIT License. See [LICENSE](LICENSE) for details.
+
+Built with care by [jhonsferg](https://github.com/jhonsferg)
+
+</div>
