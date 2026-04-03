@@ -56,8 +56,6 @@ type BatchRequest struct {
 	changesets map[string]*changeset
 	// currentCS is the currently open changeset being built
 	currentCS *changeset
-	// changesetSeq is used for auto-generating sequential changeset IDs
-	changesetSeq int
 }
 
 // changeset represents a transaction group within a batch request.
@@ -90,21 +88,8 @@ type BatchOperation struct {
 // acquireHeaders gets a headers map from the pool.
 //
 // acquireHeaders returns a cleared map[string]string from headerMapPool for reuse.
-// Should be paired with [releaseHeaders] to return the map after use.
 func acquireHeaders() map[string]string {
 	return headerMapPool.Get().(map[string]string)
-}
-
-// releaseHeaders returns a headers map to the pool after clearing.
-//
-// releaseHeaders clears all entries from the map and returns it to headerMapPool
-// for reuse, reducing allocations in batch operation processing.
-func releaseHeaders(h map[string]string) {
-	// Clear all entries before returning to pool
-	for k := range h {
-		delete(h, k)
-	}
-	headerMapPool.Put(h)
 }
 
 // SetBody sets the Body field, marshaling data if needed.

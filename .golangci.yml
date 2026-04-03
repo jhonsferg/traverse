@@ -27,13 +27,13 @@ linters:
     - contextcheck  # context usage (important for async operations)
     - noctx         # missing context in function calls
 
-  settings:
-    govet:
-      enable:
-        - shadow
-    gosec:
-      excludes:
-        - G104        # Errors unhandled (often duplicated by errcheck)
+settings:
+  govet:
+    enable:
+      - shadow
+  gosec:
+    excludes:
+      - G104        # Errors unhandled (often duplicated by errcheck)
 
 formatters:
   enable:

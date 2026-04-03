@@ -106,8 +106,6 @@ import (
 //		processOrder(result.Value)
 //	}
 type Client struct {
-	mu sync.RWMutex // protects cached metadata
-
 	// http is the underlying relay HTTP client for making requests.
 	http *relay.Client
 	// baseURL is the OData service endpoint URL.

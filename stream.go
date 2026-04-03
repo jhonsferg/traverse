@@ -86,16 +86,6 @@ type goroutinePool struct {
 	doneChan chan struct{}
 }
 
-// adaptiveBufferState tracks buffer optimization statistics across pages.
-//
-// adaptiveBufferState is used internally to estimate and track optimal buffer
-// sizes as pages are streamed, allowing for dynamic adjustment based on
-// observed record sizes.
-type adaptiveBufferState struct {
-	// estimatedSize is the estimated optimal buffer size
-	estimatedSize int
-}
-
 // newGoroutinePool creates a new goroutine pool with the given number of workers.
 //
 // newGoroutinePool creates a pool of worker goroutines that execute tasks
@@ -669,87 +659,4 @@ type DeltaResult struct {
 	Reason string
 	// Err is an error if one occurred
 	Err error
-}
-
-// parseDeltaResponse parses an OData delta sync response.
-//
-// parseDeltaResponse handles delta queries which return both regular records
-// and deleted records marked with @removed annotations. This enables incremental
-// synchronization where clients track which records have changed or been deleted.
-//
-// The function filters out deleted records (those with @removed annotations)
-// from the results, preserving only modified or added records in page.Value.
-//
-// This is an unexported function used internally for delta response parsing.
-func parseDeltaResponse(decoder *json.Decoder, page *Page) error {
-	// Similar to parseODataResponse but with support for @removed
-
-	token, err := decoder.Token()
-	if err != nil {
-		return fmt.Errorf("failed to read first token: %w", err)
-	}
-	if delim, ok := token.(json.Delim); !ok || delim != '{' {
-		return fmt.Errorf("expected '{', got %v", token)
-	}
-
-	for decoder.More() {
-		token, err := decoder.Token()
-		if err != nil {
-			return fmt.Errorf("failed to read token: %w", err)
-		}
-
-		key, ok := token.(string)
-		if !ok {
-			continue
-		}
-
-		if key == "value" {
-			// Parse value array with @removed support
-			token, err := decoder.Token()
-			if err != nil {
-				return fmt.Errorf("failed to read array opening: %w", err)
-			}
-			if delim, ok := token.(json.Delim); !ok || delim != '[' {
-				return fmt.Errorf("expected '[', got %v", token)
-			}
-
-			for decoder.More() {
-				var record map[string]interface{}
-				if err := decoder.Decode(&record); err != nil {
-					return fmt.Errorf("failed to decode record: %w", err)
-				}
-
-				// Check for @removed annotation
-				if removed, ok := record["@removed"]; ok {
-					// Record is marked as deleted
-					if removedObj, ok := removed.(map[string]interface{}); ok {
-						// Don't add to results; it was deleted
-						_ = removedObj // Use it if we want to process reason
-					}
-				} else {
-					page.Value = append(page.Value, record)
-				}
-			}
-
-			// Closing ']'
-			token, err = decoder.Token()
-			if err != nil && err != io.EOF {
-				return fmt.Errorf("failed to read array closing: %w", err)
-			}
-		} else {
-			// Handle other fields like @odata.deltaLink, @odata.count, etc.
-			var tmp interface{}
-			if err := decoder.Decode(&tmp); err != nil && err != io.EOF {
-				return fmt.Errorf("failed to decode field %q: %w", key, err)
-			}
-		}
-	}
-
-	// Closing '}'
-	token, err = decoder.Token()
-	if err != nil && err != io.EOF {
-		return fmt.Errorf("failed to read closing token: %w", err)
-	}
-
-	return nil
 }
