@@ -46,6 +46,11 @@ jobs:
             dir=$(dirname "$modfile")
             echo ""
             echo "=== Testing $dir ==="
+            pkgs=$(cd "$dir" && go list ./... 2>/dev/null || true)
+            if [ -z "$pkgs" ]; then
+              echo "No Go packages in $dir - skipping"
+              continue
+            fi
             (cd "$dir" && go test -v -race -count=1 ./...)
           done
 
@@ -131,6 +136,11 @@ jobs:
           find ext -name "go.mod" | while read modfile; do
             dir=$(dirname "$modfile")
             echo "=== Vet $dir ==="
+            pkgs=$(cd "$dir" && go list ./... 2>/dev/null || true)
+            if [ -z "$pkgs" ]; then
+              echo "No Go packages in $dir - skipping"
+              continue
+            fi
             (cd "$dir" && go vet ./...)
           done
 
