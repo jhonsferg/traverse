@@ -2,9 +2,9 @@ name: CI
 
 on:
   push:
-    branches: [main, master]
+    branches: [master]
   pull_request:
-    branches: [main, master]
+    branches: [master]
 
 permissions:
   contents: read
@@ -32,9 +32,22 @@ jobs:
       - name: Pin toolchain to installed Go
         run: go env -w GOTOOLCHAIN=local
 
-      - name: Run tests with race detector
+      # -- Core module -------------------------------------------------------
+      - name: Test core module
         run: go test -v -race -count=1 "-coverprofile=coverage.out" -covermode=atomic ./...
         shell: bash
+
+      # -- Extension modules (each has its own go.mod) -----------------------
+      - name: Test extension modules
+        shell: bash
+        run: |
+          set -e
+          find ext -name "go.mod" | while read modfile; do
+            dir=$(dirname "$modfile")
+            echo ""
+            echo "=== Testing $dir ==="
+            (cd "$dir" && go test -v -race -count=1 ./...)
+          done
 
       - name: Upload coverage artifact
         if: matrix.go-version == '1.24' && matrix.os == 'ubuntu-latest'
@@ -50,7 +63,7 @@ jobs:
         with:
           files: ./coverage.out
           flags: unittests
-          name: codecov-umbrella
+          name: traverse-coverage
           fail_ci_if_error: false
           token: ${{ secrets.CODECOV_TOKEN }}
 
@@ -70,11 +83,28 @@ jobs:
       - name: Pin toolchain
         run: go env -w GOTOOLCHAIN=local
 
-      - name: golangci-lint
+      - name: Download modules (core)
+        env:
+          GOWORK: "off"
+        run: go mod download
+
+      - name: golangci-lint (core)
         uses: golangci/golangci-lint-action@4afd733a84b1f43292c63897423277bb7f4313a9 # v6
+        env:
+          GOWORK: "off"
         with:
           version: latest
           args: --timeout=5m ./...
+
+      - name: golangci-lint (extensions)
+        env:
+          GOWORK: "off"
+        run: |
+          find ext -name "go.mod" | while read modfile; do
+            dir=$(dirname "$modfile")
+            echo "=== Linting $dir ==="
+            (cd "$dir" && golangci-lint run --timeout=3m ./...) || true
+          done
 
   vet:
     name: Vet
@@ -92,8 +122,17 @@ jobs:
       - name: Pin toolchain
         run: go env -w GOTOOLCHAIN=local
 
-      - name: go vet
+      - name: go vet (core)
         run: go vet ./...
+
+      - name: go vet (extensions)
+        run: |
+          set -e
+          find ext -name "go.mod" | while read modfile; do
+            dir=$(dirname "$modfile")
+            echo "=== Vet $dir ==="
+            (cd "$dir" && go vet ./...)
+          done
 
   build-examples:
     name: Build Examples
@@ -111,27 +150,59 @@ jobs:
       - name: Pin toolchain
         run: go env -w GOTOOLCHAIN=local
 
-      - name: Build examples
-        run: go build ./examples/...
+      - name: Build examples module
+        env:
+          GOWORK: "off"
+        run: cd examples && go build ./...
 
-  # Auto-tag and notify pkg.go.dev on releases
+  benchmark:
+    name: Benchmark
+    needs: [test]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4
+
+      - uses: actions/setup-go@d35c59abb061a4a6fb18e82ac0862c26744d6ab5 # v5
+        with:
+          go-version: "1.24"
+          cache: false
+
+      - name: Pin toolchain
+        run: go env -w GOTOOLCHAIN=local
+
+      - name: Run benchmarks
+        run: |
+          go test -bench=. -benchmem -benchtime=3s -run=^$ ./...
+
+  # -- Auto Tag ---------------------------------------------------------------
+  # Runs only on direct pushes to master, only after ALL checks above pass.
+  # - Detects which Go modules were changed in the commit.
+  # - Computes the next semver from the highest existing tag for each module.
+  # - Bump type follows Conventional Commits:
+  #     BREAKING CHANGE / type! -> major
+  #     feat                    -> minor
+  #     everything else         -> patch
+  # - Creates lightweight tags and pushes them.
+  # - Notifies pkg.go.dev so the new version is indexed immediately.
   auto-tag:
     name: Auto Tag
-    needs: [test, lint, vet, build-examples]
-    if: (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/master') && github.event_name == 'push'
+    needs: [test, lint, vet, build-examples, benchmark]
+    if: github.ref == 'refs/heads/master' && github.event_name == 'push'
     runs-on: ubuntu-latest
     permissions:
       contents: write
     steps:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4
         with:
-          fetch-depth: 0
+          fetch-depth: 0   # need full history to list all existing tags
 
-      - name: Tag and notify pkg.go.dev
+      - name: Tag changed modules and notify pkg.go.dev
         run: |
           set -euo pipefail
 
-          # Determine bump type from Conventional Commits
+          # -- 1. Determine bump type from Conventional Commits ---------------
           SUBJECT=$(git log -1 --format="%s")
           BODY=$(git log -1 --format="%b")
 
@@ -145,51 +216,119 @@ jobs:
           fi
           echo "Bump type: $BUMP  (commit: $SUBJECT)"
 
-          # Skip if HEAD is already tagged
+          # -- 2. Skip if HEAD is already tagged ------------------------------
           if git tag --points-at HEAD | grep -q .; then
             echo "HEAD already tagged: $(git tag --points-at HEAD | tr '\n' ' ') - skipping"
             exit 0
           fi
 
-          # Get latest tag (|| true handles empty tag list with pipefail)
-          latest=$(git tag -l 'v[0-9]*.[0-9]*.[0-9]*' | grep -v '/' | sed 's/^v//' | sort -V | tail -1 || true)
-          
-          if [[ -z "$latest" ]]; then
-            next="0.1.0"
+          # -- 3. Detect which Go modules were touched ------------------------
+          # Walk each changed file upward until we find a go.mod directory.
+          # Only tag on changes to Go source, module files, or README.
+          declare -A AFFECTED
+
+          if git rev-parse HEAD~1 >/dev/null 2>&1; then
+            mapfile -t CHANGED < <(git diff --name-only HEAD~1 HEAD)
           else
-            # Bump version
-            IFS='.' read -r major minor patch <<< "$latest"
-            case "$BUMP" in
-              major) major=$(( major + 1 )); minor=0; patch=0 ;;
-              minor) minor=$(( minor + 1 )); patch=0 ;;
-              patch) patch=$(( patch + 1 )) ;;
-            esac
-            next="${major}.${minor}.${patch}"
+            mapfile -t CHANGED < <(git diff-tree --no-commit-id -r --name-only HEAD)
           fi
 
-          new_tag="v${next}"
+          echo "Changed files: ${CHANGED[*]}"
 
-          if git tag -l "$new_tag" | grep -q .; then
-            echo "Tag $new_tag already exists - skipping"
+          for f in "${CHANGED[@]}"; do
+            case "$f" in
+              *.go|go.mod|go.sum|README.md) ;;
+              *) continue ;;
+            esac
+
+            d=$(dirname "$f")
+            while true; do
+              if [[ "$d" == "." ]]; then
+                AFFECTED["."]=1
+                break
+              fi
+              if [[ -f "$d/go.mod" ]]; then
+                AFFECTED["$d"]=1
+                break
+              fi
+              d=$(dirname "$d")
+            done
+          done
+
+          if [[ ${#AFFECTED[@]} -eq 0 ]]; then
+            echo "No Go code or dependency changes detected - nothing to tag"
+            exit 0
+          fi
+          echo "Affected modules: ${!AFFECTED[*]}"
+
+          # -- 4. Compute and create tags -------------------------------------
+          TAGS_CREATED=()
+
+          for mod_dir in "${!AFFECTED[@]}"; do
+            if [[ "$mod_dir" == "." ]]; then
+              latest=$(git tag -l 'v[0-9]*.[0-9]*.[0-9]*' \
+                         | grep -v '/' | sed 's/^v//' | sort -V | tail -1 || true)
+              tag_prefix="v"
+            else
+              latest=$(git tag -l "${mod_dir}/v[0-9]*.[0-9]*.[0-9]*" \
+                         | sed "s|^${mod_dir}/v||" | sort -V | tail -1 || true)
+              tag_prefix="${mod_dir}/v"
+            fi
+
+            if [[ -z "$latest" ]]; then
+              next="0.1.0"
+            else
+              IFS='.' read -r major minor patch <<< "$latest"
+              case "$BUMP" in
+                major) major=$(( major + 1 )); minor=0; patch=0 ;;
+                minor) minor=$(( minor + 1 )); patch=0 ;;
+                patch) patch=$(( patch + 1 )) ;;
+              esac
+              next="${major}.${minor}.${patch}"
+            fi
+
+            new_tag="${tag_prefix}${next}"
+
+            if git tag -l "$new_tag" | grep -q .; then
+              echo "Tag $new_tag already exists - skipping"
+              continue
+            fi
+
+            echo "Creating tag: $new_tag  (was: ${latest:-none})"
+            git tag "$new_tag"
+            TAGS_CREATED+=("$new_tag")
+          done
+
+          if [[ ${#TAGS_CREATED[@]} -eq 0 ]]; then
+            echo "No new tags created"
             exit 0
           fi
 
-          echo "Creating tag: $new_tag  (was: ${latest:-none})"
-          git tag "$new_tag"
-          git push origin "$new_tag"
+          # -- 5. Push tags --------------------------------------------------
+          git push origin "${TAGS_CREATED[@]}"
+          echo "Pushed: ${TAGS_CREATED[*]}"
 
-          # Notify pkg.go.dev
-          fetch_url="https://pkg.go.dev/fetch/github.com/jhonsferg/traverse@${new_tag}"
-          echo "Notifying pkg.go.dev: $fetch_url"
-          http_code=$(curl -sf -o /dev/null -w "%{http_code}" \
-            -X POST -H "Content-Length: 0" "$fetch_url" || true)
-          echo "  Response: $http_code"
+          # -- 6. Notify pkg.go.dev ------------------------------------------
+          for tag in "${TAGS_CREATED[@]}"; do
+            if [[ "$tag" != */* ]]; then
+              fetch_url="https://pkg.go.dev/fetch/github.com/jhonsferg/traverse@${tag}"
+            else
+              ver="${tag##*/}"
+              mod_path="${tag%/v*}"
+              fetch_url="https://pkg.go.dev/fetch/github.com/jhonsferg/traverse/${mod_path}@${ver}"
+            fi
 
-  # Update coverage badges
+            echo "Notifying pkg.go.dev: $fetch_url"
+            http_code=$(curl -sf -o /dev/null -w "%{http_code}" \
+              -X POST -H "Content-Length: 0" "$fetch_url" || true)
+            echo "  Response: $http_code"
+          done
+
+  # -- Update Badges ---------------------------------------------------------
   badges:
     name: Update Badges
     needs: [test]
-    if: (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/master') && github.event_name == 'push'
+    if: github.ref == 'refs/heads/master' && github.event_name == 'push'
     runs-on: ubuntu-latest
     permissions:
       contents: write
