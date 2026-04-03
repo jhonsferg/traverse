@@ -1,5 +1,7 @@
 # .golangci.yml
-# Standard format for maximum compatibility with both v1 and v2 runners
+# https://golangci-lint.run/usage/configuration/
+
+version: "2"
 
 run:
   timeout: 5m
@@ -7,7 +9,7 @@ run:
   tests: true
 
 linters:
-  disable-all: true
+  default: none
   enable:
     - errcheck
     - govet
@@ -21,18 +23,22 @@ linters:
     - bodyclose
     - contextcheck
     - noctx
+  settings:
+    govet:
+      enable:
+        - shadow
+    gosec:
+      excludes:
+        - G104
 
-linters-settings:
-  govet:
-    enable:
-      - shadow
-  gosec:
-    excludes:
-      - G104
-  # Formatting is usually handled by separate actions, 
-  # but we can enable gofmt here if the linter supports it
-  # gofmt:
-  #   simplify: true
+formatters:
+  enable:
+    - gofmt
+    - goimports
+  settings:
+    goimports:
+      local-prefixes:
+        - github.com/jhonsferg/traverse
 
 issues:
   max-issues-per-linter: 0

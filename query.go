@@ -1276,7 +1276,6 @@ func (q *QueryBuilder) Page(ctx context.Context) (*Page, error) {
 		return nil, fmt.Errorf("failed to parse OData response: %w", err)
 	}
 
-
 	return page, nil
 }
 
