@@ -680,18 +680,6 @@ Traverse is the **only actively maintained, production-grade Go OData library**:
 
 ---
 
-## 📚 Additional Resources
-
-- **[CONTRIBUTING.md](CONTRIBUTING.md)** - Contribution guidelines
-- **[CHANGELOG.md](CHANGELOG.md)** - Version history
-- **[SECURITY.md](SECURITY.md)** - Security policy
-- **[EXTENSIONS.md](EXTENSIONS.md)** - Extension reference
-- **[benchmarks/](benchmarks/)** - Performance benchmarks
-- **[examples/](examples/)** - Working code examples
-- **[docs/PROCESS_ARCHIVE/](docs/PROCESS_ARCHIVE/)** - Historical documentation
-
----
-
 ## 📄 License
 
 Licensed under the MIT License. See [LICENSE](LICENSE) for details.
