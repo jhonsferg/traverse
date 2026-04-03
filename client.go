@@ -359,7 +359,7 @@ func (c *Client) PageSize() int {
 //   - Stream(): Execute and stream results without buffering
 //
 // The QueryBuilder uses method chaining for ergonomic query construction.
-// All methods are optional—you can execute with just From() for a basic query.
+// All methods are optional-you can execute with just From() for a basic query.
 //
 // Query Execution:
 //   - Call Collect() to fetch all results at once
@@ -661,7 +661,7 @@ func (c *Client) Create(ctx context.Context, entitySet string, data interface{})
 // Update sends an HTTP PATCH request (or HTTP MERGE for OData v2 compatibility) with the entity data.
 // This performs a partial update where only provided properties are modified; omitted properties remain unchanged.
 //
-// This is the standard way to update entities—use Replace() for complete entity replacement instead.
+// This is the standard way to update entities-use Replace() for complete entity replacement instead.
 //
 // Parameters:
 //   - ctx: Context for request cancellation and timeout

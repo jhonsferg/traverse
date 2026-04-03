@@ -103,7 +103,7 @@ type StreamMetadata struct {
 // NewArrayStreamer creates a new ArrayStreamer for streaming OData response array records.
 //
 // NewArrayStreamer initializes a streaming JSON parser for the given OData version.
-// It does NOT immediately parse or validate the response—parsing begins only when
+// It does NOT immediately parse or validate the response-parsing begins only when
 // Next() is called, allowing for immediate return and lazy evaluation.
 //
 // Parameters:
@@ -253,7 +253,7 @@ func (s *ArrayStreamer) Err() error {
 // It should be called when done with the streamer to ensure proper resource cleanup,
 // though in practice the main resource (the io.Reader) is typically managed by the caller.
 //
-// Calling Close() is idempotent—multiple Close() calls are safe and return nil.
+// Calling Close() is idempotent-multiple Close() calls are safe and return nil.
 // It's good practice to always defer Close():
 //
 //	streamer := NewArrayStreamer(resp.Body, ODataV4)
