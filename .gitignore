@@ -42,7 +42,8 @@ build/
 bin/
 
 # Claude Code local configuration (never commit)
-.claude/
+.claude/*
+!.claude/RULES.md
 CLAUDE.md
 
 # Other directories
