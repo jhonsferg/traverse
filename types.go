@@ -66,18 +66,17 @@ func (d *DateTime) UnmarshalJSON(b []byte) error {
 
 	// Extract milliseconds and offset if present
 	var millis int64
+	var err error
 	if idx := strings.IndexAny(dateStr, "+-"); idx != -1 {
-		m, err := strconv.ParseInt(dateStr[:idx], 10, 64)
+		millis, err = strconv.ParseInt(dateStr[:idx], 10, 64)
 		if err != nil {
 			return fmt.Errorf("invalid DateTime milliseconds: %s", dateStr[:idx])
 		}
-		millis = m
 	} else {
-		m, err := strconv.ParseInt(dateStr, 10, 64)
+		millis, err = strconv.ParseInt(dateStr, 10, 64)
 		if err != nil {
 			return fmt.Errorf("invalid DateTime milliseconds: %s", dateStr)
 		}
-		millis = m
 	}
 
 	*d = DateTime(time.UnixMilli(millis).UTC())

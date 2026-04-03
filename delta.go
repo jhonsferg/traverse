@@ -391,16 +391,16 @@ func (d *DeltaSyncAs[T]) Full(ctx context.Context, bufferSize ...int) (<-chan Re
 			}
 
 			// Convert result.Value to T using mapToStruct
-			value, err := mapToStruct[T](result.Value)
-			if err != nil {
+			val, decodeErr := mapToStruct[T](result.Value)
+			if decodeErr != nil {
 				out <- Result[T]{
-					Err: err,
+					Err: decodeErr,
 				}
 				continue
 			}
 
 			out <- Result[T]{
-				Value: value,
+				Value: val,
 				Page:  result.Page,
 				Index: result.Index,
 			}
@@ -436,16 +436,16 @@ func (d *DeltaSyncAs[T]) Incremental(ctx context.Context, token string, bufferSi
 			}
 
 			// Convert result.Value to T using mapToStruct
-			value, err := mapToStruct[T](result.Value)
-			if err != nil {
+			val, decodeErr := mapToStruct[T](result.Value)
+			if decodeErr != nil {
 				out <- DeltaResultAs[T]{
-					Err: err,
+					Err: decodeErr,
 				}
 				continue
 			}
 
 			out <- DeltaResultAs[T]{
-				Value:   value,
+				Value:   val,
 				Removed: result.Removed,
 				Reason:  result.Reason,
 			}

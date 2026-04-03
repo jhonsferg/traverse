@@ -543,12 +543,14 @@ func (b *BatchRequest) streamMultipartResponse(ctx context.Context, resp *relay.
 		if strings.HasPrefix(contentTypeHeader, "multipart/mixed") {
 			// This is a changeset response - stream its results
 			csBoundary := extractBoundary(contentTypeHeader)
-			if err := b.streamChangesetResponse(ctx, part, csBoundary, out); err != nil {
+			err = b.streamChangesetResponse(ctx, part, csBoundary, out)
+			if err != nil {
 				return err
 			}
 		} else {
 			// Regular response
-			result, err := b.parseResponsePart(part)
+			var result BatchResult
+			result, err = b.parseResponsePart(part)
 			if err != nil {
 				return err
 			}
@@ -588,7 +590,8 @@ func (b *BatchRequest) streamChangesetResponse(ctx context.Context, part *multip
 			return fmt.Errorf("traverse: error reading changeset response: %w", err)
 		}
 
-		result, err := b.parseResponsePart(part)
+		var result BatchResult
+		result, err = b.parseResponsePart(part)
 		if err != nil {
 			return err
 		}
@@ -837,14 +840,16 @@ func (b *BatchRequest) parseMultipartResponse(resp *relay.Response) ([]BatchResu
 		if strings.HasPrefix(contentType, "multipart/mixed") {
 			// This is a changeset response
 			csBoundary := extractBoundary(contentType)
-			csResults, err := b.parseChangesetResponse(part, csBoundary)
+			var csResults []BatchResult
+			csResults, err = b.parseChangesetResponse(part, csBoundary)
 			if err != nil {
 				return nil, err
 			}
 			results = append(results, csResults...)
 		} else {
 			// Regular response
-			result, err := b.parseResponsePart(part)
+			var result BatchResult
+			result, err = b.parseResponsePart(part)
 			if err != nil {
 				return nil, err
 			}
@@ -877,7 +882,8 @@ func (b *BatchRequest) parseChangesetResponse(part *multipart.Part, boundary str
 			return nil, fmt.Errorf("traverse: error reading changeset response: %w", err)
 		}
 
-		result, err := b.parseResponsePart(part)
+		var result BatchResult
+		result, err = b.parseResponsePart(part)
 		if err != nil {
 			return nil, err
 		}

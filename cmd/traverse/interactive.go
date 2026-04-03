@@ -102,7 +102,9 @@ func startInteractive() error {
 			}
 			count := 5
 			if len(parts) > 2 {
-				if n, err := fmt.Sscanf(parts[2], "%d", &count); err != nil || n != 1 {
+				var n int
+				n, err = fmt.Sscanf(parts[2], "%d", &count)
+				if err != nil || n != 1 {
 					fmt.Fprintf(os.Stderr, "Warning: invalid count: %v\n", err)
 					count = 5 // use default
 				}

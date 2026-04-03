@@ -56,7 +56,8 @@ func metadataCommand(conn *Connection, format string) error {
 
 	switch format {
 	case "json":
-		data, err := json.MarshalIndent(entitySets, "", "  ")
+		var data []byte
+		data, err = json.MarshalIndent(entitySets, "", "  ")
 		if err != nil {
 			return err
 		}
@@ -116,7 +117,8 @@ func describeCommand(conn *Connection, entityName, format string) error {
 			"type":       entitySet.EntityTypeName,
 			"properties": entityType.Properties,
 		}
-		output, err := json.MarshalIndent(data, "", "  ")
+		var output []byte
+		output, err = json.MarshalIndent(data, "", "  ")
 		if err != nil {
 			return err
 		}
@@ -323,9 +325,11 @@ func createClient(conn *Connection) (*traverse.Client, error) {
 }
 
 func formatOutput(data []map[string]interface{}, format string) error {
+	var err error
 	switch format {
 	case "json":
-		output, err := json.MarshalIndent(data, "", "  ")
+		var output []byte
+		output, err = json.MarshalIndent(data, "", "  ")
 		if err != nil {
 			return err
 		}
@@ -333,7 +337,8 @@ func formatOutput(data []map[string]interface{}, format string) error {
 	case "table":
 		return formatTable(data)
 	default:
-		output, err := json.MarshalIndent(data, "", "  ")
+		var output []byte
+		output, err = json.MarshalIndent(data, "", "  ")
 		if err != nil {
 			return err
 		}
