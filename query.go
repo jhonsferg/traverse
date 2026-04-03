@@ -1139,7 +1139,7 @@ func (q *QueryBuilder) Count(ctx context.Context) (int64, error) {
 	path := q.entitySet + "/$count"
 
 	// Build query parameters (without $top/$skip for count)
-	params := make([]string, 0)
+	params := make([]string, 0, 3)
 
 	if len(q.selectFields) > 0 {
 		params = append(params, "$select="+strings.Join(q.selectFields, ","))
