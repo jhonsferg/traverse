@@ -354,7 +354,8 @@ func (q *QueryBuilder) fetchPageStreamed(ctx context.Context, pageURL string) (*
 	decoder := json.NewDecoder(stream.Body)
 
 	// Parse the JSON structure token-by-token
-	if err := parseODataResponse(decoder, page, q.client.version); err != nil {
+	err = parseODataResponse(decoder, page, q.client.version)
+	if err != nil {
 		return nil, fmt.Errorf("failed to parse OData response: %w", err)
 	}
 

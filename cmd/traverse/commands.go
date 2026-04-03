@@ -153,12 +153,12 @@ func countCommand(conn *Connection, entityName, filter string) error {
 		query = query.Filter(filter)
 	}
 
-	count, err := query.Count(ctx)
-	if err != nil {
-		return fmt.Errorf("failed to count records: %w", err)
+	totalCount, countErr := query.Count(ctx)
+	if countErr != nil {
+		return fmt.Errorf("failed to count records: %w", countErr)
 	}
 
-	fmt.Printf("Count: %d\n", count)
+	fmt.Printf("Count: %d\n", totalCount)
 	return nil
 }
 
@@ -183,12 +183,13 @@ func sampleCommand(conn *Connection, entityName string, count int, filter, selec
 		query = query.Select(props...)
 	}
 
-	results, err := query.Collect(ctx)
-	if err != nil {
-		return fmt.Errorf("failed to fetch sample records: %w", err)
+	outputResults, execErr := query.Collect(ctx)
+	if execErr != nil {
+		return fmt.Errorf("query execution failed: %w", execErr)
 	}
 
-	return formatOutput(results, format)
+	return formatOutput(outputResults, format)
+
 }
 
 func queryCommand(conn *Connection, entityName string, opts QueryOptions, format string) error {
@@ -222,12 +223,13 @@ func queryCommand(conn *Connection, entityName string, opts QueryOptions, format
 		query = query.Top(opts.Top)
 	}
 
-	results, err := query.Collect(ctx)
-	if err != nil {
-		return fmt.Errorf("failed to execute query: %w", err)
+	outputResults, execErr := query.Collect(ctx)
+	if execErr != nil {
+		return fmt.Errorf("query execution failed: %w", execErr)
 	}
 
-	return formatOutput(results, format)
+	return formatOutput(outputResults, format)
+
 }
 
 func exportCommand(conn *Connection, entityName string, opts ExportOptions) error {
@@ -262,17 +264,17 @@ func exportCommand(conn *Connection, entityName string, opts ExportOptions) erro
 		query = query.Top(opts.Limit)
 	}
 
-	results, err := query.Collect(ctx)
-	if err != nil {
-		return fmt.Errorf("failed to fetch data: %w", err)
+	exportData, fetchErr := query.Collect(ctx)
+	if fetchErr != nil {
+		return fmt.Errorf("failed to fetch data: %w", fetchErr)
 	}
 
-	file, err := os.Create(opts.Output)
-	if err != nil {
-		return fmt.Errorf("failed to create output file: %w", err)
+	outputFile, createErr := os.Create(opts.Output)
+	if createErr != nil {
+		return fmt.Errorf("failed to create output file: %w", createErr)
 	}
 	defer func() {
-		if closeErr := file.Close(); closeErr != nil {
+		if closeErr := outputFile.Close(); closeErr != nil {
 			fmt.Fprintf(os.Stderr, "warning: failed to close file %s: %v\n", opts.Output, closeErr)
 		}
 	}()
@@ -280,16 +282,16 @@ func exportCommand(conn *Connection, entityName string, opts ExportOptions) erro
 	switch opts.Format {
 	case "json":
 		var data []byte
-		data, err = json.MarshalIndent(results, "", "  ")
+		data, err = json.MarshalIndent(exportData, "", "  ")
 		if err != nil {
 			return err
 		}
-		_, err = file.WriteString(string(data))
+		_, err = outputFile.WriteString(string(data))
 		if err != nil {
 			return err
 		}
 	case "csv":
-		err = exportToCSV(file, results)
+		err = exportToCSV(outputFile, exportData)
 		if err != nil {
 			return err
 		}

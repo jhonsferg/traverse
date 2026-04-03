@@ -481,7 +481,8 @@ func (b *BatchRequest) ExecuteStream(ctx context.Context) <-chan BatchResult {
 		}
 
 		// Stream multipart response incrementally
-		if err := b.streamMultipartResponse(ctx, resp, out); err != nil {
+		err = b.streamMultipartResponse(ctx, resp, out)
+		if err != nil {
 			out <- BatchResult{
 				Err: fmt.Errorf("traverse: batch parse failed: %w", err),
 			}

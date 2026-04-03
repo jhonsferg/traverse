@@ -563,7 +563,7 @@ func (c *Client) fetchMetadata(ctx context.Context) (*Metadata, error) {
 	}
 
 	// Parse EDMX (XML) format
-	metadata, err := ParseEDMX(resp.BodyReader())
+	metadata, err = ParseEDMX(resp.BodyReader())
 	if err != nil {
 		return nil, fmt.Errorf("traverse: failed to parse EDMX: %w", err)
 	}
@@ -640,13 +640,15 @@ func (c *Client) Create(ctx context.Context, entitySet string, data interface{})
 		var wrapped struct {
 			D map[string]interface{} `json:"d"`
 		}
-		if err := json.NewDecoder(resp.BodyReader()).Decode(&wrapped); err != nil {
+		err = json.NewDecoder(resp.BodyReader()).Decode(&wrapped)
+		if err != nil {
 			return nil, fmt.Errorf("traverse: failed to decode Create response: %w", err)
 		}
 		result = wrapped.D
 	} else {
 		// OData v4: response is the entity directly
-		if err := json.NewDecoder(resp.BodyReader()).Decode(&result); err != nil {
+		err = json.NewDecoder(resp.BodyReader()).Decode(&result)
+		if err != nil {
 			return nil, fmt.Errorf("traverse: failed to decode Create response: %w", err)
 		}
 	}

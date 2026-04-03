@@ -470,9 +470,9 @@ func runInteractive() {
 
 func getConnection(url, user, pass, token, profile string, timeout int) (*Connection, error) {
 	if profile != "" {
-		prof, err := loadProfile(profile)
-		if err != nil {
-			return nil, err
+		prof, profileErr := loadProfile(profile)
+		if profileErr != nil {
+			return nil, profileErr
 		}
 		url = prof.URL
 		if prof.Username != "" {

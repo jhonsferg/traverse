@@ -1008,13 +1008,15 @@ func (q *QueryBuilder) FindByKey(ctx context.Context, key interface{}) (map[stri
 		var wrapped struct {
 			D map[string]interface{} `json:"d"`
 		}
-		if err := json.NewDecoder(resp.BodyReader()).Decode(&wrapped); err != nil {
+		err = json.NewDecoder(resp.BodyReader()).Decode(&wrapped)
+		if err != nil {
 			return nil, fmt.Errorf("traverse: failed to decode FindByKey response: %w", err)
 		}
 		result = wrapped.D
 	} else {
 		// OData v4: response is the entity directly
-		if err := json.NewDecoder(resp.BodyReader()).Decode(&result); err != nil {
+		err = json.NewDecoder(resp.BodyReader()).Decode(&result)
+		if err != nil {
 			return nil, fmt.Errorf("traverse: failed to decode FindByKey response: %w", err)
 		}
 	}
@@ -1074,13 +1076,15 @@ func (q *QueryBuilder) FindByCompositeKey(ctx context.Context, keys map[string]i
 		var wrapped struct {
 			D map[string]interface{} `json:"d"`
 		}
-		if err := json.NewDecoder(resp.BodyReader()).Decode(&wrapped); err != nil {
+		err = json.NewDecoder(resp.BodyReader()).Decode(&wrapped)
+		if err != nil {
 			return nil, fmt.Errorf("traverse: failed to decode FindByCompositeKey response: %w", err)
 		}
 		result = wrapped.D
 	} else {
 		// OData v4: response is the entity directly
-		if err := json.NewDecoder(resp.BodyReader()).Decode(&result); err != nil {
+		err = json.NewDecoder(resp.BodyReader()).Decode(&result)
+		if err != nil {
 			return nil, fmt.Errorf("traverse: failed to decode FindByCompositeKey response: %w", err)
 		}
 	}
@@ -1267,9 +1271,11 @@ func (q *QueryBuilder) Page(ctx context.Context) (*Page, error) {
 	decoder := json.NewDecoder(resp.BodyReader())
 
 	// Parse the JSON structure token-by-token
-	if err := parseODataResponse(decoder, page, q.client.version); err != nil {
-		return nil, fmt.Errorf("traverse: failed to parse Page response: %w", err)
+	err = parseODataResponse(decoder, page, q.client.version)
+	if err != nil {
+		return nil, fmt.Errorf("failed to parse OData response: %w", err)
 	}
+
 
 	return page, nil
 }
