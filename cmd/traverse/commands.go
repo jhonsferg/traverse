@@ -277,7 +277,8 @@ func exportCommand(conn *Connection, entityName string, opts ExportOptions) erro
 
 	switch opts.Format {
 	case "json":
-		data, err := json.MarshalIndent(results, "", "  ")
+		var data []byte
+		data, err = json.MarshalIndent(results, "", "  ")
 		if err != nil {
 			return err
 		}
@@ -348,8 +349,8 @@ func formatTable(data []map[string]interface{}) error {
 	}
 
 	// Extract column names from first row
-	var columns []string
 	firstRow := data[0]
+	columns := make([]string, 0, len(firstRow))
 	for k := range firstRow {
 		columns = append(columns, k)
 	}
@@ -438,8 +439,8 @@ func exportToCSV(file *os.File, data []map[string]interface{}) error {
 	defer writer.Flush()
 
 	// Extract column names from first row
-	var columns []string
 	firstRow := data[0]
+	columns := make([]string, 0, len(firstRow))
 	for k := range firstRow {
 		columns = append(columns, k)
 	}
@@ -452,7 +453,7 @@ func exportToCSV(file *os.File, data []map[string]interface{}) error {
 
 	// Write rows
 	for _, row := range data {
-		var record []string
+		record := make([]string, 0, len(columns))
 		for _, col := range columns {
 			record = append(record, toString(row[col]))
 		}

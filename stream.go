@@ -386,7 +386,7 @@ func parseODataResponse(decoder *json.Decoder, page *Page, version ODataVersion)
 
 	// Navigate through the root object
 	for decoder.More() {
-		token, err := decoder.Token()
+		token, err = decoder.Token()
 		if err != nil {
 			return fmt.Errorf("failed to read token: %w", err)
 		}
@@ -492,7 +492,7 @@ func parseODataV2Wrapper(decoder *json.Decoder, page *Page) error {
 	}
 
 	for decoder.More() {
-		token, err := decoder.Token()
+		token, err = decoder.Token()
 		if err != nil {
 			return fmt.Errorf("failed to read wrapper token: %w", err)
 		}
@@ -572,7 +572,8 @@ func parseValueArray(decoder *json.Decoder, page *Page) error {
 	for decoder.More() {
 		// Capture raw JSON first by decoding to RawMessage
 		var rawMsg json.RawMessage
-		if err := decoder.Decode(&rawMsg); err != nil {
+		err = decoder.Decode(&rawMsg)
+		if err != nil {
 			return fmt.Errorf("failed to decode record: %w", err)
 		}
 		page.RawValue = append(page.RawValue, rawMsg)
@@ -580,7 +581,8 @@ func parseValueArray(decoder *json.Decoder, page *Page) error {
 		// Also decode to map for backward compatibility with existing code
 		// Get a map from the pool
 		record := mapPool.Get().(map[string]interface{})
-		if err := json.Unmarshal(rawMsg, &record); err != nil {
+		err = json.Unmarshal(rawMsg, &record)
+		if err != nil {
 			// Return the map to pool even on error
 			mapPool.Put(resetMapForPool(record))
 			return fmt.Errorf("failed to unmarshal raw record to map: %w", err)
