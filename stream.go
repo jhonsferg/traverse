@@ -86,16 +86,6 @@ type goroutinePool struct {
 	doneChan chan struct{}
 }
 
-// adaptiveBufferState tracks buffer optimization statistics across pages.
-//
-// adaptiveBufferState is used internally to estimate and track optimal buffer
-// sizes as pages are streamed, allowing for dynamic adjustment based on
-// observed record sizes.
-type adaptiveBufferState struct {
-	// estimatedSize is the estimated optimal buffer size
-	estimatedSize int
-}
-
 // newGoroutinePool creates a new goroutine pool with the given number of workers.
 //
 // newGoroutinePool creates a pool of worker goroutines that execute tasks
@@ -118,7 +108,7 @@ func newGoroutinePool(workers int) *goroutinePool {
 		taskChan: make(chan func(), workers*2),
 		doneChan: make(chan struct{}),
 	}
-	
+
 	// Start worker goroutines
 	pool.wg.Add(workers)
 	for i := 0; i < workers; i++ {
@@ -129,7 +119,7 @@ func newGoroutinePool(workers int) *goroutinePool {
 			}
 		}()
 	}
-	
+
 	return pool
 }
 
@@ -326,7 +316,6 @@ func (q *QueryBuilder) doStreamPagesRaw(ctx context.Context, out chan<- RawResul
 	}
 }
 
-
 // fetchPageStreamed fetches and parses a single page of results using streaming.
 //
 // fetchPageStreamed executes an HTTP GET request for the given pageURL and
@@ -348,7 +337,7 @@ func (q *QueryBuilder) fetchPageStreamed(ctx context.Context, pageURL string) (*
 	if err != nil {
 		return nil, fmt.Errorf("ExecuteStream failed: %w", err)
 	}
-	defer stream.Body.Close()
+	defer func() { _ = stream.Body.Close() }()
 
 	// Check response status
 	if stream.StatusCode != 200 {
@@ -365,7 +354,8 @@ func (q *QueryBuilder) fetchPageStreamed(ctx context.Context, pageURL string) (*
 	decoder := json.NewDecoder(stream.Body)
 
 	// Parse the JSON structure token-by-token
-	if err := parseODataResponse(decoder, page, q.client.version); err != nil {
+	err = parseODataResponse(decoder, page, q.client.version)
+	if err != nil {
 		return nil, fmt.Errorf("failed to parse OData response: %w", err)
 	}
 
@@ -397,7 +387,7 @@ func parseODataResponse(decoder *json.Decoder, page *Page, version ODataVersion)
 
 	// Navigate through the root object
 	for decoder.More() {
-		token, err := decoder.Token()
+		token, err = decoder.Token()
 		if err != nil {
 			return fmt.Errorf("failed to read token: %w", err)
 		}
@@ -412,7 +402,8 @@ func parseODataResponse(decoder *json.Decoder, page *Page, version ODataVersion)
 		case "value":
 			// OData v4 format: "value": [...]
 			if version == ODataV4 {
-				if err := parseValueArray(decoder, page); err != nil {
+				err = parseValueArray(decoder, page)
+				if err != nil {
 					return err
 				}
 			}
@@ -420,7 +411,8 @@ func parseODataResponse(decoder *json.Decoder, page *Page, version ODataVersion)
 		case "d":
 			// OData v2 format: "d": {"results": [...], "__next": "..."}
 			if version == ODataV2 {
-				if err := parseODataV2Wrapper(decoder, page); err != nil {
+				err = parseODataV2Wrapper(decoder, page)
+				if err != nil {
 					return err
 				}
 			}
@@ -428,7 +420,8 @@ func parseODataResponse(decoder *json.Decoder, page *Page, version ODataVersion)
 		case "@odata.nextLink":
 			// OData v4 next link
 			var nextLink string
-			if err := decoder.Decode(&nextLink); err != nil {
+			err = decoder.Decode(&nextLink)
+			if err != nil {
 				return fmt.Errorf("failed to decode @odata.nextLink: %w", err)
 			}
 			page.NextLink = nextLink
@@ -436,7 +429,8 @@ func parseODataResponse(decoder *json.Decoder, page *Page, version ODataVersion)
 		case "__next":
 			// OData v2 next link (also can be in the "d" wrapper)
 			var nextLink string
-			if err := decoder.Decode(&nextLink); err != nil {
+			err = decoder.Decode(&nextLink)
+			if err != nil {
 				return fmt.Errorf("failed to decode __next: %w", err)
 			}
 			page.NextLink = nextLink
@@ -444,7 +438,8 @@ func parseODataResponse(decoder *json.Decoder, page *Page, version ODataVersion)
 		case "@odata.count":
 			// Total count
 			var count int64
-			if err := decoder.Decode(&count); err != nil {
+			err = decoder.Decode(&count)
+			if err != nil {
 				return fmt.Errorf("failed to decode @odata.count: %w", err)
 			}
 			page.Count = &count
@@ -452,7 +447,8 @@ func parseODataResponse(decoder *json.Decoder, page *Page, version ODataVersion)
 		case "@odata.context":
 			// Metadata context URI
 			var ctx string
-			if err := decoder.Decode(&ctx); err != nil {
+			err = decoder.Decode(&ctx)
+			if err != nil {
 				return fmt.Errorf("failed to decode @odata.context: %w", err)
 			}
 			page.Context = ctx
@@ -460,7 +456,8 @@ func parseODataResponse(decoder *json.Decoder, page *Page, version ODataVersion)
 		case "@odata.deltaLink":
 			// Delta link for incremental sync
 			var deltaLink string
-			if err := decoder.Decode(&deltaLink); err != nil {
+			err = decoder.Decode(&deltaLink)
+			if err != nil {
 				return fmt.Errorf("failed to decode @odata.deltaLink: %w", err)
 			}
 			page.DeltaLink = deltaLink
@@ -468,14 +465,15 @@ func parseODataResponse(decoder *json.Decoder, page *Page, version ODataVersion)
 		default:
 			// Skip unknown fields
 			var tmp interface{}
-			if err := decoder.Decode(&tmp); err != nil && err != io.EOF {
+			err = decoder.Decode(&tmp)
+			if err != nil && err != io.EOF {
 				return fmt.Errorf("failed to skip field %q: %w", key, err)
 			}
 		}
 	}
 
 	// Final closing '}'
-	token, err = decoder.Token()
+	_, err = decoder.Token()
 	if err != nil && err != io.EOF {
 		return fmt.Errorf("failed to read closing token: %w", err)
 	}
@@ -503,7 +501,7 @@ func parseODataV2Wrapper(decoder *json.Decoder, page *Page) error {
 	}
 
 	for decoder.More() {
-		token, err := decoder.Token()
+		token, err = decoder.Token()
 		if err != nil {
 			return fmt.Errorf("failed to read wrapper token: %w", err)
 		}
@@ -515,13 +513,15 @@ func parseODataV2Wrapper(decoder *json.Decoder, page *Page) error {
 
 		switch key {
 		case "results":
-			if err := parseValueArray(decoder, page); err != nil {
+			err = parseValueArray(decoder, page)
+			if err != nil {
 				return err
 			}
 
 		case "__next":
 			var nextLink string
-			if err := decoder.Decode(&nextLink); err != nil {
+			err = decoder.Decode(&nextLink)
+			if err != nil {
 				return fmt.Errorf("failed to decode __next: %w", err)
 			}
 			page.NextLink = nextLink
@@ -529,7 +529,8 @@ func parseODataV2Wrapper(decoder *json.Decoder, page *Page) error {
 		case "__count":
 			// OData v2 count format
 			var count interface{}
-			if err := decoder.Decode(&count); err != nil {
+			err = decoder.Decode(&count)
+			if err != nil {
 				return fmt.Errorf("failed to decode __count: %w", err)
 			}
 			// Convert to int64 if possible
@@ -541,14 +542,15 @@ func parseODataV2Wrapper(decoder *json.Decoder, page *Page) error {
 		default:
 			// Skip unknown fields
 			var tmp interface{}
-			if err := decoder.Decode(&tmp); err != nil && err != io.EOF {
+			err = decoder.Decode(&tmp)
+			if err != nil && err != io.EOF {
 				return fmt.Errorf("failed to skip wrapper field %q: %w", key, err)
 			}
 		}
 	}
 
 	// Closing '}'
-	token, err = decoder.Token()
+	_, err = decoder.Token()
 	if err != nil && err != io.EOF {
 		return fmt.Errorf("failed to read wrapper closing: %w", err)
 	}
@@ -583,7 +585,8 @@ func parseValueArray(decoder *json.Decoder, page *Page) error {
 	for decoder.More() {
 		// Capture raw JSON first by decoding to RawMessage
 		var rawMsg json.RawMessage
-		if err := decoder.Decode(&rawMsg); err != nil {
+		err = decoder.Decode(&rawMsg)
+		if err != nil {
 			return fmt.Errorf("failed to decode record: %w", err)
 		}
 		page.RawValue = append(page.RawValue, rawMsg)
@@ -591,7 +594,8 @@ func parseValueArray(decoder *json.Decoder, page *Page) error {
 		// Also decode to map for backward compatibility with existing code
 		// Get a map from the pool
 		record := mapPool.Get().(map[string]interface{})
-		if err := json.Unmarshal(rawMsg, &record); err != nil {
+		err = json.Unmarshal(rawMsg, &record)
+		if err != nil {
 			// Return the map to pool even on error
 			mapPool.Put(resetMapForPool(record))
 			return fmt.Errorf("failed to unmarshal raw record to map: %w", err)
@@ -670,87 +674,4 @@ type DeltaResult struct {
 	Reason string
 	// Err is an error if one occurred
 	Err error
-}
-
-// parseDeltaResponse parses an OData delta sync response.
-//
-// parseDeltaResponse handles delta queries which return both regular records
-// and deleted records marked with @removed annotations. This enables incremental
-// synchronization where clients track which records have changed or been deleted.
-//
-// The function filters out deleted records (those with @removed annotations)
-// from the results, preserving only modified or added records in page.Value.
-//
-// This is an unexported function used internally for delta response parsing.
-func parseDeltaResponse(decoder *json.Decoder, page *Page) error {
-	// Similar to parseODataResponse but with support for @removed
-
-	token, err := decoder.Token()
-	if err != nil {
-		return fmt.Errorf("failed to read first token: %w", err)
-	}
-	if delim, ok := token.(json.Delim); !ok || delim != '{' {
-		return fmt.Errorf("expected '{', got %v", token)
-	}
-
-	for decoder.More() {
-		token, err := decoder.Token()
-		if err != nil {
-			return fmt.Errorf("failed to read token: %w", err)
-		}
-
-		key, ok := token.(string)
-		if !ok {
-			continue
-		}
-
-		if key == "value" {
-			// Parse value array with @removed support
-			token, err := decoder.Token()
-			if err != nil {
-				return fmt.Errorf("failed to read array opening: %w", err)
-			}
-			if delim, ok := token.(json.Delim); !ok || delim != '[' {
-				return fmt.Errorf("expected '[', got %v", token)
-			}
-
-			for decoder.More() {
-				var record map[string]interface{}
-				if err := decoder.Decode(&record); err != nil {
-					return fmt.Errorf("failed to decode record: %w", err)
-				}
-
-				// Check for @removed annotation
-				if removed, ok := record["@removed"]; ok {
-					// Record is marked as deleted
-					if removedObj, ok := removed.(map[string]interface{}); ok {
-						// Don't add to results; it was deleted
-						_ = removedObj // Use it if we want to process reason
-					}
-				} else {
-					page.Value = append(page.Value, record)
-				}
-			}
-
-			// Closing ']'
-			token, err = decoder.Token()
-			if err != nil && err != io.EOF {
-				return fmt.Errorf("failed to read array closing: %w", err)
-			}
-		} else {
-			// Handle other fields like @odata.deltaLink, @odata.count, etc.
-			var tmp interface{}
-			if err := decoder.Decode(&tmp); err != nil && err != io.EOF {
-				return fmt.Errorf("failed to decode field %q: %w", key, err)
-			}
-		}
-	}
-
-	// Closing '}'
-	token, err = decoder.Token()
-	if err != nil && err != io.EOF {
-		return fmt.Errorf("failed to read closing token: %w", err)
-	}
-
-	return nil
 }

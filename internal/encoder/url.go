@@ -82,11 +82,12 @@ type QueryOptions struct {
 //   - entitySet is empty (caught at URL building stage)
 //
 // Examples:
-//   BuildURL("http://sap.example.com/odata/v2", "MaterialSet", QueryOptions{
-//     Top: intPtr(10),
-//     Filter: "Price%20gt%20100",
-//   })
-//   // Returns: "http://sap.example.com/odata/v2/MaterialSet?$top=10&$filter=Price%20gt%20100"
+//
+//	BuildURL("http://sap.example.com/odata/v2", "MaterialSet", QueryOptions{
+//	  Top: intPtr(10),
+//	  Filter: "Price%20gt%20100",
+//	})
+//	// Returns: "http://sap.example.com/odata/v2/MaterialSet?$top=10&$filter=Price%20gt%20100"
 func BuildURL(base, entitySet string, opts QueryOptions) (string, error) {
 	// Validate base URL
 	if !strings.HasPrefix(base, "http://") && !strings.HasPrefix(base, "https://") {
@@ -173,14 +174,15 @@ func BuildURL(base, entitySet string, opts QueryOptions) (string, error) {
 //   - If entitySetURL has a key (ends with ) or '), append /navigationProp to that
 //
 // Examples:
-//   Input:  "/ProductSet", "SalesOrders"
-//   Output: "/ProductSet/SalesOrders"
 //
-//   Input:  "/ProductSet('SKU001')", "Orders"
-//   Output: "/ProductSet('SKU001')/Orders"
+//	Input:  "/ProductSet", "SalesOrders"
+//	Output: "/ProductSet/SalesOrders"
 //
-//   Input:  "/ProductSet(1)", "Categories"
-//   Output: "/ProductSet(1)/Categories"
+//	Input:  "/ProductSet('SKU001')", "Orders"
+//	Output: "/ProductSet('SKU001')/Orders"
+//
+//	Input:  "/ProductSet(1)", "Categories"
+//	Output: "/ProductSet(1)/Categories"
 //
 // The resulting URL can then be used with OData queries to navigate to related entity sets.
 func BuildNavigationURL(entitySetURL, navigationProp string) string {
@@ -199,8 +201,9 @@ func BuildNavigationURL(entitySetURL, navigationProp string) string {
 // properties and filters in a single request, rather than requiring separate round trips.
 //
 // The $expand parameter format per OData spec:
-//   Simple expand: "Orders"
-//   With nested options: "Orders($select=ID,Amount;$filter=Amount gt 100)"
+//
+//	Simple expand: "Orders"
+//	With nested options: "Orders($select=ID,Amount;$filter=Amount gt 100)"
 //
 // Parameters:
 //   - navProp: The navigation property name (e.g., "Orders", "Categories", "SalesOrders")
@@ -211,14 +214,15 @@ func BuildNavigationURL(entitySetURL, navigationProp string) string {
 // Multiple select fields are comma-separated; filter expressions follow OData syntax.
 //
 // Examples:
-//   EncodeExpandOption("Orders", nil, "")
-//   // Returns: "Orders"
 //
-//   EncodeExpandOption("Orders", []string{"ID", "Amount"}, "")
-//   // Returns: "Orders($select=ID,Amount)"
+//	EncodeExpandOption("Orders", nil, "")
+//	// Returns: "Orders"
 //
-//   EncodeExpandOption("Orders", []string{"ID", "Amount"}, "Amount gt 100")
-//   // Returns: "Orders($select=ID,Amount;$filter=Amount gt 100)"
+//	EncodeExpandOption("Orders", []string{"ID", "Amount"}, "")
+//	// Returns: "Orders($select=ID,Amount)"
+//
+//	EncodeExpandOption("Orders", []string{"ID", "Amount"}, "Amount gt 100")
+//	// Returns: "Orders($select=ID,Amount;$filter=Amount gt 100)"
 //
 // The result can be used as a value for the Expand field in QueryOptions.
 func EncodeExpandOption(navProp string, selectFields []string, filterExpr string) string {

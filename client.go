@@ -3,6 +3,7 @@
 // Traverse is designed for high-performance querying and manipulation of OData services,
 // with special optimizations for SAP systems. It offers:
 //   - Streaming-first architecture for processing large datasets without memory overhead
+//
 // - Ultra-low memory allocations (-81% vs baseline) through object pooling and zero-allocation patterns
 // - Fluent query builder API for ergonomic OData query construction
 // - Support for OData batch operations, delta queries, functions, and actions
@@ -105,8 +106,6 @@ import (
 //		processOrder(result.Value)
 //	}
 type Client struct {
-	mu sync.RWMutex // protects cached metadata
-
 	// http is the underlying relay HTTP client for making requests.
 	http *relay.Client
 	// baseURL is the OData service endpoint URL.
@@ -641,13 +640,15 @@ func (c *Client) Create(ctx context.Context, entitySet string, data interface{})
 		var wrapped struct {
 			D map[string]interface{} `json:"d"`
 		}
-		if err := json.NewDecoder(resp.BodyReader()).Decode(&wrapped); err != nil {
+		err = json.NewDecoder(resp.BodyReader()).Decode(&wrapped)
+		if err != nil {
 			return nil, fmt.Errorf("traverse: failed to decode Create response: %w", err)
 		}
 		result = wrapped.D
 	} else {
 		// OData v4: response is the entity directly
-		if err := json.NewDecoder(resp.BodyReader()).Decode(&result); err != nil {
+		err = json.NewDecoder(resp.BodyReader()).Decode(&result)
+		if err != nil {
 			return nil, fmt.Errorf("traverse: failed to decode Create response: %w", err)
 		}
 	}
@@ -882,9 +883,10 @@ func (c *Client) Delete(ctx context.Context, entitySet string, key interface{}) 
 // Returns an error if the key type is not supported (e.g., bool, slice, map).
 //
 // Example encodings:
-//   encodeKey("Product A")   → "'Product%20A'"
-//   encodeKey(123)           → "123"
-//   encodeKey(45.67)         → "45.67"
+//
+//	encodeKey("Product A")   → "'Product%20A'"
+//	encodeKey(123)           → "123"
+//	encodeKey(45.67)         → "45.67"
 func encodeKey(key interface{}) (string, error) {
 	switch v := key.(type) {
 	case string:
@@ -1406,8 +1408,8 @@ type ActionInfo struct {
 
 // FunctionInfo represents an OData function (v4).
 type FunctionInfo struct {
-	Name       string
-	Parameters []FunctionParameter
-	ReturnType string
+	Name         string
+	Parameters   []FunctionParameter
+	ReturnType   string
 	IsComposable bool
 }

@@ -2,8 +2,9 @@
 package testutil
 
 import (
+	"crypto/rand"
 	"fmt"
-	"math/rand"
+	"math/big"
 	"time"
 )
 
@@ -81,7 +82,8 @@ func SalesOrderFixture(n int) []map[string]interface{} {
 			return time.Now().AddDate(0, 0, -i).Format("2006-01-02")
 		},
 		"NetAmount": func(i int) interface{} {
-			return 1000.00 + float64(rand.Intn(10000))
+			n, _ := rand.Int(rand.Reader, big.NewInt(10000))
+			return 1000.00 + float64(n.Int64())
 		},
 		"Currency": func(i int) interface{} {
 			return "USD"

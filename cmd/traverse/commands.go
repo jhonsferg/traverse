@@ -56,7 +56,8 @@ func metadataCommand(conn *Connection, format string) error {
 
 	switch format {
 	case "json":
-		data, err := json.MarshalIndent(entitySets, "", "  ")
+		var data []byte
+		data, err = json.MarshalIndent(entitySets, "", "  ")
 		if err != nil {
 			return err
 		}
@@ -116,7 +117,8 @@ func describeCommand(conn *Connection, entityName, format string) error {
 			"type":       entitySet.EntityTypeName,
 			"properties": entityType.Properties,
 		}
-		output, err := json.MarshalIndent(data, "", "  ")
+		var output []byte
+		output, err = json.MarshalIndent(data, "", "  ")
 		if err != nil {
 			return err
 		}
@@ -151,12 +153,12 @@ func countCommand(conn *Connection, entityName, filter string) error {
 		query = query.Filter(filter)
 	}
 
-	count, err := query.Count(ctx)
-	if err != nil {
-		return fmt.Errorf("failed to count records: %w", err)
+	totalCount, countErr := query.Count(ctx)
+	if countErr != nil {
+		return fmt.Errorf("failed to count records: %w", countErr)
 	}
 
-	fmt.Printf("Count: %d\n", count)
+	fmt.Printf("Count: %d\n", totalCount)
 	return nil
 }
 
@@ -181,12 +183,13 @@ func sampleCommand(conn *Connection, entityName string, count int, filter, selec
 		query = query.Select(props...)
 	}
 
-	results, err := query.Collect(ctx)
-	if err != nil {
-		return fmt.Errorf("failed to fetch sample records: %w", err)
+	outputResults, execErr := query.Collect(ctx)
+	if execErr != nil {
+		return fmt.Errorf("query execution failed: %w", execErr)
 	}
 
-	return formatOutput(results, format)
+	return formatOutput(outputResults, format)
+
 }
 
 func queryCommand(conn *Connection, entityName string, opts QueryOptions, format string) error {
@@ -220,12 +223,13 @@ func queryCommand(conn *Connection, entityName string, opts QueryOptions, format
 		query = query.Top(opts.Top)
 	}
 
-	results, err := query.Collect(ctx)
-	if err != nil {
-		return fmt.Errorf("failed to execute query: %w", err)
+	outputResults, execErr := query.Collect(ctx)
+	if execErr != nil {
+		return fmt.Errorf("query execution failed: %w", execErr)
 	}
 
-	return formatOutput(results, format)
+	return formatOutput(outputResults, format)
+
 }
 
 func exportCommand(conn *Connection, entityName string, opts ExportOptions) error {
@@ -260,29 +264,34 @@ func exportCommand(conn *Connection, entityName string, opts ExportOptions) erro
 		query = query.Top(opts.Limit)
 	}
 
-	results, err := query.Collect(ctx)
-	if err != nil {
-		return fmt.Errorf("failed to fetch data: %w", err)
+	exportData, fetchErr := query.Collect(ctx)
+	if fetchErr != nil {
+		return fmt.Errorf("failed to fetch data: %w", fetchErr)
 	}
 
-	file, err := os.Create(opts.Output)
-	if err != nil {
-		return fmt.Errorf("failed to create output file: %w", err)
+	outputFile, createErr := os.Create(opts.Output)
+	if createErr != nil {
+		return fmt.Errorf("failed to create output file: %w", createErr)
 	}
-	defer file.Close()
+	defer func() {
+		if closeErr := outputFile.Close(); closeErr != nil {
+			fmt.Fprintf(os.Stderr, "warning: failed to close file %s: %v\n", opts.Output, closeErr)
+		}
+	}()
 
 	switch opts.Format {
 	case "json":
-		data, err := json.MarshalIndent(results, "", "  ")
+		var data []byte
+		data, err = json.MarshalIndent(exportData, "", "  ")
 		if err != nil {
 			return err
 		}
-		_, err = file.WriteString(string(data))
+		_, err = outputFile.WriteString(string(data))
 		if err != nil {
 			return err
 		}
 	case "csv":
-		err = exportToCSV(file, results)
+		err = exportToCSV(outputFile, exportData)
 		if err != nil {
 			return err
 		}
@@ -298,7 +307,7 @@ func createClient(conn *Connection) (*traverse.Client, error) {
 	if !strings.HasSuffix(baseURL, "/") {
 		baseURL += "/"
 	}
-	
+
 	opts := []traverse.Option{
 		traverse.WithBaseURL(baseURL),
 	}
@@ -318,9 +327,11 @@ func createClient(conn *Connection) (*traverse.Client, error) {
 }
 
 func formatOutput(data []map[string]interface{}, format string) error {
+	var err error
 	switch format {
 	case "json":
-		output, err := json.MarshalIndent(data, "", "  ")
+		var output []byte
+		output, err = json.MarshalIndent(data, "", "  ")
 		if err != nil {
 			return err
 		}
@@ -328,7 +339,8 @@ func formatOutput(data []map[string]interface{}, format string) error {
 	case "table":
 		return formatTable(data)
 	default:
-		output, err := json.MarshalIndent(data, "", "  ")
+		var output []byte
+		output, err = json.MarshalIndent(data, "", "  ")
 		if err != nil {
 			return err
 		}
@@ -344,8 +356,8 @@ func formatTable(data []map[string]interface{}) error {
 	}
 
 	// Extract column names from first row
-	var columns []string
 	firstRow := data[0]
+	columns := make([]string, 0, len(firstRow))
 	for k := range firstRow {
 		columns = append(columns, k)
 	}
@@ -417,7 +429,10 @@ func toString(v interface{}) string {
 	case json.Number:
 		return val.String()
 	default:
-		b, _ := json.Marshal(v)
+		b, err := json.Marshal(v)
+		if err != nil {
+			return fmt.Sprintf("%v", v)
+		}
 		return string(b)
 	}
 }
@@ -431,8 +446,8 @@ func exportToCSV(file *os.File, data []map[string]interface{}) error {
 	defer writer.Flush()
 
 	// Extract column names from first row
-	var columns []string
 	firstRow := data[0]
+	columns := make([]string, 0, len(firstRow))
 	for k := range firstRow {
 		columns = append(columns, k)
 	}
@@ -445,7 +460,7 @@ func exportToCSV(file *os.File, data []map[string]interface{}) error {
 
 	// Write rows
 	for _, row := range data {
-		var record []string
+		record := make([]string, 0, len(columns))
 		for _, col := range columns {
 			record = append(record, toString(row[col]))
 		}

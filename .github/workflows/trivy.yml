@@ -17,6 +17,7 @@ permissions:
   contents: read
   security-events: write
   statuses: write
+  pull-requests: write
 
 jobs:
   trivy-scan:
@@ -25,7 +26,7 @@ jobs:
     
     steps:
       - name: Checkout code
-        uses: actions/checkout@v4
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4
         with:
           fetch-depth: 0
 

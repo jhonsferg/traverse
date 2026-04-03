@@ -30,9 +30,10 @@ help: ## Display this help message
 	@echo "  make test-coverage Generate coverage report (terminal)"
 	@echo "  make test-coverage-html Generate coverage report (HTML)"
 	@echo ""
-	@echo "Benchmarking:"
-	@echo "  make bench         Run benchmarks"
-	@echo "  make bench-save    Run benchmarks and save results"
+	@echo "Benchmarking (Local-Only):"
+	@echo "  make bench         Run benchmarks locally (takes 10-30 minutes)"
+	@echo "  make bench-save    Run benchmarks and save results for comparison"
+	@echo "  NOTE: Benchmarks are excluded from CI due to resource constraints"
 	@echo ""
 	@echo "Maintenance:"
 	@echo "  make tidy          Tidy go.mod files"
@@ -117,13 +118,13 @@ test-coverage-html: test-coverage ## Generate HTML coverage report
 	$(GO) tool cover -html=$(COVERAGE) -o coverage.html
 	@echo "✓ Coverage report generated: coverage.html"
 
-bench: ## Run benchmarks
-	@echo "Running benchmarks..."
+bench: ## Run benchmarks (local-only, excluded from CI)
+	@echo "Running benchmarks (this may take 10-30 minutes)..."
 	$(GO) test -bench=. -benchmem -benchtime=3s -run=^$$ ./internal/... ./ext/... ./testutil/... 2>/dev/null || $(GO) test -bench=. -benchmem -benchtime=3s -run=^$$ ./...
 	@echo "✓ Benchmarks complete"
 
-bench-save: ## Run benchmarks and save results
-	@echo "Running benchmarks and saving results..."
+bench-save: ## Run benchmarks and save results (local-only, excluded from CI)
+	@echo "Running benchmarks and saving results (this may take 10-30 minutes)..."
 	@mkdir -p benchmarks
 	$(GO) test -bench=. -benchmem -benchtime=3s -run=^$$ ./internal/... ./ext/... ./testutil/... 2>/dev/null || $(GO) test -bench=. -benchmem -benchtime=3s -run=^$$ ./... | tee benchmarks/benchmark_results.txt
 	@echo "✓ Benchmark results saved to benchmarks/benchmark_results.txt"
@@ -200,7 +201,7 @@ watch-test: ## Watch for changes and run tests (TDD workflow)
 # Compound workflows
 all: clean fmt lint vet test bench ## Run all checks: clean, fmt, lint, vet, test, bench
 
-ci: lint vet test ## Run CI checks: lint, vet, test (excluding cmd)
+ci: lint vet test ## Run CI checks: lint, vet, test (benchmarks run locally only)
 
 # Workspace verification
 workspace-check: ## Verify go.work workspace setup

@@ -1,6 +1,8 @@
 package traverse
 
 import (
+	"context"
+	"fmt"
 	"net/url"
 	"strings"
 	"testing"
@@ -134,7 +136,7 @@ func TestQueryParallelOrder(t *testing.T) {
 
 // TestQueryParallelEmpty verifies that QueryParallel handles empty input.
 func TestQueryParallelEmpty(t *testing.T) {
-	results, err := QueryParallel(nil)
+	results, err := QueryParallel(context.TODO())
 	if err != nil {
 		t.Errorf("QueryParallel with empty input should not error, got %v", err)
 	}
@@ -152,8 +154,8 @@ func TestMemoryCacheLockFree(t *testing.T) {
 	for i := 0; i < 10; i++ {
 		go func(idx int) {
 			defer func() { done <- true }()
-			metadata := &Metadata{EntityTypes: []EntityType{{Name: "Entity" + string(rune('A'+idx))}}}
-			cache.Set("key"+string(rune('0'+idx)), metadata)
+			metadata := &Metadata{EntityTypes: []EntityType{{Name: fmt.Sprintf("Entity%c", 'A'+idx)}}}
+			cache.Set(fmt.Sprintf("key%d", idx), metadata)
 		}(i)
 	}
 
@@ -357,19 +359,19 @@ func TestSelectFieldsMultiple(t *testing.T) {
 // TestValidateFilterValid tests filter validation with valid filters
 func TestValidateFilterValid(t *testing.T) {
 	tests := []string{
-		"",                              // Empty is valid
-		"Status eq 'Active'",            // Basic comparison
-		"Name eq 'John'",                // Simple equality
-		"Price gt 100",                  // Greater than
-		"Amount le 500",                 // Less than or equal
-		"Status eq 'Active' and Age gt 18",     // Compound with and
+		"",                                 // Empty is valid
+		"Status eq 'Active'",               // Basic comparison
+		"Name eq 'John'",                   // Simple equality
+		"Price gt 100",                     // Greater than
+		"Amount le 500",                    // Less than or equal
+		"Status eq 'Active' and Age gt 18", // Compound with and
 		"Status eq 'Active' or Status eq 'Inactive'", // Compound with or
-		"startswith(Name, 'J')",         // Function
-		"endswith(Email, '@example.com')", // Function
-		"contains(Description, 'test')", // Function
-		"Year(CreatedDate) eq 2024",     // Date function
-		"Category in ('Electronics', 'Books')", // in operator
-		"cast(ID, 'Edm.Int32') eq 5",   // cast function
+		"startswith(Name, 'J')",                      // Function
+		"endswith(Email, '@example.com')",            // Function
+		"contains(Description, 'test')",              // Function
+		"Year(CreatedDate) eq 2024",                  // Date function
+		"Category in ('Electronics', 'Books')",       // in operator
+		"cast(ID, 'Edm.Int32') eq 5",                 // cast function
 	}
 
 	for _, expr := range tests {

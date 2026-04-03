@@ -1,6 +1,7 @@
 package traverse
 
 import (
+	"fmt"
 	"testing"
 )
 
@@ -96,7 +97,7 @@ func TestMemoryCacheConcurrency(t *testing.T) {
 	done := make(chan bool, 10)
 	for i := 0; i < 10; i++ {
 		go func(idx int) {
-			metadata := &Metadata{EntityTypes: []EntityType{{Name: string(rune(idx))}}}
+			metadata := &Metadata{EntityTypes: []EntityType{{Name: fmt.Sprintf("Entity%d", idx)}}}
 			cache.Set("key", metadata)
 			done <- true
 		}(i)

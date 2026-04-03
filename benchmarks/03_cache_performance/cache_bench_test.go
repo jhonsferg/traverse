@@ -2,6 +2,7 @@ package benchmarks
 
 import (
 	"context"
+	"fmt"
 	"testing"
 	"time"
 
@@ -273,19 +274,19 @@ func BenchmarkCacheSize(b *testing.B) {
 
 	sizes := []int{100, 1000, 10000}
 
-	for _, size := range sizes {
-		b.Run(string(rune('a'+byte(len(sizes)))), func(b *testing.B) {
+	for idx, size := range sizes {
+		b.Run(fmt.Sprintf("size_%d", idx), func(b *testing.B) {
 			cache := memory.New(10 * time.Minute)
 
 			// Pre-populate
 			for i := 0; i < size; i++ {
-				key := "metadata_" + string(rune(i))
+				key := fmt.Sprintf("metadata_%d", i)
 				cache.Set(key, testMetadata)
 			}
 
 			b.ResetTimer()
 			for i := 0; i < b.N; i++ {
-				key := "metadata_" + string(rune(i%size))
+				key := fmt.Sprintf("metadata_%d", i%size)
 				_, _ = cache.Get(key)
 			}
 		})

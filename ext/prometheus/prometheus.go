@@ -10,23 +10,23 @@ import (
 // Metrics holds all Prometheus metrics for traverse operations.
 type Metrics struct {
 	// Query counters
-	QueryTotal      int64         // Total queries executed
-	QueryErrors     int64         // Total query errors
-	QuerySuccess    int64         // Total successful queries
-	CreateTotal     int64         // Total create operations
-	CreateErrors    int64         // Total create errors
-	UpdateTotal     int64         // Total update operations
-	DeleteTotal     int64         // Total delete operations
-	
+	QueryTotal   int64 // Total queries executed
+	QueryErrors  int64 // Total query errors
+	QuerySuccess int64 // Total successful queries
+	CreateTotal  int64 // Total create operations
+	CreateErrors int64 // Total create errors
+	UpdateTotal  int64 // Total update operations
+	DeleteTotal  int64 // Total delete operations
+
 	// Latency tracking
 	QueryLatencies  []time.Duration // Query latencies (for histogram)
 	CreateLatencies []time.Duration // Create latencies
-	
+
 	// Cache metrics
-	CacheHits       int64 // Metadata cache hits
-	CacheMisses     int64 // Metadata cache misses
-	
-	mu              sync.RWMutex
+	CacheHits   int64 // Metadata cache hits
+	CacheMisses int64 // Metadata cache misses
+
+	mu sync.RWMutex
 }
 
 // New creates a new Metrics instance.
@@ -41,10 +41,10 @@ func New() *Metrics {
 func (m *Metrics) RecordQuery(latency time.Duration, err error) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
-	
+
 	m.QueryTotal++
 	m.QueryLatencies = append(m.QueryLatencies, latency)
-	
+
 	if err != nil {
 		m.QueryErrors++
 	} else {
@@ -56,10 +56,10 @@ func (m *Metrics) RecordQuery(latency time.Duration, err error) {
 func (m *Metrics) RecordCreate(latency time.Duration, err error) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
-	
+
 	m.CreateTotal++
 	m.CreateLatencies = append(m.CreateLatencies, latency)
-	
+
 	if err != nil {
 		m.CreateErrors++
 	}
@@ -69,7 +69,7 @@ func (m *Metrics) RecordCreate(latency time.Duration, err error) {
 func (m *Metrics) RecordUpdate(latency time.Duration, err error) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
-	
+
 	m.UpdateTotal++
 	if err != nil {
 		// Track errors for updates
@@ -80,7 +80,7 @@ func (m *Metrics) RecordUpdate(latency time.Duration, err error) {
 func (m *Metrics) RecordDelete(latency time.Duration, err error) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
-	
+
 	m.DeleteTotal++
 	if err != nil {
 		// Track errors for deletes
@@ -119,7 +119,7 @@ func (m *Metrics) GetErrorCount() int64 {
 func (m *Metrics) GetCacheHitRate() float64 {
 	m.mu.RLock()
 	defer m.mu.RUnlock()
-	
+
 	total := m.CacheHits + m.CacheMisses
 	if total == 0 {
 		return 0
@@ -131,11 +131,11 @@ func (m *Metrics) GetCacheHitRate() float64 {
 func (m *Metrics) GetAverageQueryLatency() time.Duration {
 	m.mu.RLock()
 	defer m.mu.RUnlock()
-	
+
 	if len(m.QueryLatencies) == 0 {
 		return 0
 	}
-	
+
 	total := time.Duration(0)
 	for _, lat := range m.QueryLatencies {
 		total += lat
@@ -147,7 +147,7 @@ func (m *Metrics) GetAverageQueryLatency() time.Duration {
 func (m *Metrics) GetStats() map[string]interface{} {
 	m.mu.RLock()
 	defer m.mu.RUnlock()
-	
+
 	stats := map[string]interface{}{
 		"queries": map[string]int64{
 			"total":   m.QueryTotal,
@@ -172,7 +172,7 @@ func (m *Metrics) GetStats() map[string]interface{} {
 func (m *Metrics) Reset() {
 	m.mu.Lock()
 	defer m.mu.Unlock()
-	
+
 	m.QueryTotal = 0
 	m.QueryErrors = 0
 	m.QuerySuccess = 0

@@ -106,7 +106,7 @@ func (m *MockODataServer) handleRequest(w http.ResponseWriter, r *http.Request) 
 	// Check error rate
 	if shouldError(m.errorRate) {
 		w.WriteHeader(http.StatusInternalServerError)
-		json.NewEncoder(w).Encode(map[string]interface{}{
+		_ = json.NewEncoder(w).Encode(map[string]interface{}{
 			"error": map[string]string{
 				"code":    "500",
 				"message": "Server error (simulated)",
@@ -132,7 +132,7 @@ func (m *MockODataServer) handleRequest(w http.ResponseWriter, r *http.Request) 
 		m.handleByKey(w, r, path)
 	} else {
 		w.WriteHeader(http.StatusNotFound)
-		json.NewEncoder(w).Encode(map[string]interface{}{
+		_ = json.NewEncoder(w).Encode(map[string]interface{}{
 			"error": map[string]string{
 				"code":    "404",
 				"message": "Not found",
@@ -143,12 +143,12 @@ func (m *MockODataServer) handleRequest(w http.ResponseWriter, r *http.Request) 
 
 func (m *MockODataServer) handleMetadata(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/xml")
-	fmt.Fprint(w, mockMetadata)
+	_, _ = fmt.Fprint(w, mockMetadata)
 }
 
 func (m *MockODataServer) handleCount(w http.ResponseWriter, r *http.Request, query string) {
 	w.Header().Set("Content-Type", "text/plain")
-	fmt.Fprintf(w, "%d", m.config.MaxRecords)
+	_, _ = fmt.Fprintf(w, "%d", m.config.MaxRecords)
 }
 
 func (m *MockODataServer) handleProducts(w http.ResponseWriter, r *http.Request, query string) {
@@ -189,7 +189,7 @@ func (m *MockODataServer) handleProducts(w http.ResponseWriter, r *http.Request,
 		response["@odata.nextLink"] = fmt.Sprintf("%s/Products?$skip=%d&$top=%d", m.URL, skip+top, top)
 	}
 
-	json.NewEncoder(w).Encode(response)
+	_ = json.NewEncoder(w).Encode(response)
 }
 
 func (m *MockODataServer) handleOrders(w http.ResponseWriter, r *http.Request, query string) {
@@ -215,7 +215,7 @@ func (m *MockODataServer) handleOrders(w http.ResponseWriter, r *http.Request, q
 		"value": records,
 	}
 
-	json.NewEncoder(w).Encode(response)
+	_ = json.NewEncoder(w).Encode(response)
 }
 
 func (m *MockODataServer) handleByKey(w http.ResponseWriter, r *http.Request, path string) {
@@ -232,7 +232,7 @@ func (m *MockODataServer) handleByKey(w http.ResponseWriter, r *http.Request, pa
 	id := path[start+1 : end]
 
 	record := m.generateRecord(id)
-	json.NewEncoder(w).Encode(record)
+	_ = json.NewEncoder(w).Encode(record)
 }
 
 func (m *MockODataServer) generateRecords(skip, top int, filter string) []map[string]interface{} {

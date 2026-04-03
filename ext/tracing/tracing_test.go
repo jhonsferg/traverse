@@ -43,7 +43,7 @@ func TestTracer_StartEndSpan(t *testing.T) {
 
 	// End span
 	tracer.EndSpan(span, nil)
-	
+
 	if span.Status != "success" {
 		t.Fatalf("Expected success status")
 	}
@@ -60,10 +60,10 @@ func TestTracer_SpanWithError(t *testing.T) {
 	ctx := context.Background()
 
 	_, span := tracer.StartSpan(ctx, "failing-query")
-	
+
 	testErr := errors.New("query failed")
 	tracer.EndSpan(span, testErr)
-	
+
 	if span.Status != "error" {
 		t.Fatalf("Expected error status")
 	}
@@ -80,13 +80,13 @@ func TestTracer_AddEvent(t *testing.T) {
 	ctx := context.Background()
 
 	_, span := tracer.StartSpan(ctx, "operation")
-	
+
 	attrs := map[string]interface{}{
 		"key": "value",
 	}
 	tracer.AddEvent(span, "phase1_complete", attrs)
 	tracer.AddEvent(span, "phase2_complete", attrs)
-	
+
 	if len(span.Events) != 2 {
 		t.Fatalf("Expected 2 events, got %d", len(span.Events))
 	}
@@ -100,10 +100,10 @@ func TestTracer_SetAttribute(t *testing.T) {
 	ctx := context.Background()
 
 	_, span := tracer.StartSpan(ctx, "query")
-	
+
 	tracer.SetAttribute(span, "entity_set", "Customers")
 	tracer.SetAttribute(span, "row_count", 100)
-	
+
 	if span.Attributes["entity_set"] != "Customers" {
 		t.Fatalf("Expected entity_set attribute")
 	}
@@ -117,10 +117,10 @@ func TestTracer_SetAttribute(t *testing.T) {
 // TestTracer_Baggage verifies baggage propagation.
 func TestTracer_Baggage(t *testing.T) {
 	tracer := New("test-service")
-	
+
 	tracer.AddBaggage("user_id", "user123")
 	tracer.AddBaggage("correlation_id", "corr456")
-	
+
 	if tracer.GetBaggage("user_id") != "user123" {
 		t.Fatalf("Expected user_id baggage")
 	}
@@ -134,12 +134,12 @@ func TestTracer_Baggage(t *testing.T) {
 // TestTracer_W3CTraceContext verifies W3C trace context format.
 func TestTracer_W3CTraceContext(t *testing.T) {
 	tracer := New("test-service")
-	
+
 	ctx := tracer.GetTraceContext()
 	if ctx == "" {
 		t.Fatalf("Expected trace context string")
 	}
-	
+
 	// Should be in format: 00-traceID-spanID-01
 	if len(ctx) < 5 {
 		t.Fatalf("Invalid trace context format: %s", ctx)
@@ -160,7 +160,7 @@ func TestTracer_GetStats(t *testing.T) {
 	}
 
 	stats := tracer.GetStats()
-	
+
 	if stats["total_spans"].(int) != 3 {
 		t.Fatalf("Expected 3 spans in stats")
 	}
@@ -178,10 +178,10 @@ func TestTracer_GetActiveSpans(t *testing.T) {
 
 	_, span1 := tracer.StartSpan(ctx, "op1")
 	_, span2 := tracer.StartSpan(ctx, "op2")
-	
+
 	tracer.EndSpan(span1, nil)
 	tracer.EndSpan(span2, nil)
-	
+
 	spans := tracer.GetActiveSpans()
 	if len(spans) != 2 {
 		t.Fatalf("Expected 2 spans, got %d", len(spans))
@@ -197,13 +197,13 @@ func TestTracer_ClearSpans(t *testing.T) {
 
 	_, span := tracer.StartSpan(ctx, "op")
 	tracer.EndSpan(span, nil)
-	
+
 	if len(tracer.GetActiveSpans()) == 0 {
 		t.Fatalf("Expected span before clear")
 	}
-	
+
 	tracer.ClearSpans()
-	
+
 	if len(tracer.GetActiveSpans()) != 0 {
 		t.Fatalf("Expected no spans after clear")
 	}
@@ -214,16 +214,16 @@ func TestTracer_ClearSpans(t *testing.T) {
 // TestTracer_EnableDisable verifies tracing can be toggled.
 func TestTracer_EnableDisable(t *testing.T) {
 	tracer := New("test-service")
-	
+
 	if !tracer.IsEnabled() {
 		t.Fatalf("Expected tracing to be enabled by default")
 	}
-	
+
 	tracer.SetEnabled(false)
 	if tracer.IsEnabled() {
 		t.Fatalf("Expected tracing to be disabled")
 	}
-	
+
 	tracer.SetEnabled(true)
 	if !tracer.IsEnabled() {
 		t.Fatalf("Expected tracing to be enabled")
@@ -236,13 +236,13 @@ func TestTracer_EnableDisable(t *testing.T) {
 func TestTracer_ContextCarrier(t *testing.T) {
 	tracer := New("test-service")
 	tracer.AddBaggage("key1", "value1")
-	
+
 	// Inject context
 	carrier := tracer.Inject()
 	if carrier.TraceID == "" {
 		t.Fatalf("Expected trace ID in carrier")
 	}
-	
+
 	// Extract context
 	tracer2 := Extract(carrier)
 	if tracer2.GetTraceID() != tracer.GetTraceID() {
@@ -306,12 +306,12 @@ func TestTracer_SpanDuration(t *testing.T) {
 	ctx := context.Background()
 
 	_, span := tracer.StartSpan(ctx, "timed_op")
-	
+
 	sleepTime := 50 * time.Millisecond
 	time.Sleep(sleepTime)
-	
+
 	tracer.EndSpan(span, nil)
-	
+
 	if span.Duration < sleepTime {
 		t.Fatalf("Expected duration >= %v, got %v", sleepTime, span.Duration)
 	}

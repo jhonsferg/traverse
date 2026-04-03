@@ -55,7 +55,7 @@ func BenchmarkScalingHorizontal(b *testing.B) {
 			// Cleanup
 			for i := 0; i < numInstances; i++ {
 				servers[i].Close()
-				clients[i].Close()
+				_ = clients[i].Close()
 			}
 		})
 	}
