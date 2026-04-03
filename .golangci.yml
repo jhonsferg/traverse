@@ -34,22 +34,7 @@ linters:
     gosec:
       excludes:
         - G104        # Errors unhandled (often duplicated by errcheck)
-    contextcheck:
-      skip-type-assertions: false
-      skip-type-checks: false
 
-formatters:
-  enable:
-    - gofmt
-    - goimports
-  settings:
-    goimports:
-      local-prefixes:
-        - github.com/jhonsferg/traverse
-
-issues:
-  max-issues-per-linter: 0
-  max-same-issues: 0
   exclusions:
     rules:
       # Skip linting for CLI tools (under development)
@@ -72,7 +57,21 @@ issues:
         linters:
           - contextcheck
 
+formatters:
+  enable:
+    - gofmt
+    - goimports
+  settings:
+    goimports:
+      local-prefixes:
+        - github.com/jhonsferg/traverse
+
+issues:
+  max-issues-per-linter: 0
+  max-same-issues: 0
+
 output:
   formats:
     text:
       print-linter-name: true
+
