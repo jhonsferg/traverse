@@ -151,8 +151,8 @@ jobs:
             exit 0
           fi
 
-          # Get latest tag
-          latest=$(git tag -l 'v[0-9]*.[0-9]*.[0-9]*' | grep -v '/' | sed 's/^v//' | sort -V | tail -1)
+          # Get latest tag (|| true handles empty tag list with pipefail)
+          latest=$(git tag -l 'v[0-9]*.[0-9]*.[0-9]*' | grep -v '/' | sed 's/^v//' | sort -V | tail -1 || true)
           
           if [[ -z "$latest" ]]; then
             next="0.1.0"
