@@ -465,6 +465,13 @@ func TestConcurrentRefresh(t *testing.T) {
 	tm := NewTokenManager(config)
 	ctx := context.Background()
 
+	// Pre-seed the token so IsTokenValid() goroutines have a valid token to check.
+	// Without this, IsTokenValid() races against the initial GetToken() fetch and
+	// may see a nil token before any goroutine has completed the first fetch.
+	if _, err := tm.GetToken(ctx); err != nil {
+		t.Fatalf("initial GetToken failed: %v", err)
+	}
+
 	// 5 goroutines calling GetToken, 5 calling IsTokenValid
 	numGoroutines := 10
 	results := make(chan bool, numGoroutines)

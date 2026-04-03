@@ -106,6 +106,12 @@ func (tm *TokenManager) RefreshToken(ctx context.Context) error {
 	tm.mu.Lock()
 	defer tm.mu.Unlock()
 
+	// Double-check: another goroutine may have already refreshed the token
+	// while we were waiting for the write lock.
+	if tm.token != nil && !tm.token.IsExpired() {
+		return nil
+	}
+
 	token, err := tm.fetchToken(ctx)
 	if err != nil {
 		return err
