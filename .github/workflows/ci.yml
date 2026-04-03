@@ -38,7 +38,7 @@ jobs:
 
       - name: Upload coverage artifact
         if: matrix.go-version == '1.25' && matrix.os == 'ubuntu-latest'
-        uses: actions/upload-artifact@5f331343abcdcc037adad89f1cebcc779d03a1b9 # v4
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
           name: coverage
           path: coverage.out
@@ -46,7 +46,7 @@ jobs:
 
       - name: Upload coverage to Codecov
         if: matrix.go-version == '1.25' && matrix.os == 'ubuntu-latest'
-        uses: codecov/codecov-action@6d798873191c1d5c1e89cfe7ce03b50eed86ac9d # v4
+        uses: codecov/codecov-action@5ecb98a3c44ea8a5baf3ac4d4710ae67b88c244f # v4
         with:
           files: ./coverage.out
           flags: unittests
