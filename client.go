@@ -563,7 +563,7 @@ func (c *Client) fetchMetadata(ctx context.Context) (*Metadata, error) {
 	}
 
 	// Parse EDMX (XML) format
-	metadata, err = ParseEDMX(resp.BodyReader())
+	metadata, err := ParseEDMX(resp.BodyReader())
 	if err != nil {
 		return nil, fmt.Errorf("traverse: failed to parse EDMX: %w", err)
 	}
