@@ -1,6 +1,5 @@
 # .golangci.yml
-# https://golangci-lint.run/docs/configuration/
-# Optimized configuration based on relay best practices
+# https://golangci-lint.run/usage/configuration/
 
 version: "2"
 
@@ -12,20 +11,18 @@ run:
 linters:
   default: none
   enable:
-    # Core linters (from relay)
-    - errcheck      # check for unchecked errors
-    - govet         # standard go vet
-    - ineffassign   # detect ineffectual assignments
-    - staticcheck   # standard static analyzer
-    - unused        # find unused constants, variables, functions and types
-    - gosec         # security checker
-    - nakedret      # find naked returns in functions longer than a certain length
-    - prealloc      # find slice declarations that could potentially be pre-allocated
-    - unconvert     # remove unnecessary type conversions
-    # Additional linters for traverse (OData-focused)
-    - bodyclose     # HTTP response body unclosed (important for HTTP client)
-    - contextcheck  # context usage (important for async operations)
-    - noctx         # missing context in function calls
+    - errcheck
+    - govet
+    - ineffassign
+    - staticcheck
+    - unused
+    - gosec
+    - nakedret
+    - prealloc
+    - unconvert
+    - bodyclose
+    - contextcheck
+    - noctx
 
 settings:
   govet:
@@ -33,7 +30,7 @@ settings:
       - shadow
   gosec:
     excludes:
-      - G104        # Errors unhandled (often duplicated by errcheck)
+      - G104
 
 formatters:
   enable:
