@@ -137,7 +137,7 @@ jobs:
   auto-tag:
     name: Auto Tag
     needs: [test, lint, vet, build-examples]
-    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+    if: (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/master') && github.event_name == 'push'
     runs-on: ubuntu-latest
     permissions:
       contents: write
@@ -208,7 +208,7 @@ jobs:
   badges:
     name: Update Badges
     needs: [test]
-    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+    if: (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/master') && github.event_name == 'push'
     runs-on: ubuntu-latest
     permissions:
       contents: write
