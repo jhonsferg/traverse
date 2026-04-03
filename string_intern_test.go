@@ -143,7 +143,7 @@ func TestStringInterning_MemoryReduction(t *testing.T) {
 		"Customer", "Product", "Order", // duplicates
 	}
 
-	var internalPointers []string
+	internalPointers := make([]string, 0, len(entityNames))
 	for _, name := range entityNames {
 		internalPointers = append(internalPointers, si.Intern(name))
 	}

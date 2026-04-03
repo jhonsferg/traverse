@@ -124,10 +124,8 @@ func TestIntegration_QueryBuilderWithClient(t *testing.T) {
 
 // TestIntegration_CacheStoreMethods verifies CacheStore interface methods.
 func TestIntegration_CacheStoreMethods(t *testing.T) {
-	var store CacheStore
-
 	// Initialize with MemoryCache
-	store = NewMemoryCache()
+	var store CacheStore = NewMemoryCache()
 
 	// Should be able to call interface methods
 	store.Clear()

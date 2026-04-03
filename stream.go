@@ -464,7 +464,7 @@ func parseODataResponse(decoder *json.Decoder, page *Page, version ODataVersion)
 	}
 
 	// Final closing '}'
-	token, err = decoder.Token()
+	_, err = decoder.Token()
 	if err != nil && err != io.EOF {
 		return fmt.Errorf("failed to read closing token: %w", err)
 	}
@@ -537,7 +537,7 @@ func parseODataV2Wrapper(decoder *json.Decoder, page *Page) error {
 	}
 
 	// Closing '}'
-	token, err = decoder.Token()
+	_, err = decoder.Token()
 	if err != nil && err != io.EOF {
 		return fmt.Errorf("failed to read wrapper closing: %w", err)
 	}

@@ -291,9 +291,7 @@ func formatParameterBytes(key string, value interface{}) []byte {
 		jsonBytes, err := json.Marshal(v)
 		if err != nil {
 			// If marshaling fails, use string representation
-			buf.WriteString(key)
-			buf.WriteString("=")
-			buf.WriteString(fmt.Sprintf("%v", v))
+			fmt.Fprintf(&buf, "%s=%v", key, v)
 			break
 		}
 		escaped := strings.ReplaceAll(string(jsonBytes), "'", "''")

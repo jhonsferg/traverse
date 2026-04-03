@@ -92,11 +92,6 @@ func TestMapToStruct(t *testing.T) {
 
 // TestCreateAs tests the CreateAs generic function.
 func TestCreateAs(t *testing.T) {
-	type Material struct {
-		MatID string `json:"MatID"`
-		Name  string `json:"Name"`
-	}
-
 	// Create a mock client
 	client := &Client{}
 

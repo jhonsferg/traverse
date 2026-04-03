@@ -751,14 +751,13 @@ func (b *BatchRequest) writeChangeset(w *multipart.Writer, cs *changeset, parent
 		}
 
 		// Serialize operation
-		requestLine := fmt.Sprintf("%s %s HTTP/1.1\r\n", op.Method, op.URL)
-		if _, err := csPart.Write([]byte(requestLine)); err != nil {
+		if _, err := fmt.Fprintf(csPart, "%s %s HTTP/1.1\r\n", op.Method, op.URL); err != nil {
 			return err
 		}
 
 		// Write headers
 		for k, v := range op.Headers {
-			if _, err := csPart.Write([]byte(fmt.Sprintf("%s: %s\r\n", k, v))); err != nil {
+			if _, err := fmt.Fprintf(csPart, "%s: %s\r\n", k, v); err != nil {
 				return err
 			}
 		}
@@ -767,8 +766,7 @@ func (b *BatchRequest) writeChangeset(w *multipart.Writer, cs *changeset, parent
 		if op.Body != nil {
 			bodyBytes := []byte(op.Body)
 
-			contentLen := fmt.Sprintf("Content-Length: %d\r\n", len(bodyBytes))
-			if _, err := csPart.Write([]byte(contentLen)); err != nil {
+			if _, err := fmt.Fprintf(csPart, "Content-Length: %d\r\n", len(bodyBytes)); err != nil {
 				return err
 			}
 
