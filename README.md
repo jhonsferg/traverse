@@ -4,18 +4,22 @@
 
 **An OData v2/v4 client for Go - streaming, batch, SAP-compatible.**
 
-[![Go Reference](https://pkg.go.dev/badge/github.com/jhonsferg/traverse.svg)](https://pkg.go.dev/github.com/jhonsferg/traverse)
-[![CI](https://img.shields.io/github/actions/workflow/status/jhonsferg/traverse/ci.yml?style=flat-square&logo=github&label=CI)](https://github.com/jhonsferg/traverse/actions/workflows/ci.yml)
-[![Tests](https://img.shields.io/badge/tests-6%20OS%2FGo%20combos-0099ff?style=flat-square&logo=github)](https://github.com/jhonsferg/traverse/actions/workflows/ci.yml)
-[![Codecov](https://img.shields.io/badge/coverage-tracked-41B883?style=flat-square&logo=codecov)](https://codecov.io/gh/jhonsferg/traverse)
-[![CodeQL](https://img.shields.io/github/actions/workflow/status/jhonsferg/traverse/codeql.yml?style=flat-square&logo=github&label=CodeQL)](https://github.com/jhonsferg/traverse/actions/workflows/codeql.yml)
-[![Release](https://img.shields.io/github/v/release/jhonsferg/traverse?style=flat-square&logo=github&color=orange)](https://github.com/jhonsferg/traverse/releases/latest)
-[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg?style=flat-square)](LICENSE)
-[![Go 1.24+](https://img.shields.io/badge/Go-1.24%2B-00ADD8?style=flat-square&logo=go)](https://golang.org/)
+[![Go Version](https://img.shields.io/badge/Go-1.24%2B-00ADD8?style=for-the-badge&logo=go)](https://pkg.go.dev/github.com/jhonsferg/traverse)
+[![CI](https://img.shields.io/github/actions/workflow/status/jhonsferg/traverse/ci.yml?style=for-the-badge&logo=github&label=CI)](https://github.com/jhonsferg/traverse/actions/workflows/ci.yml)
+[![Tests](https://img.shields.io/badge/tests-6%20OS%2FGo%20combos-0099ff?style=for-the-badge&logo=github)](https://github.com/jhonsferg/traverse/actions/workflows/ci.yml)
+[![Coverage](https://img.shields.io/codecov/c/github/jhonsferg/traverse?style=for-the-badge&logo=codecov&label=coverage)](https://codecov.io/gh/jhonsferg/traverse)
+[![CodeQL](https://img.shields.io/github/actions/workflow/status/jhonsferg/traverse/codeql.yml?style=for-the-badge&logo=github&label=CodeQL)](https://github.com/jhonsferg/traverse/actions/workflows/codeql.yml)
+[![Trivy](https://img.shields.io/badge/vulnerability%20scan-Trivy-1f77b4?style=for-the-badge&logo=github)](https://github.com/jhonsferg/traverse/actions/workflows/trivy.yml)
+[![API Check](https://img.shields.io/badge/api%20compatibility-checked-4CAF50?style=for-the-badge&logo=github)](https://github.com/jhonsferg/traverse/actions/workflows/api-check.yml)
+[![License Check](https://img.shields.io/badge/license%20compliance-checked-FFC107?style=for-the-badge&logo=github)](https://github.com/jhonsferg/traverse/actions/workflows/license-check.yml)
+[![Release](https://img.shields.io/github/v/release/jhonsferg/traverse?style=for-the-badge&logo=github&color=orange)](https://github.com/jhonsferg/traverse/releases/latest)
+[![pkg.go.dev](https://img.shields.io/badge/pkg.go.dev-reference-007D9C?style=for-the-badge&logo=go)](https://pkg.go.dev/github.com/jhonsferg/traverse)
+[![Go Report Card](https://img.shields.io/badge/go%20report-A%2B-brightgreen?style=for-the-badge)](https://goreportcard.com/report/github.com/jhonsferg/traverse)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg?style=for-the-badge)](LICENSE)
 
 ---
 
-**[Installation](#installation) · [Quick start](#quick-start) · [Features](#features) · [Extensions](#extension-modules) · [Contributing](#contributing)**
+**[Installation](#installation) • [Quick start](#quick-start) • [Features](#features) • [Extensions](#extension-modules) • [Contributing](#contributing)**
 
 </div>
 
@@ -218,4 +222,4 @@ Issues and discussion are open on GitHub.
 
 ## License
 
-MIT — see [LICENSE](LICENSE).
+MIT - see [LICENSE](LICENSE).
