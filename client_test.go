@@ -15,7 +15,7 @@ func TestClientConstruction(t *testing.T) {
 	}
 
 	if c == nil {
-		t.Error("New() returned nil client")
+		t.Fatalf("New() returned nil client")
 	}
 
 	if c.baseURL != "http://localhost:8080/odata" {
@@ -30,7 +30,7 @@ func TestClientFrom(t *testing.T) {
 
 	qb := c.From("Products")
 	if qb == nil {
-		t.Error("From() returned nil")
+		t.Fatalf("From() returned nil")
 	}
 
 	if qb.entitySet != "Products" {

@@ -8,8 +8,8 @@ import (
 	"time"
 
 	"github.com/jhonsferg/relay"
-	"github.com/jhonsferg/traverse/ext/oauth2"
 	traverse "github.com/jhonsferg/traverse"
+	"github.com/jhonsferg/traverse/ext/oauth2"
 )
 
 // NewSAPClient creates a traverse Client preconfigured for SAP systems.

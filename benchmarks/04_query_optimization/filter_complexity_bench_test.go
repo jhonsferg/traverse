@@ -24,16 +24,16 @@ func BenchmarkFilterComplexityImpact(b *testing.B) {
 	)
 
 	filters := map[string]string{
-		"Empty":           "",
-		"Single":          "Price gt 10",
-		"TwoAnd":          "Price gt 10 and Status eq 'Active'",
-		"TwoOr":           "Price gt 10 or Rating ge 4",
-		"ThreeAnd":        "Price gt 10 and Status eq 'Active' and InStock eq true",
-		"ThreeOrMixed":    "Price gt 10 and Status eq 'Active' or Rating ge 4",
-		"NestedParens":    "(Price gt 10 and Status eq 'Active') or (Rating ge 4 and InStock eq true)",
-		"ComplexNested":   "((Price gt 10 or Price lt 100) and (Status eq 'Active' or Status eq 'Pending')) and (Rating ge 4 or Rating eq 0)",
-		"VeryComplex":     "(A eq 1 and B eq 2) or (C eq 3 and D eq 4) or (E eq 5 and F eq 6) and (G eq 7 or H eq 8)",
-		"MultiCondition":  "A eq 1 and B eq 2 and C eq 3 and D eq 4 and E eq 5 and F eq 6 and G eq 7 and H eq 8",
+		"Empty":          "",
+		"Single":         "Price gt 10",
+		"TwoAnd":         "Price gt 10 and Status eq 'Active'",
+		"TwoOr":          "Price gt 10 or Rating ge 4",
+		"ThreeAnd":       "Price gt 10 and Status eq 'Active' and InStock eq true",
+		"ThreeOrMixed":   "Price gt 10 and Status eq 'Active' or Rating ge 4",
+		"NestedParens":   "(Price gt 10 and Status eq 'Active') or (Rating ge 4 and InStock eq true)",
+		"ComplexNested":  "((Price gt 10 or Price lt 100) and (Status eq 'Active' or Status eq 'Pending')) and (Rating ge 4 or Rating eq 0)",
+		"VeryComplex":    "(A eq 1 and B eq 2) or (C eq 3 and D eq 4) or (E eq 5 and F eq 6) and (G eq 7 or H eq 8)",
+		"MultiCondition": "A eq 1 and B eq 2 and C eq 3 and D eq 4 and E eq 5 and F eq 6 and G eq 7 and H eq 8",
 	}
 
 	for name, filter := range filters {

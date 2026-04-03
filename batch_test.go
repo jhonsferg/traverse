@@ -12,7 +12,7 @@ func TestBatchRequestConstruction(t *testing.T) {
 	batch := mockClient.Batch()
 
 	if batch == nil {
-		t.Error("Batch() returned nil")
+		t.Fatalf("Batch() returned nil")
 	}
 
 	if batch.client != mockClient {

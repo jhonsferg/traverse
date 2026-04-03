@@ -24,8 +24,8 @@ type SAPDateTimeWithOffset string
 // SAPError represents an error response from SAP OData service.
 type SAPError struct {
 	Error struct {
-		Code       string `json:"code"`
-		Message    struct {
+		Code    string `json:"code"`
+		Message struct {
 			Lang  string `json:"lang"`
 			Value string `json:"value"`
 		} `json:"message"`

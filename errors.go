@@ -47,11 +47,11 @@ type ODataErrorDetail struct {
 // It includes the code (if available), message, and traverse prefix.
 func (e *ODataError) Error() string {
 	var b strings.Builder
-	
+
 	// Pre-allocate with estimated size
 	b.Grow(50)
 	b.WriteString("traverse: ")
-	
+
 	if e.Code != "" && e.Message != "" {
 		b.WriteString("OData error ")
 		b.WriteString(e.Code)
@@ -62,7 +62,7 @@ func (e *ODataError) Error() string {
 	} else {
 		b.WriteString("unknown OData error")
 	}
-	
+
 	return b.String()
 }
 

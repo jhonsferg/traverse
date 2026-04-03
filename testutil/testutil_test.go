@@ -1,6 +1,7 @@
 package testutil
 
 import (
+	"context"
 	"net/http"
 	"testing"
 	"time"
@@ -18,11 +19,13 @@ func TestMockServer_EnqueueAndServe(t *testing.T) {
 		},
 	})
 
-	resp, err := http.Get(ms.URL() + "/test")
+	ctx := context.Background()
+	req, _ := http.NewRequestWithContext(ctx, http.MethodGet, ms.URL()+"/test", nil)
+	resp, err := http.DefaultClient.Do(req)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	if resp.StatusCode != http.StatusOK {
 		t.Errorf("got status %d, want %d", resp.StatusCode, http.StatusOK)
@@ -39,16 +42,20 @@ func TestMockServer_RecordedRequests(t *testing.T) {
 
 	ms.Enqueue(MockResponse{Status: http.StatusOK})
 
-	req, err := http.NewRequest(http.MethodPost, ms.URL()+"/api/data", nil)
+	ctx := context.Background()
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, ms.URL()+"/api/data", nil)
 	if err != nil {
 		t.Fatalf("failed to create request: %v", err)
 	}
 	req.Header.Set("Authorization", "Bearer token123")
 
 	client := &http.Client{}
-	_, err = client.Do(req)
+	resp, err := client.Do(req)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
+	}
+	if resp != nil && resp.Body != nil {
+		_ = resp.Body.Close()
 	}
 
 	recorded := ms.RecordedRequests()
@@ -77,12 +84,14 @@ func TestMockServer_MultipleResponses(t *testing.T) {
 	ms.Enqueue(MockResponse{Status: http.StatusCreated, Body: "second"})
 	ms.Enqueue(MockResponse{Status: http.StatusNotFound, Body: "third"})
 
+	ctx := context.Background()
 	for i, expectedStatus := range []int{http.StatusOK, http.StatusCreated, http.StatusNotFound} {
-		resp, err := http.Get(ms.URL())
+		req, _ := http.NewRequestWithContext(ctx, http.MethodGet, ms.URL(), nil)
+		resp, err := http.DefaultClient.Do(req)
 		if err != nil {
 			t.Fatalf("request %d: unexpected error: %v", i, err)
 		}
-		resp.Body.Close()
+		_ = resp.Body.Close()
 
 		if resp.StatusCode != expectedStatus {
 			t.Errorf("request %d: got status %d, want %d", i, resp.StatusCode, expectedStatus)
@@ -100,9 +109,13 @@ func TestMockServer_Delay(t *testing.T) {
 	})
 
 	start := time.Now()
-	resp, err := http.Get(ms.URL())
+	ctx := context.Background()
+	req, _ := http.NewRequestWithContext(ctx, http.MethodGet, ms.URL(), nil)
+	resp, err := http.DefaultClient.Do(req)
 	elapsed := time.Since(start)
-	resp.Body.Close()
+	if resp != nil && resp.Body != nil {
+		_ = resp.Body.Close()
+	}
 
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
@@ -121,8 +134,13 @@ func TestMockServer_RequestCount(t *testing.T) {
 	ms.Enqueue(MockResponse{Status: http.StatusOK})
 	ms.Enqueue(MockResponse{Status: http.StatusOK})
 
+	ctx := context.Background()
 	for i := 0; i < 3; i++ {
-		http.Get(ms.URL())
+		req, _ := http.NewRequestWithContext(ctx, http.MethodGet, ms.URL(), nil)
+		resp, _ := http.DefaultClient.Do(req)
+		if resp != nil && resp.Body != nil {
+			_ = resp.Body.Close()
+		}
 	}
 
 	if count := ms.RequestCount(); count != 3 {
@@ -135,13 +153,19 @@ func TestRequestRecorder_RecordRequests(t *testing.T) {
 
 	roundTrip := recorder.Middleware()(http.DefaultTransport)
 
-	req1, _ := http.NewRequest(http.MethodGet, "https://example.com/api", nil)
+	req1, _ := http.NewRequestWithContext(context.Background(), http.MethodGet, "https://example.com/api", nil)
 	req1.Header.Set("X-Custom", "value1")
-	roundTrip.RoundTrip(req1)
+	resp1, _ := roundTrip.RoundTrip(req1)
+	if resp1 != nil && resp1.Body != nil {
+		_ = resp1.Body.Close()
+	}
 
-	req2, _ := http.NewRequest(http.MethodPost, "https://example.com/api", nil)
+	req2, _ := http.NewRequestWithContext(context.Background(), http.MethodPost, "https://example.com/api", nil)
 	req2.Header.Set("X-Custom", "value2")
-	roundTrip.RoundTrip(req2)
+	resp2, _ := roundTrip.RoundTrip(req2)
+	if resp2 != nil && resp2.Body != nil {
+		_ = resp2.Body.Close()
+	}
 
 	requests := recorder.Requests()
 	if len(requests) != 2 {
@@ -161,8 +185,11 @@ func TestRequestRecorder_Reset(t *testing.T) {
 	recorder := NewRequestRecorder()
 	roundTrip := recorder.Middleware()(http.DefaultTransport)
 
-	req, _ := http.NewRequest(http.MethodGet, "https://example.com", nil)
-	roundTrip.RoundTrip(req)
+	req, _ := http.NewRequestWithContext(context.Background(), http.MethodGet, "https://example.com", nil)
+	resp, _ := roundTrip.RoundTrip(req)
+	if resp != nil && resp.Body != nil {
+		_ = resp.Body.Close()
+	}
 
 	if count := recorder.RequestCount(); count != 1 {
 		t.Errorf("before reset: got %d requests, want 1", count)

@@ -2,6 +2,7 @@
 package traverse
 
 import (
+	"context"
 	"net/http"
 	"testing"
 
@@ -21,7 +22,7 @@ func TestIntegration_MemoryCacheCreation(t *testing.T) {
 // TestIntegration_NoOpCacheImplementation verifies NoOpCache implements CacheStore.
 func TestIntegration_NoOpCacheImplementation(t *testing.T) {
 	noOp := &NoOpCache{}
-	
+
 	// Should compile (implements CacheStore interface)
 	var _ CacheStore = noOp
 
@@ -31,11 +32,11 @@ func TestIntegration_NoOpCacheImplementation(t *testing.T) {
 // TestIntegration_ClientCacheField verifies Client has metadataCache field.
 func TestIntegration_ClientCacheField(t *testing.T) {
 	cache := NewMemoryCache()
-	
+
 	client := &Client{
 		metadataCache: cache,
 	}
-	
+
 	if client.metadataCache == nil {
 		t.Fatalf("Expected metadataCache to be set")
 	}
@@ -49,7 +50,7 @@ func TestIntegration_ClientHooksFields(t *testing.T) {
 		beforeQuery:  []func(*QueryBuilder) error{},
 		afterExecute: []func(*QueryBuilder) error{},
 	}
-	
+
 	if client.beforeQuery == nil || client.afterExecute == nil {
 		t.Fatalf("Expected hook fields to be initialized")
 	}
@@ -60,7 +61,7 @@ func TestIntegration_ClientHooksFields(t *testing.T) {
 // TestIntegration_CacheStoreInterface verifies MemoryCache implements CacheStore.
 func TestIntegration_CacheStoreInterface(t *testing.T) {
 	cache := NewMemoryCache()
-	
+
 	// This will fail to compile if MemoryCache doesn't implement CacheStore
 	var _ CacheStore = cache
 
@@ -71,10 +72,10 @@ func TestIntegration_CacheStoreInterface(t *testing.T) {
 func TestIntegration_MultipleClientInstances(t *testing.T) {
 	cache1 := NewMemoryCache()
 	cache2 := NewMemoryCache()
-	
+
 	client1 := &Client{metadataCache: cache1}
 	client2 := &Client{metadataCache: cache2}
-	
+
 	if client1 == nil || client2 == nil {
 		t.Fatalf("Expected both clients to be created")
 	}
@@ -100,7 +101,7 @@ func TestIntegration_ClientGettersExist(t *testing.T) {
 		version:  ODataV2,
 		pageSize: 1000,
 	}
-	
+
 	// These should compile if methods exist
 	_ = client.BaseURL()
 	_ = client.Version()
@@ -113,7 +114,7 @@ func TestIntegration_ClientGettersExist(t *testing.T) {
 func TestIntegration_QueryBuilderWithClient(t *testing.T) {
 	client := &Client{}
 	qb := &QueryBuilder{client: client}
-	
+
 	if qb.client == nil {
 		t.Fatalf("Expected QueryBuilder to have client")
 	}
@@ -123,11 +124,9 @@ func TestIntegration_QueryBuilderWithClient(t *testing.T) {
 
 // TestIntegration_CacheStoreMethods verifies CacheStore interface methods.
 func TestIntegration_CacheStoreMethods(t *testing.T) {
-	var store CacheStore
-	
 	// Initialize with MemoryCache
-	store = NewMemoryCache()
-	
+	var store CacheStore = NewMemoryCache()
+
 	// Should be able to call interface methods
 	store.Clear()
 	// Get and Set would need Metadata type
@@ -186,10 +185,13 @@ func TestIntegration_RequestRecorderMiddleware(t *testing.T) {
 	recordingTransport := recorder.Middleware()(mockTransport)
 
 	// Create and record a request
-	req, _ := http.NewRequest(http.MethodPost, "https://example.com/api/data", nil)
+	req, _ := http.NewRequestWithContext(context.Background(), http.MethodPost, "https://example.com/api/data", nil)
 	req.Header.Set("Authorization", "Bearer test-token")
 
-	_, _ = recordingTransport.RoundTrip(req)
+	resp, _ := recordingTransport.RoundTrip(req)
+	if resp != nil && resp.Body != nil {
+		_ = resp.Body.Close()
+	}
 
 	// Verify recording
 	recorded := recorder.Requests()
@@ -229,8 +231,9 @@ func TestIntegration_MultipleResponses(t *testing.T) {
 
 	// Make requests
 	for i := 0; i < len(responses); i++ {
-		resp, _ := http.Get(ms.URL())
-		resp.Body.Close()
+		req, _ := http.NewRequestWithContext(context.Background(), http.MethodGet, ms.URL(), nil)
+		resp, _ := http.DefaultClient.Do(req)
+		_ = resp.Body.Close()
 	}
 
 	if count := ms.RequestCount(); count != int64(len(responses)) {
@@ -281,11 +284,12 @@ func TestIntegration_ErrorResponse(t *testing.T) {
 		Body:   testutil.ODataErrorResponse("INVALID_REQUEST", "Bad request format"),
 	})
 
-	resp, _ := http.Get(ms.URL())
+	req, _ := http.NewRequestWithContext(context.Background(), http.MethodGet, ms.URL(), nil)
+	resp, _ := http.DefaultClient.Do(req)
 	if resp.StatusCode != http.StatusBadRequest {
 		t.Errorf("got status %d, want 400", resp.StatusCode)
 	}
-	resp.Body.Close()
+	_ = resp.Body.Close()
 
 	t.Logf("✅ Error response integration test passed")
 }
@@ -296,8 +300,11 @@ func TestIntegration_RequestRecorderReset(t *testing.T) {
 	transport := recorder.Middleware()(http.DefaultTransport)
 
 	// Record first request
-	req, _ := http.NewRequest(http.MethodGet, "https://example.com/1", nil)
-	transport.RoundTrip(req)
+	req, _ := http.NewRequestWithContext(context.Background(), http.MethodGet, "https://example.com/1", nil)
+	resp, _ := transport.RoundTrip(req)
+	if resp != nil && resp.Body != nil {
+		_ = resp.Body.Close()
+	}
 
 	if count := recorder.RequestCount(); count != 1 {
 		t.Errorf("before reset: got %d requests, want 1", count)
@@ -311,8 +318,11 @@ func TestIntegration_RequestRecorderReset(t *testing.T) {
 	}
 
 	// Record second request
-	req, _ = http.NewRequest(http.MethodPost, "https://example.com/2", nil)
-	transport.RoundTrip(req)
+	req, _ = http.NewRequestWithContext(context.Background(), http.MethodPost, "https://example.com/2", nil)
+	resp, _ = transport.RoundTrip(req)
+	if resp != nil && resp.Body != nil {
+		_ = resp.Body.Close()
+	}
 
 	if count := recorder.RequestCount(); count != 1 {
 		t.Errorf("after second request: got %d requests, want 1", count)

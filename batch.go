@@ -56,8 +56,6 @@ type BatchRequest struct {
 	changesets map[string]*changeset
 	// currentCS is the currently open changeset being built
 	currentCS *changeset
-	// changesetSeq is used for auto-generating sequential changeset IDs
-	changesetSeq int
 }
 
 // changeset represents a transaction group within a batch request.
@@ -90,7 +88,6 @@ type BatchOperation struct {
 // acquireHeaders gets a headers map from the pool.
 //
 // acquireHeaders returns a cleared map[string]string from headerMapPool for reuse.
-// Should be paired with [releaseHeaders] to return the map after use.
 func acquireHeaders() map[string]string {
 	return headerMapPool.Get().(map[string]string)
 }
@@ -100,6 +97,9 @@ func acquireHeaders() map[string]string {
 // releaseHeaders clears all entries from the map and returns it to headerMapPool
 // for reuse, reducing allocations in batch operation processing.
 func releaseHeaders(h map[string]string) {
+	if h == nil {
+		return
+	}
 	// Clear all entries before returning to pool
 	for k := range h {
 		delete(h, k)
@@ -221,7 +221,7 @@ func (b *BatchRequest) Create(entitySet string, data interface{}) *BatchRequest 
 		URL:     entitySet,
 		Headers: acquireHeaders(),
 	}
-	
+
 	if data != nil {
 		if err := op.SetBody(data); err != nil {
 			// Log error but continue - don't break the chain
@@ -417,6 +417,9 @@ func (b *BatchRequest) Execute(ctx context.Context) (*BatchResponse, error) {
 		return nil, fmt.Errorf("traverse: batch parse failed: %w", err)
 	}
 
+	// Clean up and return header maps to pool
+	b.release()
+
 	return &BatchResponse{Results: results}, nil
 }
 
@@ -478,7 +481,8 @@ func (b *BatchRequest) ExecuteStream(ctx context.Context) <-chan BatchResult {
 		}
 
 		// Stream multipart response incrementally
-		if err := b.streamMultipartResponse(ctx, resp, out); err != nil {
+		err = b.streamMultipartResponse(ctx, resp, out)
+		if err != nil {
 			out <- BatchResult{
 				Err: fmt.Errorf("traverse: batch parse failed: %w", err),
 			}
@@ -540,12 +544,14 @@ func (b *BatchRequest) streamMultipartResponse(ctx context.Context, resp *relay.
 		if strings.HasPrefix(contentTypeHeader, "multipart/mixed") {
 			// This is a changeset response - stream its results
 			csBoundary := extractBoundary(contentTypeHeader)
-			if err := b.streamChangesetResponse(ctx, part, csBoundary, out); err != nil {
+			err = b.streamChangesetResponse(ctx, part, csBoundary, out)
+			if err != nil {
 				return err
 			}
 		} else {
 			// Regular response
-			result, err := b.parseResponsePart(part)
+			var result BatchResult
+			result, err = b.parseResponsePart(part)
 			if err != nil {
 				return err
 			}
@@ -585,7 +591,8 @@ func (b *BatchRequest) streamChangesetResponse(ctx context.Context, part *multip
 			return fmt.Errorf("traverse: error reading changeset response: %w", err)
 		}
 
-		result, err := b.parseResponsePart(part)
+		var result BatchResult
+		result, err = b.parseResponsePart(part)
 		if err != nil {
 			return err
 		}
@@ -598,6 +605,7 @@ func (b *BatchRequest) streamChangesetResponse(ctx context.Context, part *multip
 
 	return nil
 }
+
 // buildMultipartBody constructs the multipart/mixed request body for the batch.
 //
 // buildMultipartBody creates a multipart/mixed MIME message containing all batch
@@ -616,7 +624,9 @@ func (b *BatchRequest) buildMultipartBody() ([]byte, string, error) {
 	boundaryBuilder.WriteString(strconv.FormatInt(time.Now().UnixNano(), 10))
 	boundary := boundaryBuilder.String()
 	w := multipart.NewWriter(buf)
-	w.SetBoundary(boundary)
+	if err := w.SetBoundary(boundary); err != nil {
+		return nil, "", err
+	}
 
 	// Write non-changeset operations first
 	for _, op := range b.ops {
@@ -634,7 +644,9 @@ func (b *BatchRequest) buildMultipartBody() ([]byte, string, error) {
 		}
 	}
 
-	w.Close()
+	if err := w.Close(); err != nil {
+		return nil, "", err
+	}
 	return buf.Bytes(), boundary, nil
 }
 
@@ -661,7 +673,7 @@ func (b *BatchRequest) writeBatchOperation(w *multipart.Writer, op *BatchOperati
 	// Use strings.Builder to efficiently construct request line and headers
 	var reqBuilder strings.Builder
 	reqBuilder.Grow(256) // Pre-allocate for typical request
-	
+
 	// Serialize the operation as HTTP request
 	reqBuilder.WriteString(op.Method)
 	reqBuilder.WriteByte(' ')
@@ -683,7 +695,7 @@ func (b *BatchRequest) writeBatchOperation(w *multipart.Writer, op *BatchOperati
 		reqBuilder.WriteString("Content-Length: ")
 		reqBuilder.WriteString(strconv.Itoa(len(bodyBytes)))
 		reqBuilder.WriteString("\r\n\r\n")
-		
+
 		if _, err := part.Write([]byte(reqBuilder.String())); err != nil {
 			return err
 		}
@@ -725,7 +737,9 @@ func (b *BatchRequest) writeChangeset(w *multipart.Writer, cs *changeset, parent
 
 	// Create changeset writer
 	csWriter := multipart.NewWriter(part)
-	csWriter.SetBoundary(csBoundary)
+	if err := csWriter.SetBoundary(csBoundary); err != nil {
+		return err
+	}
 
 	// Write all operations in the changeset
 	for i, op := range cs.ops {
@@ -741,14 +755,13 @@ func (b *BatchRequest) writeChangeset(w *multipart.Writer, cs *changeset, parent
 		}
 
 		// Serialize operation
-		requestLine := fmt.Sprintf("%s %s HTTP/1.1\r\n", op.Method, op.URL)
-		if _, err := csPart.Write([]byte(requestLine)); err != nil {
+		if _, err := fmt.Fprintf(csPart, "%s %s HTTP/1.1\r\n", op.Method, op.URL); err != nil {
 			return err
 		}
 
 		// Write headers
 		for k, v := range op.Headers {
-			if _, err := csPart.Write([]byte(fmt.Sprintf("%s: %s\r\n", k, v))); err != nil {
+			if _, err := fmt.Fprintf(csPart, "%s: %s\r\n", k, v); err != nil {
 				return err
 			}
 		}
@@ -757,8 +770,7 @@ func (b *BatchRequest) writeChangeset(w *multipart.Writer, cs *changeset, parent
 		if op.Body != nil {
 			bodyBytes := []byte(op.Body)
 
-			contentLen := fmt.Sprintf("Content-Length: %d\r\n", len(bodyBytes))
-			if _, err := csPart.Write([]byte(contentLen)); err != nil {
+			if _, err := fmt.Fprintf(csPart, "Content-Length: %d\r\n", len(bodyBytes)); err != nil {
 				return err
 			}
 
@@ -776,7 +788,9 @@ func (b *BatchRequest) writeChangeset(w *multipart.Writer, cs *changeset, parent
 		}
 	}
 
-	csWriter.Close()
+	if err := csWriter.Close(); err != nil {
+		return err
+	}
 	return nil
 }
 
@@ -827,14 +841,16 @@ func (b *BatchRequest) parseMultipartResponse(resp *relay.Response) ([]BatchResu
 		if strings.HasPrefix(contentType, "multipart/mixed") {
 			// This is a changeset response
 			csBoundary := extractBoundary(contentType)
-			csResults, err := b.parseChangesetResponse(part, csBoundary)
+			var csResults []BatchResult
+			csResults, err = b.parseChangesetResponse(part, csBoundary)
 			if err != nil {
 				return nil, err
 			}
 			results = append(results, csResults...)
 		} else {
 			// Regular response
-			result, err := b.parseResponsePart(part)
+			var result BatchResult
+			result, err = b.parseResponsePart(part)
 			if err != nil {
 				return nil, err
 			}
@@ -867,7 +883,8 @@ func (b *BatchRequest) parseChangesetResponse(part *multipart.Part, boundary str
 			return nil, fmt.Errorf("traverse: error reading changeset response: %w", err)
 		}
 
-		result, err := b.parseResponsePart(part)
+		var result BatchResult
+		result, err = b.parseResponsePart(part)
 		if err != nil {
 			return nil, err
 		}
@@ -912,7 +929,9 @@ func (b *BatchRequest) parseResponsePart(part *multipart.Part) (BatchResult, err
 	}
 
 	// Parse status code
-	fmt.Sscanf(statusLine[1], "%d", &result.StatusCode)
+	if _, err := fmt.Sscanf(statusLine[1], "%d", &result.StatusCode); err != nil {
+		result.StatusCode = 500
+	}
 
 	// Parse headers and body
 	bodyStart := 0
@@ -962,4 +981,18 @@ func extractBoundary(contentType string) string {
 		}
 	}
 	return ""
+}
+
+// release returns all header maps from operations back to the pool.
+func (b *BatchRequest) release() {
+	for i := range b.ops {
+		releaseHeaders(b.ops[i].Headers)
+		b.ops[i].Headers = nil
+	}
+	for _, cs := range b.changesets {
+		for i := range cs.ops {
+			releaseHeaders(cs.ops[i].Headers)
+			cs.ops[i].Headers = nil
+		}
+	}
 }

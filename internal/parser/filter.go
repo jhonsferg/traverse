@@ -15,7 +15,7 @@ import (
 // handling according to OData v2 and v4 specifications.
 //
 // Supported types:
-//   - string: Escaped with single quotes; internal quotes doubled: 'text''s value'
+//   - string: Escaped with single quotes; internal quotes doubled: 'text”s value'
 //   - int, int32, int64: Numeric literals without quotes: 42
 //   - float32, float64: Decimal (with M suffix) or Double: 3.14M or 3.14
 //   - bool: Boolean literals: true or false
@@ -28,10 +28,11 @@ import (
 // Returns an error if the value type is not supported for OData serialization.
 //
 // Examples:
-//   SerializeValue("John's", "") → "'John''s'", nil
-//   SerializeValue(42, "Edm.Int32") → "42", nil
-//   SerializeValue(3.14, "Edm.Decimal") → "3.14M", nil
-//   SerializeValue(time.Now(), "Edm.DateTime") → "datetime'2024-01-01T00:00:00'", nil
+//
+//	SerializeValue("John's", "") → "'John''s'", nil
+//	SerializeValue(42, "Edm.Int32") → "42", nil
+//	SerializeValue(3.14, "Edm.Decimal") → "3.14M", nil
+//	SerializeValue(time.Now(), "Edm.DateTime") → "datetime'2024-01-01T00:00:00'", nil
 func SerializeValue(v interface{}, edmType string) (string, error) {
 	switch val := v.(type) {
 	case string:
@@ -94,9 +95,10 @@ func SerializeValue(v interface{}, edmType string) (string, error) {
 // Returns an error if the key type is unsupported or cannot be safely encoded.
 //
 // Example:
-//   EncodeKey("MAT001") → "'MAT001'", nil
-//   EncodeKey(42) → "42", nil
-//   EncodeKey("John's") → "'John''s'", nil
+//
+//	EncodeKey("MAT001") → "'MAT001'", nil
+//	EncodeKey(42) → "42", nil
+//	EncodeKey("John's") → "'John''s'", nil
 func EncodeKey(key interface{}) (string, error) {
 	switch v := key.(type) {
 	case string:
@@ -142,9 +144,10 @@ func EncodeKey(key interface{}) (string, error) {
 //   - Any key value cannot be encoded
 //
 // Example:
-//   keys := map[string]interface{}{"Material": "MAT001", "Plant": "1000"}
-//   result, err := EncodeCompositeKey(keys)
-//   // result might be: "Material='MAT001',Plant='1000'" or "Plant='1000',Material='MAT001'"
+//
+//	keys := map[string]interface{}{"Material": "MAT001", "Plant": "1000"}
+//	result, err := EncodeCompositeKey(keys)
+//	// result might be: "Material='MAT001',Plant='1000'" or "Plant='1000',Material='MAT001'"
 func EncodeCompositeKey(keys map[string]interface{}) (string, error) {
 	if len(keys) == 0 {
 		return "", fmt.Errorf("composite key cannot be empty")
@@ -168,15 +171,16 @@ func EncodeCompositeKey(keys map[string]interface{}) (string, error) {
 // EscapeFilterExpression escapes special characters in OData filter expressions.
 //
 // EscapeFilterExpression applies OData-specific escaping rules to filter expression strings.
-// The primary escaping rule in OData filters is: single quotes (') are escaped by doubling ('')
+// The primary escaping rule in OData filters is: single quotes (') are escaped by doubling (”)
 // to distinguish them from string literal delimiters.
 //
 // This function should be called on string values being embedded in filter expressions
 // to prevent injection or syntax errors.
 //
 // Example:
-//   input: "John's Company"
-//   output: "John''s Company"
+//
+//	input: "John's Company"
+//	output: "John''s Company"
 //
 // Note: This only escapes quotes. URL encoding (percent-encoding) is handled separately
 // by the URL builder when the complete filter expression is added to the query string.
@@ -189,9 +193,9 @@ func EscapeFilterExpression(expr string) string {
 // ParseFilterExpression performs basic validation of an OData filter expression syntax.
 //
 // ParseFilterExpression checks the structural validity of a filter expression by verifying:
-//   1. Balanced parentheses: every '(' has a matching ')'
-//   2. Balanced quotes: every unescaped quote ends a quoted string
-//   3. Proper quote escaping: single quotes within strings are doubled ('')
+//  1. Balanced parentheses: every '(' has a matching ')'
+//  2. Balanced quotes: every unescaped quote ends a quoted string
+//  3. Proper quote escaping: single quotes within strings are doubled (”)
 //
 // This is a lightweight validation suitable for catching obvious syntax errors.
 // It does NOT validate OData operator names, function calls, or semantic correctness—
@@ -203,10 +207,11 @@ func EscapeFilterExpression(expr string) string {
 //   - "unclosed quote in filter expression"
 //
 // Examples:
-//   "(Price gt 100)" → nil (valid)
-//   "(Price gt 100" → error (unbalanced parentheses)
-//   "'John''s Company'" → nil (valid, with escaped quote)
-//   "'John's Company'" → error (unclosed quote)
+//
+//	"(Price gt 100)" → nil (valid)
+//	"(Price gt 100" → error (unbalanced parentheses)
+//	"'John''s Company'" → nil (valid, with escaped quote)
+//	"'John's Company'" → error (unclosed quote)
 func ParseFilterExpression(expr string) error {
 	// Basic validation: check for balanced parentheses and quotes
 	parenCount := 0
@@ -215,17 +220,20 @@ func ParseFilterExpression(expr string) error {
 	for i := 0; i < len(expr); i++ {
 		ch := expr[i]
 
-		if ch == '\'' {
+		switch ch {
+		case '\'':
 			if i+1 < len(expr) && expr[i+1] == '\'' {
 				// Escaped quote ''
 				i++
 			} else {
 				quoteOpen = !quoteOpen
 			}
-		} else if !quoteOpen {
-			if ch == '(' {
+		case '(':
+			if !quoteOpen {
 				parenCount++
-			} else if ch == ')' {
+			}
+		case ')':
+			if !quoteOpen {
 				parenCount--
 				if parenCount < 0 {
 					return fmt.Errorf("unbalanced parentheses in filter")

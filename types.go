@@ -63,21 +63,20 @@ func (d *DateTime) UnmarshalJSON(b []byte) error {
 	}
 
 	dateStr := s[6 : len(s)-2] // Remove /Date( and )/
-	
+
 	// Extract milliseconds and offset if present
 	var millis int64
+	var err error
 	if idx := strings.IndexAny(dateStr, "+-"); idx != -1 {
-		m, err := strconv.ParseInt(dateStr[:idx], 10, 64)
+		millis, err = strconv.ParseInt(dateStr[:idx], 10, 64)
 		if err != nil {
 			return fmt.Errorf("invalid DateTime milliseconds: %s", dateStr[:idx])
 		}
-		millis = m
 	} else {
-		m, err := strconv.ParseInt(dateStr, 10, 64)
+		millis, err = strconv.ParseInt(dateStr, 10, 64)
 		if err != nil {
 			return fmt.Errorf("invalid DateTime milliseconds: %s", dateStr)
 		}
-		millis = m
 	}
 
 	*d = DateTime(time.UnixMilli(millis).UTC())
@@ -233,7 +232,7 @@ func (g *Guid) UnmarshalJSON(b []byte) error {
 			if b1 < 0 || b2 < 0 {
 				return fmt.Errorf("invalid GUID hex: %s", parts[idx])
 			}
-			result[seg.pos+i/2] = byte(b1<<4 | b2)
+			result[seg.pos+i/2] = byte((b1 << 4) | b2) // #nosec G115
 		}
 		idx++
 	}
@@ -499,5 +498,5 @@ type ResponseFormat int
 
 const (
 	FormatJSON ResponseFormat = iota // JSON (default)
-	FormatAtom                        // XML/ATOM (legacy OData v2)
+	FormatAtom                       // XML/ATOM (legacy OData v2)
 )
