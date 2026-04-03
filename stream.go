@@ -464,7 +464,8 @@ func parseODataResponse(decoder *json.Decoder, page *Page, version ODataVersion)
 		default:
 			// Skip unknown fields
 			var tmp interface{}
-			if err := decoder.Decode(&tmp); err != nil && err != io.EOF {
+			err = decoder.Decode(&tmp)
+			if err != nil && err != io.EOF {
 				return fmt.Errorf("failed to skip field %q: %w", key, err)
 			}
 		}
@@ -540,7 +541,8 @@ func parseODataV2Wrapper(decoder *json.Decoder, page *Page) error {
 		default:
 			// Skip unknown fields
 			var tmp interface{}
-			if err := decoder.Decode(&tmp); err != nil && err != io.EOF {
+			err = decoder.Decode(&tmp)
+			if err != nil && err != io.EOF {
 				return fmt.Errorf("failed to skip wrapper field %q: %w", key, err)
 			}
 		}
