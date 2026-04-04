@@ -142,12 +142,12 @@ make all   # runs fmt + lint + tidy + test
 
 # 4. Push and open PR
 git push origin feat/my-feature
-gh pr create --repo jhonsferg/traverse --base master \
+gh pr create --repo <your-github-user>/traverse --base master \
   --title "feat(scope): short description" \
   --body "..."
 
 # 5. Wait for all CI checks to pass, then merge
-gh pr merge <number> --repo jhonsferg/traverse --squash --delete-branch
+gh pr merge <number> --repo <your-github-user>/traverse --squash --delete-branch
 ```
 
 ### Hotfix flow
@@ -156,9 +156,9 @@ gh pr merge <number> --repo jhonsferg/traverse --squash --delete-branch
 git checkout -b hotfix/critical-bug origin/master
 # fix, commit
 git push origin hotfix/critical-bug
-gh pr create --repo jhonsferg/traverse --base master --title "fix: ..."
+gh pr create --repo <your-github-user>/traverse --base master --title "fix: ..."
 # after merge, tag immediately
-gh release create v0.X.Y --repo jhonsferg/traverse --notes "fix: ..."
+gh release create v0.X.Y --repo <your-github-user>/traverse --notes "fix: ..."
 ```
 
 ---
@@ -178,7 +178,7 @@ gh auth login --hostname github.com --git-protocol ssh
 ### SSH configuration for this repository
 
 ```bash
-export GIT_SSH_COMMAND="ssh -i ~/.ssh/github_jhonsferg -o StrictHostKeyChecking=no"
+export GIT_SSH_COMMAND="ssh -i ~/.ssh/github_<your-key-name> -o StrictHostKeyChecking=no"
 ```
 
 ### Branch protection bypass (direct push to master)
@@ -187,19 +187,19 @@ Only for emergency fixes or history rewrites. Re-enable immediately after.
 
 ```bash
 # Disable enforce_admins
-gh api -X DELETE repos/jhonsferg/traverse/branches/master/protection/enforce_admins
+gh api -X DELETE repos/<your-github-user>/traverse/branches/master/protection/enforce_admins
 
 # Push
 git push origin master
 
 # Re-enable
-gh api -X POST repos/jhonsferg/traverse/branches/master/protection/enforce_admins
+gh api -X POST repos/<your-github-user>/traverse/branches/master/protection/enforce_admins
 ```
 
 To allow force pushes (e.g. for history rewrite with git-filter-repo):
 
 ```bash
-gh api -X PUT repos/jhonsferg/traverse/branches/master/protection \
+gh api -X PUT repos/<your-github-user>/traverse/branches/master/protection \
   --input - <<'EOF'
 {
   "required_status_checks": null,
@@ -213,7 +213,7 @@ EOF
 git push origin master --force
 
 # Restore protection
-gh api -X PUT repos/jhonsferg/traverse/branches/master/protection \
+gh api -X PUT repos/<your-github-user>/traverse/branches/master/protection \
   --input - <<'EOF'
 {
   "required_status_checks": null,
@@ -234,19 +234,19 @@ EOF
 
 ```bash
 # Create PR
-gh pr create --repo jhonsferg/traverse \
+gh pr create --repo <your-github-user>/traverse \
   --head feat/my-feature --base master \
   --title "feat(scope): description" \
   --body "..."
 
 # List open PRs
-gh pr list --repo jhonsferg/traverse --state open
+gh pr list --repo <your-github-user>/traverse --state open
 
 # View PR checks and status
-gh pr view 42 --repo jhonsferg/traverse
+gh pr view 42 --repo <your-github-user>/traverse
 
 # Merge (squash, delete branch)
-gh pr merge 42 --repo jhonsferg/traverse \
+gh pr merge 42 --repo <your-github-user>/traverse \
   --squash --delete-branch --subject "feat(scope): description"
 
 # Merge as admin (bypass required reviews)
@@ -261,45 +261,45 @@ git tag v0.2.0 && git push origin v0.2.0
 
 # Create a lightweight release manually
 gh release create v0.2.0 \
-  --repo jhonsferg/traverse \
+  --repo <your-github-user>/traverse \
   --title "v0.2.0" \
   --notes "## Changes..."
 
 # List releases
-gh release list --repo jhonsferg/traverse
+gh release list --repo <your-github-user>/traverse
 
 # View a release
-gh release view v0.2.0 --repo jhonsferg/traverse
+gh release view v0.2.0 --repo <your-github-user>/traverse
 ```
 
 ### Issue management
 
 ```bash
 # Create issue
-gh issue create --repo jhonsferg/traverse \
+gh issue create --repo <your-github-user>/traverse \
   --title "bug: ..." --body "..." --label "bug"
 
 # List open issues
-gh issue list --repo jhonsferg/traverse --state open
+gh issue list --repo <your-github-user>/traverse --state open
 
 # Close issue
-gh issue close 15 --repo jhonsferg/traverse
+gh issue close 15 --repo <your-github-user>/traverse
 ```
 
 ### CI/CD inspection
 
 ```bash
 # List recent workflow runs
-gh run list --repo jhonsferg/traverse --limit 10
+gh run list --repo <your-github-user>/traverse --limit 10
 
 # Watch a run live
-gh run watch --repo jhonsferg/traverse
+gh run watch --repo <your-github-user>/traverse
 
 # View failed job logs
-gh run view <run-id> --repo jhonsferg/traverse --log-failed
+gh run view <run-id> --repo <your-github-user>/traverse --log-failed
 
 # Re-run only failed jobs
-gh run rerun <run-id> --repo jhonsferg/traverse --failed
+gh run rerun <run-id> --repo <your-github-user>/traverse --failed
 ```
 
 ---
@@ -327,7 +327,7 @@ This project follows [Semantic Versioning 2.0](https://semver.org).
 
 ```bash
 # 1. Ensure all CI checks pass on master
-gh run list --repo jhonsferg/traverse --branch master --limit 3
+gh run list --repo <your-github-user>/traverse --branch master --limit 3
 
 # 2. Update CHANGELOG.md with changes since last tag
 git log v0.1.x..HEAD --oneline --no-merges
@@ -340,7 +340,7 @@ git tag v0.2.0
 git push origin v0.2.0
 
 # 5. Verify
-gh release view v0.2.0 --repo jhonsferg/traverse
+gh release view v0.2.0 --repo <your-github-user>/traverse
 ```
 
 ### Extension module versioning
@@ -524,7 +524,7 @@ func ExampleClient_Stream() {
 go test -coverprofile=coverage.out -covermode=atomic ./...
 
 # Filter out non-library packages (matches CI behaviour)
-grep -v -E "^github\.com/jhonsferg/traverse/(cmd|examples|benchmarks|tools|internal/encoder|internal/tokenizer)/" \
+grep -v -E "^github\.com/<your-github-user>/traverse/(cmd|examples|benchmarks|tools|internal/encoder|internal/tokenizer)/" \
   coverage.out > coverage_lib.out
 
 # View total percentage
