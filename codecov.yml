@@ -68,12 +68,13 @@ comment:
 
 # Ignore patterns
 ignore:
-  - "cmd/**"  # CLI tools not ready
-  - "examples/**"  # Example code
-  - "benchmarks/**"  # Benchmark code, not tests
-  - "**/*_test.go"  # Tests themselves
-  - "internal/tokenizer/**"  # Generated code
-  - "internal/encoder/**"  # Internal utilities
+  - "cmd/**"
+  - "examples/**"
+  - "benchmarks/**"
+  - "tools/**"
+  - "**/*_test.go"
+  - "internal/tokenizer/**"
+  - "internal/encoder/**"
 
 # GitHub notifications
 github:
