@@ -259,7 +259,7 @@ func TestBinary_UnmarshalJSON_Base64(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Binary UnmarshalJSON base64: %v", err)
 	}
-	// The current implementation stores the base64 string chunked — just check no error
+	// The current implementation stores the base64 string chunked - just check no error
 	if len(b) == 0 {
 		t.Error("Binary should not be empty after UnmarshalJSON")
 	}

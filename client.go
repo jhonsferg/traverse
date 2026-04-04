@@ -278,7 +278,7 @@ func (c *Client) Close() error {
 // Example:
 //
 //	if client.CircuitBreakerState() == relay.StateOpen {
-//	    log.Println("OData service unavailable — circuit is open")
+//	    log.Println("OData service unavailable - circuit is open")
 //	}
 func (c *Client) CircuitBreakerState() relay.CircuitBreakerState {
 	if c.http == nil {
