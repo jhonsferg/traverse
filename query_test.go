@@ -686,3 +686,52 @@ func TestAutoDetectODataVersion(t *testing.T) {
 		})
 	}
 }
+
+// TestSerializeValue_AllTypes covers serializeValue for int32, int64, float32, float64, bool,
+// and default/unknown types via the In() FilterBuilder method.
+func TestSerializeValue_AllTypes(t *testing.T) {
+	qb := &QueryBuilder{client: &Client{}, entitySet: "Products", urlDirty: true}
+
+	// int32
+	qb2 := qb.Where("ID").In(int32(1), int32(2))
+	if qb2.filterExpr == "" {
+		t.Error("serializeValue int32: filterExpr should not be empty")
+	}
+
+	// int64
+	qb3 := (&QueryBuilder{client: &Client{}, entitySet: "P", urlDirty: true}).Where("ID").In(int64(100))
+	if qb3.filterExpr == "" {
+		t.Error("serializeValue int64: filterExpr should not be empty")
+	}
+
+	// float32
+	qb4 := (&QueryBuilder{client: &Client{}, entitySet: "P", urlDirty: true}).Where("Price").In(float32(1.5))
+	if qb4.filterExpr == "" {
+		t.Error("serializeValue float32: filterExpr should not be empty")
+	}
+
+	// float64
+	qb5 := (&QueryBuilder{client: &Client{}, entitySet: "P", urlDirty: true}).Where("Price").In(float64(3.14))
+	if qb5.filterExpr == "" {
+		t.Error("serializeValue float64: filterExpr should not be empty")
+	}
+
+	// bool true
+	qb6 := (&QueryBuilder{client: &Client{}, entitySet: "P", urlDirty: true}).Where("Active").In(true)
+	if qb6.filterExpr == "" {
+		t.Error("serializeValue bool true: filterExpr should not be empty")
+	}
+
+	// bool false
+	qb7 := (&QueryBuilder{client: &Client{}, entitySet: "P", urlDirty: true}).Where("Active").In(false)
+	if qb7.filterExpr == "" {
+		t.Error("serializeValue bool false: filterExpr should not be empty")
+	}
+
+	// default (struct — fallback to fmt.Sprint)
+	type custom struct{ Name string }
+	qb8 := (&QueryBuilder{client: &Client{}, entitySet: "P", urlDirty: true}).Where("Status").In(custom{Name: "open"})
+	if qb8.filterExpr == "" {
+		t.Error("serializeValue default: filterExpr should not be empty")
+	}
+}

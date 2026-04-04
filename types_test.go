@@ -284,3 +284,71 @@ func TestBinary_MarshalJSON(t *testing.T) {
 		t.Error("Binary MarshalJSON returned empty bytes")
 	}
 }
+
+// --- DateTimeOffsetValue ---
+
+func TestDateTimeOffsetValue(t *testing.T) {
+	dt := time.Date(2024, 1, 15, 10, 30, 0, 0, time.UTC)
+	got := DateTimeOffsetValue(dt)
+	want := "2024-01-15T10:30:00Z"
+	if got != want {
+		t.Errorf("DateTimeOffsetValue() = %q, want %q", got, want)
+	}
+}
+
+func TestDateTimeOffsetValue_WithTimezone(t *testing.T) {
+	loc := time.FixedZone("UTC+2", 2*60*60)
+	dt := time.Date(2024, 6, 1, 12, 0, 0, 0, loc)
+	got := DateTimeOffsetValue(dt)
+	if got == "" {
+		t.Error("DateTimeOffsetValue() returned empty string")
+	}
+	// Should include timezone info
+	if !contains(got, "2024-06-01") {
+		t.Errorf("DateTimeOffsetValue() = %q, expected date 2024-06-01", got)
+	}
+}
+
+// --- hexToByte via Guid.UnmarshalJSON ---
+
+func TestGuid_UnmarshalJSON_UppercaseHex(t *testing.T) {
+	var g Guid
+	// Uppercase hex chars hit the A-F case in hexToByte
+	err := json.Unmarshal([]byte(`"550E8400-E29B-41D4-A716-446655440000"`), &g)
+	if err != nil {
+		t.Fatalf("Guid UnmarshalJSON uppercase hex: %v", err)
+	}
+	if g.String() == "" {
+		t.Error("Guid.String() should not be empty after unmarshaling uppercase GUID")
+	}
+}
+
+func TestGuid_UnmarshalJSON_InvalidHexChar(t *testing.T) {
+	var g Guid
+	// Valid GUID format (5 parts) but contains invalid hex char → hits hexToByte default case
+	err := json.Unmarshal([]byte(`"ZZ0e8400-e29b-41d4-a716-446655440000"`), &g)
+	if err == nil {
+		t.Fatal("expected error for GUID with invalid hex char, got nil")
+	}
+}
+
+// --- Decimal nil value ---
+
+func TestDecimal_MarshalJSON_Nil(t *testing.T) {
+	var d Decimal // zero value: d.value is nil
+	b, err := d.MarshalJSON()
+	if err != nil {
+		t.Fatalf("Decimal.MarshalJSON() nil: %v", err)
+	}
+	if string(b) != "null" {
+		t.Errorf("Decimal.MarshalJSON() nil = %s, want null", b)
+	}
+}
+
+func TestDecimal_String_Nil(t *testing.T) {
+	var d Decimal // zero value: d.value is nil
+	s := d.String()
+	if s != "0" {
+		t.Errorf("Decimal.String() nil = %q, want %q", s, "0")
+	}
+}
