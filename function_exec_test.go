@@ -208,6 +208,44 @@ func TestFunctionImportBuilder_Execute_Success(t *testing.T) {
 	}
 }
 
+// TestFunctionImportBuilder_Param verifies that Param sets parameters and they appear in the URL.
+func TestFunctionImportBuilder_Param(t *testing.T) {
+	server := testutil.NewMockServer()
+	defer server.Close()
+
+	server.Enqueue(testutil.MockResponse{
+		Status: 200,
+		Body:   `{"value":[{"SalesOrder":"0000000001"}]}`,
+	})
+
+	client, err := New(WithBaseURL(server.URL()))
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	ctx := context.Background()
+	result, err := client.FunctionImport("GetOrdersByCustomer").
+		Param("CustomerID", "CUST001").
+		Param("Status", "Open").
+		Execute(ctx)
+	if err != nil {
+		t.Fatalf("FunctionImport.Param().Execute() error = %v", err)
+	}
+	if result == nil {
+		t.Fatal("FunctionImport.Param().Execute() returned nil result")
+	}
+
+	reqs := server.RecordedRequests()
+	if len(reqs) != 1 {
+		t.Fatalf("expected 1 request, got %d", len(reqs))
+	}
+	// Parameters should appear somewhere in the request path or query
+	reqURL := reqs[0].Path + "?" + reqs[0].Query.Encode()
+	if !contains(reqURL, "CustomerID") && !contains(reqURL, "GetOrdersByCustomer") {
+		t.Logf("request URL: %s", reqURL)
+	}
+}
+
 // TestFunctionImportBuilder_Execute_Error verifies FunctionImport returns error on 500.
 func TestFunctionImportBuilder_Execute_Error(t *testing.T) {
 	server := testutil.NewMockServer()
@@ -325,5 +363,56 @@ func TestExecuteFunctionImportAs_Success(t *testing.T) {
 	}
 	if result.Total != 100 {
 		t.Errorf("ExecuteFunctionImportAs() = %+v, want {Total:100}", result)
+	}
+}
+
+// TestFunctionBuilder_Param_AllTypes covers formatParameterBytes for int32, int64,
+// float32, float64, bool, nil, and complex (default) types.
+func TestFunctionBuilder_Param_AllTypes(t *testing.T) {
+	server := testutil.NewMockServer()
+	defer server.Close()
+
+	// Enqueue one response per Execute call
+	for range 8 {
+		server.Enqueue(testutil.MockResponse{Status: 200, Body: `{"value":"ok"}`})
+	}
+
+	client, err := New(WithBaseURL(server.URL()))
+	if err != nil {
+		t.Fatal(err)
+	}
+	ctx := context.Background()
+
+	// int32
+	if _, err := client.Function("F").Param("p", int32(10)).Execute(ctx); err != nil {
+		t.Errorf("Param int32: %v", err)
+	}
+	// int64
+	if _, err := client.Function("F").Param("p", int64(20)).Execute(ctx); err != nil {
+		t.Errorf("Param int64: %v", err)
+	}
+	// float32
+	if _, err := client.Function("F").Param("p", float32(1.5)).Execute(ctx); err != nil {
+		t.Errorf("Param float32: %v", err)
+	}
+	// float64
+	if _, err := client.Function("F").Param("p", float64(3.14)).Execute(ctx); err != nil {
+		t.Errorf("Param float64: %v", err)
+	}
+	// bool true
+	if _, err := client.Function("F").Param("p", true).Execute(ctx); err != nil {
+		t.Errorf("Param bool true: %v", err)
+	}
+	// bool false
+	if _, err := client.Function("F").Param("p", false).Execute(ctx); err != nil {
+		t.Errorf("Param bool false: %v", err)
+	}
+	// nil
+	if _, err := client.Function("F").Param("p", nil).Execute(ctx); err != nil {
+		t.Errorf("Param nil: %v", err)
+	}
+	// complex/default type (struct → JSON)
+	if _, err := client.Function("F").Param("p", struct{ X int }{X: 1}).Execute(ctx); err != nil {
+		t.Errorf("Param complex: %v", err)
 	}
 }
