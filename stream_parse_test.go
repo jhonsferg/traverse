@@ -117,7 +117,7 @@ func TestParseODataResponse_InvalidJSON(t *testing.T) {
 // ---- parseODataV2Wrapper direct unit tests ----
 
 func TestParseODataV2Wrapper_Basic(t *testing.T) {
-	// Simulate decoder positioned after the "d" key — decoder at the value position
+	// Simulate decoder positioned after the "d" key - decoder at the value position
 	body := `{"results":[{"ID":1,"Name":"A"},{"ID":2,"Name":"B"}]}`
 	dec := json.NewDecoder(strings.NewReader(body))
 	page := &Page{}
@@ -247,13 +247,13 @@ func TestCollect_ODataV2_WithNextLink(t *testing.T) {
 	server := testutil.NewMockServer()
 	defer server.Close()
 
-	// Page 1 — with __next link pointing to page 2
+	// Page 1 - with __next link pointing to page 2
 	server.Enqueue(testutil.MockResponse{
 		Status:  200,
 		Headers: map[string]string{"Content-Type": "application/json"},
 		Body:    `{"d":{"results":[{"ID":1},{"ID":2}],"__next":"/Products?$skip=2"}}`,
 	})
-	// Page 2 — no next link
+	// Page 2 - no next link
 	server.Enqueue(testutil.MockResponse{
 		Status:  200,
 		Headers: map[string]string{"Content-Type": "application/json"},

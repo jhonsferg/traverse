@@ -1,4 +1,4 @@
-# Git Workflow — traverse
+# Git Workflow - traverse
 
 Engineering standards and Git workflow for the traverse project.
 This document is the authoritative reference for contributors and automated agents.
@@ -28,7 +28,7 @@ This document is the authoritative reference for contributors and automated agen
 
 ## 1. Commit Rules
 
-- No Co-Authored-By, no Signed-off-by, no author emails in commits — ever.
+- No Co-Authored-By, no Signed-off-by, no author emails in commits - ever.
 - Subject line 72 characters maximum, imperative mood, no trailing period.
 - Format: `type(scope): description`
 
@@ -109,7 +109,7 @@ Use lowercase and hyphens only (no underscores, no extra slashes).
 Rules:
 
 - Never commit directly to `master`.
-- One branch per logical change — do not bundle unrelated work.
+- One branch per logical change - do not bundle unrelated work.
 - Delete remote branches after the PR is merged.
 
 ---
@@ -418,7 +418,7 @@ result, _ := doSomething() //nolint:errcheck // documented: always returns nil
 ### golangci-lint v2 constraints
 
 - Formatters (`gofmt`, `goimports`) go under `formatters:` section, not `linters:`.
-- `gosimple` and `typecheck` do not exist in v2 — do not add them.
+- `gosimple` and `typecheck` do not exist in v2 - do not add them.
 - `exclude-dirs` does not exist at the top level or under `issues:`.
 - `misspell` locale must be `UK`.
 
@@ -442,7 +442,7 @@ Hooks run `gofmt` and `golangci-lint` automatically before every commit.
 - Every exported type, function, method, constant, and variable must have a doc comment.
 - Start comments with the symbol name: `// FunctionName does X.`
 - Use complete sentences ending with a period.
-- Describe *what* and *why*, not *how* — the code shows how.
+- Describe *what* and *why*, not *how* - the code shows how.
 
 ### Package-level documentation
 
@@ -450,8 +450,8 @@ Each package must have a `doc.go` file:
 
 ```go
 // Package traverse provides a declarative OData v2/v4 client for Go.
-// It handles protocol details — pagination, CSRF tokens, delta sync,
-// and batch requests — built on top of the relay HTTP transport.
+// It handles protocol details - pagination, CSRF tokens, delta sync,
+// and batch requests - built on top of the relay HTTP transport.
 package traverse
 ```
 
@@ -484,8 +484,8 @@ type Cache interface {
 
 - Comment non-obvious logic, not self-evident code.
 - Use `// NOTE:` for important observations.
-- Use `// TODO: #issue-number` for known gaps — always link to an issue.
-- Use `// FIXME:` only for bugs that need a follow-up PR — never merge FIXME.
+- Use `// TODO: #issue-number` for known gaps - always link to an issue.
+- Use `// FIXME:` only for bugs that need a follow-up PR - never merge FIXME.
 - Avoid block comments (`/* */`) in Go source.
 
 ### Testable examples
@@ -538,11 +538,11 @@ go tool cover -html=coverage_lib.out -o coverage.html
 
 These packages are intentionally excluded and must not inflate the denominator:
 
-- `cmd/**` — binary entrypoints, not library code
-- `examples/**` — illustrative examples
-- `benchmarks/**` — benchmark-only code
-- `tools/**` — developer tooling
-- `internal/encoder/**` and `internal/tokenizer/**` — generated or vendored internals
+- `cmd/**` - binary entrypoints, not library code
+- `examples/**` - illustrative examples
+- `benchmarks/**` - benchmark-only code
+- `tools/**` - developer tooling
+- `internal/encoder/**` and `internal/tokenizer/**` - generated or vendored internals
 
 Configure in `codecov.yml`:
 
@@ -560,7 +560,7 @@ ignore:
 
 - Test all exported functions including error paths.
 - Test boundary conditions: nil input, empty slice, zero value, maximum value.
-- Use `testutil.NewMockServer(t)` for HTTP-level tests — no live network calls in unit tests.
+- Use `testutil.NewMockServer(t)` for HTTP-level tests - no live network calls in unit tests.
 - Use `go test -race ./...` when writing any concurrent code.
 
 ---
@@ -572,7 +572,7 @@ ignore:
 - Any data race is a release blocker, not a warning.
 - Table-driven tests are preferred for functions with multiple input variants.
 - Test file naming: `<file>_test.go` in the same package; use `_test` package suffix for black-box public API tests.
-- Do not use `time.Sleep` in tests — use channels, `sync.WaitGroup`, or mock clocks.
+- Do not use `time.Sleep` in tests - use channels, `sync.WaitGroup`, or mock clocks.
 
 ### DeltaSync concurrency pattern
 
@@ -611,9 +611,9 @@ srv.EnqueueResponse(200, map[string]any{"value": []any{...}})
 ## 11. API Stability
 
 - Zero breaking changes to exported types, functions, or interfaces without a MAJOR version bump.
-- `QueryBuilder` method chain is stable — adding new methods is always safe.
+- `QueryBuilder` method chain is stable - adding new methods is always safe.
 - New options use the functional options pattern: `WithXxx(...) Option`.
-- New behaviour is always opt-in via options — never change default behaviour.
+- New behaviour is always opt-in via options - never change default behaviour.
 - Deprecate before removing: add `// Deprecated: use Xxx instead.` and keep for one minor version.
 - OData protocol quirks (SAP CSRF tokens, v2 vs v4 differences) must remain transparent to callers.
 
@@ -622,7 +622,7 @@ srv.EnqueueResponse(200, map[string]any{"value": []any{...}})
 ## 12. Memory Safety
 
 - Stream channels must be fully drained or have their context cancelled before the goroutine pool exits.
-- Never share a `*QueryBuilder` across goroutines — builders are not thread-safe by design.
+- Never share a `*QueryBuilder` across goroutines - builders are not thread-safe by design.
 - String intern maps (`string_intern.go`) use `sync.RWMutex`; always acquire the read lock for lookups.
 - Pool-allocated headers in batch operations must be released via `releaseHeaders()` after use.
 
@@ -631,7 +631,7 @@ srv.EnqueueResponse(200, map[string]any{"value": []any{...}})
 ## 13. Security
 
 - Run `govulncheck ./...` before any release tag.
-- Never commit secrets, tokens, or credentials — use environment variables or `gh secret set`.
+- Never commit secrets, tokens, or credentials - use environment variables or `gh secret set`.
 - TLS minimum version is `tls.VersionTLS12` (enforced via relay transport).
 - `gosec` linter is enabled; suppressions require a written justification comment.
 - CSRF token handling: always use the `X-CSRF-Token` fetch pattern for mutating OData v2 requests.
@@ -641,7 +641,13 @@ srv.EnqueueResponse(200, map[string]any{"value": []any{...}})
 ## 14. Typography and Style
 
 - UK English throughout: `colour`, `behaviour`, `licence`, `initialise`, `optimise`.
-- Never use the em-dash symbol. Use a plain hyphen ( - ) instead.
+- **Never use the em-dash character `—` (U+2014) anywhere** - not in Go source comments,
+  documentation, README files, commit messages, PR descriptions, YAML files, or any other
+  project file. Use a plain hyphen surrounded by spaces (` - `) as a sentence-break separator
+  instead. The em-dash is not typed by most keyboards and causes visual inconsistency across
+  editors and terminals.
+  - Wrong: `// OData service unavailable — circuit is open`
+  - Right: `// OData service unavailable - circuit is open`
 - No trailing whitespace in any file.
 - Files end with a single newline character.
 - Maximum line length for comments and documentation: 80 characters.
@@ -657,7 +663,7 @@ Each `ext/*` directory is an independent Go module:
 - Must compile and lint cleanly with `GOWORK=off`.
 - Must reference a released version of traverse (no `replace` directive in CI).
 - Coverage threshold: 75%.
-- Tag format: `ext/<name>/v0.X.Y` — push tag after merging the PR.
+- Tag format: `ext/<name>/v0.X.Y` - push tag after merging the PR.
 - Extensions that wrap relay must also reference the latest released relay version.
 
 ---
