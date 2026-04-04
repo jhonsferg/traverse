@@ -3,6 +3,7 @@ package traverse
 import (
 	"context"
 	"fmt"
+	"sync"
 )
 
 // DeltaSync manages incremental synchronization using OData delta links (OData v4).
@@ -28,7 +29,8 @@ import (
 type DeltaSync struct {
 	client    *Client
 	entitySet string
-	token     string // Current delta token
+	mu        sync.RWMutex
+	token     string // Current delta token; protected by mu
 }
 
 // NewDeltaSync creates a new delta sync handler for an entity set.
@@ -119,7 +121,10 @@ func (d *DeltaSync) Full(ctx context.Context, bufferSize ...int) (<-chan Result[
 
 			// Extract delta token from metadata if available
 			if page.DeltaLink != "" {
-				d.token = extractDeltaToken(page.DeltaLink)
+				tok := extractDeltaToken(page.DeltaLink)
+				d.mu.Lock()
+				d.token = tok
+				d.mu.Unlock()
 			}
 
 			// Stream records from this page
@@ -145,11 +150,8 @@ func (d *DeltaSync) Full(ctx context.Context, bufferSize ...int) (<-chan Result[
 		}
 	}()
 
-	// Use stored token if available
-	if d.token != "" {
-		return out, d.token, nil
-	}
-
+	// Token is set asynchronously by the goroutine once the response is processed.
+	// Use ds.Token() after draining the channel to retrieve the delta token.
 	return out, "", nil
 }
 
@@ -189,7 +191,9 @@ func (d *DeltaSync) Full(ctx context.Context, bufferSize ...int) (<-chan Result[
 //	}
 func (d *DeltaSync) Incremental(ctx context.Context, token string, bufferSize ...int) (<-chan DeltaResult, string, error) {
 	if token == "" {
+		d.mu.RLock()
 		token = d.token
+		d.mu.RUnlock()
 	}
 
 	if token == "" {
@@ -204,7 +208,6 @@ func (d *DeltaSync) Incremental(ctx context.Context, token string, bufferSize ..
 	}
 
 	out := make(chan DeltaResult, buffer)
-	var newToken string
 
 	go func() {
 		defer close(out)
@@ -233,8 +236,10 @@ func (d *DeltaSync) Incremental(ctx context.Context, token string, bufferSize ..
 
 			// Extract delta token from metadata
 			if page.DeltaLink != "" {
-				newToken = extractDeltaToken(page.DeltaLink)
-				d.token = newToken
+				tok := extractDeltaToken(page.DeltaLink)
+				d.mu.Lock()
+				d.token = tok
+				d.mu.Unlock()
 			}
 
 			// Stream records with removed/modified tracking
@@ -276,12 +281,9 @@ func (d *DeltaSync) Incremental(ctx context.Context, token string, bufferSize ..
 		}
 	}()
 
-	// Return the new token (could be same as input on subsequent pages)
-	if newToken == "" {
-		newToken = token
-	}
-
-	return out, newToken, nil
+	// Token is updated asynchronously by the goroutine.
+	// Use ds.Token() after draining the channel to retrieve the updated delta token.
+	return out, token, nil
 }
 
 // extractDeltaToken extracts the delta token from a delta link URL.
@@ -345,11 +347,15 @@ func extractDeltaToken(deltaLink string) string {
 
 // SetToken sets the current delta token.
 func (d *DeltaSync) SetToken(token string) {
+	d.mu.Lock()
 	d.token = token
+	d.mu.Unlock()
 }
 
 // Token returns the current delta token.
 func (d *DeltaSync) Token() string {
+	d.mu.RLock()
+	defer d.mu.RUnlock()
 	return d.token
 }
 
