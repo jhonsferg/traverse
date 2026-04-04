@@ -269,6 +269,35 @@ func (c *Client) Close() error {
 	return nil
 }
 
+// CircuitBreakerState returns the current state of the underlying relay circuit
+// breaker: Closed (healthy), Open (failing, requests rejected), or Half-Open
+// (probing for recovery).
+//
+// Returns [relay.StateClosed] if the circuit breaker is not configured.
+//
+// Example:
+//
+//	if client.CircuitBreakerState() == relay.StateOpen {
+//	    log.Println("OData service unavailable — circuit is open")
+//	}
+func (c *Client) CircuitBreakerState() relay.CircuitBreakerState {
+	if c.http == nil {
+		return relay.StateClosed
+	}
+	return c.http.CircuitBreakerState()
+}
+
+// ResetCircuitBreaker resets the circuit breaker to the Closed state, allowing
+// requests to flow again immediately. This is useful after a manual intervention
+// or during testing.
+//
+// No-op if the circuit breaker is not configured.
+func (c *Client) ResetCircuitBreaker() {
+	if c.http != nil {
+		c.http.ResetCircuitBreaker()
+	}
+}
+
 // BaseURL returns the base URL of the OData service that this Client is connected to.
 //
 // BaseURL returns the configured service root URL, which serves as the base for all
