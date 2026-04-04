@@ -260,7 +260,7 @@ func TestWithConnectTimeout_Valid(t *testing.T) {
 }
 
 func TestWithConnectTimeout_Zero(t *testing.T) {
-	// Zero is allowed — disables the connection timeout.
+	// Zero is allowed - disables the connection timeout.
 	_, err := New(
 		WithBaseURL("http://example.com"),
 		WithConnectTimeout(0),
@@ -283,7 +283,7 @@ func TestWithMaxRedirects_Valid(t *testing.T) {
 }
 
 func TestWithMaxRedirects_Zero(t *testing.T) {
-	// Zero disables redirects — valid.
+	// Zero disables redirects - valid.
 	_, err := New(
 		WithBaseURL("http://example.com"),
 		WithMaxRedirects(0),

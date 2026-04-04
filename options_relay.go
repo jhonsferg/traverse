@@ -125,7 +125,7 @@ func WithProxy(proxyURL string) Option {
 // Use this to configure mutual TLS, disable certificate verification for
 // on-premise services with self-signed certificates, or pin specific CAs.
 //
-// Example — disable TLS verification for a local development OData service:
+// Example - disable TLS verification for a local development OData service:
 //
 //	traverse.WithTLSConfig(&tls.Config{InsecureSkipVerify: true}) // #nosec G402
 func WithTLSConfig(cfg *tls.Config) Option {
@@ -144,7 +144,7 @@ func WithTLSConfig(cfg *tls.Config) Option {
 // CSRF token handshake. Providing a cookie jar allows traverse to maintain and
 // reuse those session cookies across requests automatically.
 //
-// Example — use the standard library cookie jar:
+// Example - use the standard library cookie jar:
 //
 //	jar, _ := cookiejar.New(nil)
 //	traverse.WithCookieJar(jar)
@@ -167,7 +167,7 @@ func WithCookieJar(jar http.CookieJar) Option {
 // To register OData-level hooks (called before query building), use
 // [WithBeforeQuery] instead.
 //
-// Example — add a request-ID header to every request:
+// Example - add a request-ID header to every request:
 //
 //	traverse.WithRequestHook(func(ctx context.Context, r *relay.Request) error {
 //	    r.WithHeader("X-Request-ID", uuid.New().String())
@@ -189,7 +189,7 @@ func WithRequestHook(fn func(context.Context, *relay.Request) error) Option {
 // record metrics, or return an error to abort further processing. It is called
 // before OData-level hooks ([WithAfterExecute]).
 //
-// Example — record response latency to a metrics system:
+// Example - record response latency to a metrics system:
 //
 //	traverse.WithResponseHook(func(ctx context.Context, r *relay.Response) error {
 //	    metrics.Record("odata.latency", r.Timing.Total)
@@ -210,7 +210,7 @@ func WithResponseHook(fn func(context.Context, *relay.Response) error) Option {
 // This is useful for OData services that require request signing such as
 // AWS API Gateway (SigV4) or custom HMAC schemes.
 //
-// Example — sign requests with a custom HMAC scheme:
+// Example - sign requests with a custom HMAC scheme:
 //
 //	traverse.WithSigner(relay.RequestSignerFunc(func(r *http.Request) error {
 //	    mac := hmac.New(sha256.New, secretKey)
