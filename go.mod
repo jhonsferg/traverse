@@ -2,7 +2,7 @@ module github.com/jhonsferg/traverse
 
 go 1.24.0
 
-require github.com/jhonsferg/relay v0.1.6
+require github.com/jhonsferg/relay v0.1.10
 
 require (
 	github.com/jhonsferg/traverse/ext/cache/memory v0.1.0
