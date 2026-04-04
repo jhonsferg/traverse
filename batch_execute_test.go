@@ -254,7 +254,7 @@ func TestBatchExecute_AutoCloseChangeset(t *testing.T) {
 		t.Fatalf("New: %v", err)
 	}
 
-	// No EndChangeset call — Execute should auto-close it.
+	// No EndChangeset call - Execute should auto-close it.
 	data := map[string]interface{}{"Name": "Auto"}
 	resp, err := c.Batch().
 		BeginChangeset("auto-cs").
@@ -441,7 +441,7 @@ func TestBatchExecuteStream_Changeset(t *testing.T) {
 
 func TestBatchSetBody_Error(t *testing.T) {
 	op := &BatchOperation{}
-	// channels cannot be marshalled to JSON — expect error.
+	// channels cannot be marshalled to JSON - expect error.
 	err := op.SetBody(make(chan int))
 	if err == nil {
 		t.Fatal("expected marshal error for channel value, got nil")
@@ -505,7 +505,7 @@ func TestParseResponsePart_InvalidStatusLine(t *testing.T) {
 		t.Fatalf("NextPart: %v", err)
 	}
 
-	// "BADLINE" has only one field — parseResponsePart returns an error for short status lines.
+	// "BADLINE" has only one field - parseResponsePart returns an error for short status lines.
 	_, err = b.parseResponsePart(part)
 	if err == nil {
 		t.Fatal("expected error for invalid status line, got nil")

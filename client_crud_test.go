@@ -159,7 +159,7 @@ func TestClientMetadata_Cached(t *testing.T) {
 	server := testutil.NewMockServer()
 	defer server.Close()
 
-	// Only enqueue one response — the second Metadata() call must use the cache.
+	// Only enqueue one response - the second Metadata() call must use the cache.
 	server.Enqueue(testutil.MockResponse{Status: 200, Body: edmxXML})
 
 	client, err := New(WithBaseURL(server.URL()))
