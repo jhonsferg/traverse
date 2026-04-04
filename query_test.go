@@ -466,3 +466,223 @@ func TestBuilderInitialization(t *testing.T) {
 		t.Error("New QueryBuilder should be marked dirty initially")
 	}
 }
+
+// TestQueryBuilderWhere tests the Where/FilterBuilder fluent API.
+func TestQueryBuilderWhere_Eq(t *testing.T) {
+	qb := &QueryBuilder{client: &Client{}, entitySet: "Products", urlDirty: true}
+	qb.Where("Status").Eq("Active")
+	u := qb.buildURL()
+	if !strings.Contains(u, "%24filter=") && !strings.Contains(u, "$filter=") {
+		t.Errorf("buildURL() should contain $filter, got: %s", u)
+	}
+}
+
+func TestQueryBuilderWhere_Ne(t *testing.T) {
+	qb := &QueryBuilder{client: &Client{}, entitySet: "Products", urlDirty: true}
+	qb.Where("Status").Ne("Inactive")
+	u := qb.buildURL()
+	if !strings.Contains(u, "ne") {
+		t.Errorf("buildURL() should contain 'ne', got: %s", u)
+	}
+}
+
+func TestQueryBuilderWhere_Gt(t *testing.T) {
+	qb := &QueryBuilder{client: &Client{}, entitySet: "Orders", urlDirty: true}
+	qb.Where("Amount").Gt(100)
+	u := qb.buildURL()
+	if !strings.Contains(u, "gt") {
+		t.Errorf("buildURL() should contain 'gt', got: %s", u)
+	}
+}
+
+func TestQueryBuilderWhere_Ge(t *testing.T) {
+	qb := &QueryBuilder{client: &Client{}, entitySet: "Orders", urlDirty: true}
+	qb.Where("Amount").Ge(50)
+	u := qb.buildURL()
+	if !strings.Contains(u, "ge") {
+		t.Errorf("buildURL() should contain 'ge', got: %s", u)
+	}
+}
+
+func TestQueryBuilderWhere_Lt(t *testing.T) {
+	qb := &QueryBuilder{client: &Client{}, entitySet: "Orders", urlDirty: true}
+	qb.Where("Amount").Lt(1000)
+	u := qb.buildURL()
+	if !strings.Contains(u, "lt") {
+		t.Errorf("buildURL() should contain 'lt', got: %s", u)
+	}
+}
+
+func TestQueryBuilderWhere_Le(t *testing.T) {
+	qb := &QueryBuilder{client: &Client{}, entitySet: "Orders", urlDirty: true}
+	qb.Where("Amount").Le(999)
+	u := qb.buildURL()
+	if !strings.Contains(u, "le") {
+		t.Errorf("buildURL() should contain 'le', got: %s", u)
+	}
+}
+
+func TestQueryBuilderWhere_Contains(t *testing.T) {
+	qb := &QueryBuilder{client: &Client{}, entitySet: "Products", urlDirty: true}
+	qb.Where("Name").Contains("Widget")
+	u := qb.buildURL()
+	if !strings.Contains(u, "substringof") && !strings.Contains(u, "contains") {
+		t.Errorf("buildURL() should contain substringof/contains, got: %s", u)
+	}
+}
+
+func TestQueryBuilderWhere_StartsWith(t *testing.T) {
+	qb := &QueryBuilder{client: &Client{}, entitySet: "Products", urlDirty: true}
+	qb.Where("Name").StartsWith("Wid")
+	u := qb.buildURL()
+	if !strings.Contains(u, "startswith") {
+		t.Errorf("buildURL() should contain 'startswith', got: %s", u)
+	}
+}
+
+func TestQueryBuilderWhere_EndsWith(t *testing.T) {
+	qb := &QueryBuilder{client: &Client{}, entitySet: "Products", urlDirty: true}
+	qb.Where("Name").EndsWith("get")
+	u := qb.buildURL()
+	if !strings.Contains(u, "endswith") {
+		t.Errorf("buildURL() should contain 'endswith', got: %s", u)
+	}
+}
+
+func TestQueryBuilderWhere_In(t *testing.T) {
+	qb := &QueryBuilder{client: &Client{}, entitySet: "Products", urlDirty: true}
+	qb.Where("Status").In("A", "B", "C")
+	u := qb.buildURL()
+	if !strings.Contains(u, "in") {
+		t.Errorf("buildURL() should contain 'in', got: %s", u)
+	}
+}
+
+func TestQueryBuilderExpand_Simple(t *testing.T) {
+	qb := &QueryBuilder{client: &Client{}, entitySet: "Orders", urlDirty: true}
+	qb.Expand("Items")
+	u := qb.buildURL()
+	if !strings.Contains(u, "Items") {
+		t.Errorf("buildURL() should contain 'Items' expand, got: %s", u)
+	}
+}
+
+func TestQueryBuilderExpand_Multiple(t *testing.T) {
+	qb := &QueryBuilder{client: &Client{}, entitySet: "Orders", urlDirty: true}
+	qb.Expand("Items").Expand("Customer")
+	u := qb.buildURL()
+	if !strings.Contains(u, "Items") || !strings.Contains(u, "Customer") {
+		t.Errorf("buildURL() should contain both expands, got: %s", u)
+	}
+}
+
+func TestQueryBuilderExpand_WithSelect(t *testing.T) {
+	qb := &QueryBuilder{client: &Client{}, entitySet: "Orders", urlDirty: true}
+	qb.Expand("Items", WithExpandSelect("ID", "Qty"))
+	u := qb.buildURL()
+	if !strings.Contains(u, "Items") {
+		t.Errorf("buildURL() should contain 'Items', got: %s", u)
+	}
+}
+
+func TestQueryBuilderExpand_WithFilter(t *testing.T) {
+	qb := &QueryBuilder{client: &Client{}, entitySet: "Orders", urlDirty: true}
+	qb.Expand("Items", WithExpandFilter("Qty gt 0"))
+	u := qb.buildURL()
+	if !strings.Contains(u, "Items") {
+		t.Errorf("buildURL() should contain 'Items', got: %s", u)
+	}
+}
+
+func TestQueryBuilderExpand_WithOrderBy(t *testing.T) {
+	qb := &QueryBuilder{client: &Client{}, entitySet: "Orders", urlDirty: true}
+	qb.Expand("Items", WithExpandOrderBy("ID"))
+	u := qb.buildURL()
+	if !strings.Contains(u, "Items") {
+		t.Errorf("buildURL() should contain 'Items', got: %s", u)
+	}
+}
+
+func TestQueryBuilderExpand_WithTop(t *testing.T) {
+	qb := &QueryBuilder{client: &Client{}, entitySet: "Orders", urlDirty: true}
+	qb.Expand("Items", WithExpandTop(5))
+	u := qb.buildURL()
+	if !strings.Contains(u, "Items") {
+		t.Errorf("buildURL() should contain 'Items', got: %s", u)
+	}
+}
+
+// TestQueryBuilderSearch tests the Search method.
+func TestQueryBuilderSearch(t *testing.T) {
+	qb := &QueryBuilder{client: &Client{}, entitySet: "Products", urlDirty: true}
+	qb.Search("laptop")
+	u := qb.buildURL()
+	if !strings.Contains(u, "laptop") {
+		t.Errorf("buildURL() should contain 'laptop' in search, got: %s", u)
+	}
+}
+
+// TestQueryBuilderApply tests the Apply method.
+func TestQueryBuilderApply(t *testing.T) {
+	qb := &QueryBuilder{client: &Client{}, entitySet: "Products", urlDirty: true}
+	qb.Apply("groupby((Category),aggregate(Price with sum as TotalPrice))")
+	u := qb.buildURL()
+	if !strings.Contains(u, "groupby") {
+		t.Errorf("buildURL() should contain 'groupby', got: %s", u)
+	}
+}
+
+// TestQueryBuilderParam tests custom query parameter injection.
+func TestQueryBuilderParam(t *testing.T) {
+	qb := &QueryBuilder{client: &Client{}, entitySet: "Products", urlDirty: true}
+	qb.Param("sap-client", "100")
+	u := qb.buildURL()
+	if !strings.Contains(u, "sap-client") {
+		t.Errorf("buildURL() should contain custom param, got: %s", u)
+	}
+}
+
+// TestQueryBuilderWithDeltaToken tests delta token injection.
+func TestQueryBuilderWithDeltaToken(t *testing.T) {
+	qb := &QueryBuilder{client: &Client{}, entitySet: "Products", urlDirty: true}
+	qb.WithDeltaToken("deltalink_abc123")
+	u := qb.buildURL()
+	if !strings.Contains(u, "deltalink_abc123") {
+		t.Errorf("buildURL() should contain delta token, got: %s", u)
+	}
+}
+
+// TestQueryURLCaching tests that buildURL caches the result.
+func TestQueryURLCaching(t *testing.T) {
+	qb := &QueryBuilder{client: &Client{}, entitySet: "Products", urlDirty: true}
+	qb.Select("ID", "Name")
+	u1 := qb.buildURL()
+	u2 := qb.buildURL()
+	if u1 != u2 {
+		t.Errorf("buildURL() should return cached result, got different values: %q vs %q", u1, u2)
+	}
+	if qb.urlDirty {
+		t.Error("urlDirty should be false after buildURL()")
+	}
+}
+
+// TestAutoDetectODataVersion tests version detection from headers.
+func TestAutoDetectODataVersion(t *testing.T) {
+	tests := []struct {
+		name    string
+		headers map[string][]string
+		want    ODataVersion
+	}{
+		{"v4 odata-version", map[string][]string{"Odata-Version": {"4.0"}}, ODataV4},
+		{"v2 dataserviceversion", map[string][]string{"Dataserviceversion": {"2.0"}}, ODataV2},
+		{"no version header", map[string][]string{}, ODataV4},
+	}
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			got := AutoDetectODataVersion(tc.headers)
+			if got != tc.want {
+				t.Errorf("AutoDetectODataVersion() = %v, want %v", got, tc.want)
+			}
+		})
+	}
+}
