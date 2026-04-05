@@ -22,7 +22,7 @@ func TestQueryWhere(t *testing.T) {
 	if err != nil {
 		t.Fatalf("New: %v", err)
 	}
-	defer c.Close()
+	defer func() { _ = c.Close() }()
 
 	result, err := c.From("Products").Where("Name").Eq("Product1").First(context.Background())
 	if err != nil {
@@ -177,7 +177,7 @@ func TestQueryStreamAs(t *testing.T) {
 	if err != nil {
 		t.Fatalf("New: %v", err)
 	}
-	defer c.Close()
+	defer func() { _ = c.Close() }()
 
 	ch := c.From("Products").StreamAs(context.Background())
 	var count int
@@ -209,7 +209,7 @@ func TestQueryStreamAs_Error(t *testing.T) {
 	if err != nil {
 		t.Fatalf("New: %v", err)
 	}
-	defer c.Close()
+	defer func() { _ = c.Close() }()
 
 	ch := c.From("Products").StreamAs(context.Background())
 	var errorFound bool
@@ -238,7 +238,7 @@ func TestClientFetchPageAt(t *testing.T) {
 	if err != nil {
 		t.Fatalf("New: %v", err)
 	}
-	defer c.Close()
+	defer func() { _ = c.Close() }()
 
 	pageURL := server.URL() + "/Products?$skip=20&$top=10"
 	page, err := c.FetchPageAt(context.Background(), pageURL)
@@ -327,7 +327,7 @@ func TestQueryBoundFunction(t *testing.T) {
 	if err != nil {
 		t.Fatalf("New: %v", err)
 	}
-	defer c.Close()
+	defer func() { _ = c.Close() }()
 
 	fb := c.From("Products").BoundFunction("IsInStock")
 	result, err := fb.Execute(context.Background())
@@ -393,7 +393,7 @@ func TestQueryRelease_Indirect(t *testing.T) {
 	if err != nil {
 		t.Fatalf("New: %v", err)
 	}
-	defer c.Close()
+	defer func() { _ = c.Close() }()
 
 	result1, err := c.From("Products").First(context.Background())
 	if err != nil {
@@ -426,7 +426,7 @@ func TestQueryWithCount_ViaCollect(t *testing.T) {
 	if err != nil {
 		t.Fatalf("New: %v", err)
 	}
-	defer c.Close()
+	defer func() { _ = c.Close() }()
 
 	results, err := c.From("Products").WithCount().Collect(context.Background())
 	if err != nil {
