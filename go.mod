@@ -6,7 +6,7 @@ require github.com/jhonsferg/relay v0.1.12
 
 require (
 	github.com/jhonsferg/traverse/ext/cache/memory v0.1.0
-	golang.org/x/sync v0.16.0 // indirect
+	golang.org/x/sync v0.19.0 // indirect
 )
 
 replace github.com/jhonsferg/traverse/ext/cache/memory => ./ext/cache/memory
