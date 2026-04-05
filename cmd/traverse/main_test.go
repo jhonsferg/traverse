@@ -7,6 +7,8 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+
+	"github.com/jhonsferg/traverse"
 )
 
 func TestProfileCreate(t *testing.T) {
@@ -427,5 +429,93 @@ func TestLoadProfilesNonExistent(t *testing.T) {
 
 	if len(cfg.Profiles) != 0 {
 		t.Errorf("expected empty profiles, got %d", len(cfg.Profiles))
+	}
+}
+
+func TestActionsFormatJSON(t *testing.T) {
+	metadata := &traverse.Metadata{
+		FunctionImports: []traverse.FunctionImportInfo{
+			{
+				Name:       "GetProducts",
+				ReturnType: "Collection(Product)",
+			},
+		},
+		Functions: []traverse.FunctionInfo{
+			{
+				Name:       "GetAverage",
+				ReturnType: "Edm.Decimal",
+			},
+		},
+		Actions: []traverse.ActionInfo{
+			{
+				Name:       "CreateOrder",
+				ReturnType: "Order",
+			},
+		},
+	}
+
+	err := formatActionsJSON(metadata)
+	if err != nil {
+		t.Errorf("unexpected error: %v", err)
+	}
+}
+
+func TestActionsFormatText(t *testing.T) {
+	metadata := &traverse.Metadata{
+		FunctionImports: []traverse.FunctionImportInfo{
+			{
+				Name:       "GetProducts",
+				ReturnType: "Collection(Product)",
+				Parameters: []traverse.FunctionParameter{
+					{
+						Name:     "categoryID",
+						Type:     "Edm.Int32",
+						Nullable: false,
+					},
+				},
+			},
+		},
+		Functions: []traverse.FunctionInfo{
+			{
+				Name:       "GetAverage",
+				ReturnType: "Edm.Decimal",
+				Parameters: []traverse.FunctionParameter{
+					{
+						Name: "priceField",
+						Type: "Edm.String",
+					},
+				},
+			},
+		},
+		Actions: []traverse.ActionInfo{
+			{
+				Name:       "CreateOrder",
+				ReturnType: "Order",
+				Parameters: []traverse.FunctionParameter{
+					{
+						Name: "orderData",
+						Type: "OrderData",
+					},
+				},
+			},
+		},
+	}
+
+	err := formatActionsText(metadata)
+	if err != nil {
+		t.Errorf("unexpected error: %v", err)
+	}
+}
+
+func TestActionsFormatTextEmpty(t *testing.T) {
+	metadata := &traverse.Metadata{
+		FunctionImports: []traverse.FunctionImportInfo{},
+		Functions:       []traverse.FunctionInfo{},
+		Actions:         []traverse.ActionInfo{},
+	}
+
+	err := formatActionsText(metadata)
+	if err != nil {
+		t.Errorf("unexpected error: %v", err)
 	}
 }
