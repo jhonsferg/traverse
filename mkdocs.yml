@@ -85,6 +85,10 @@ nav:
     - Deep Insert: guides/deep-insert.md
     - Stream Properties: guides/stream-properties.md
     - SAP Compatibility: guides/sap.md
+    - $ref Link Operations: guides/ref-links.md
+    - Actions & Functions: guides/actions-functions.md
+    - Schema Validation: guides/schema-validation.md
+    - Type-safe Filter Builder: guides/filter-builder.md
   - Code Generation:
     - Overview: codegen/index.md
     - Installation: codegen/installation.md
@@ -99,6 +103,7 @@ nav:
     - OpenTelemetry: extensions/tracing.md
     - Cache: extensions/cache.md
     - GraphQL Bridge: extensions/graphql.md
+    - Microsoft Graph: extensions/graph.md
   - Reference:
     - Client: reference/client.md
     - Query Builder API: reference/query-builder.md
