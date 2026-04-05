@@ -351,6 +351,31 @@ func (q *QueryBuilder) Filter(expr string) *QueryBuilder {
 	return q
 }
 
+// FilterBy sets the $filter using a type-safe FilterExpr.
+//
+// FilterBy accepts a *FilterExpr (built via F() and logical combinators And/Or/Not)
+// and sets it as the query filter. This method provides a fluent alternative to Filter()
+// with full type safety and composability.
+//
+// Type Safety:
+// FilterBy prevents string concatenation errors by using the FilterExpr builder API.
+// Filters are built programmatically using F(), And(), Or(), and Not() functions.
+//
+// Validation:
+// If the QueryBuilder has a schema set, the filter expression will be validated.
+//
+// Example:
+//
+//	expr := And(F("Age").Ge(18), F("Active").Eq(true))
+//	query.FilterBy(expr)
+//	// OData: $filter=(Age ge 18) and (Active eq true)
+func (q *QueryBuilder) FilterBy(expr *FilterExpr) *QueryBuilder {
+	if expr == nil {
+		return q
+	}
+	return q.Filter(expr.Build())
+}
+
 // Where starts building a type-safe filter expression for the given field.
 //
 // Where returns a FilterBuilder that provides type-safe filter building with methods
