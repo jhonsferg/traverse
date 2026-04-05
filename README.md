@@ -528,6 +528,155 @@ client, err := traverse.New(
 
 ---
 
+## Code Generation (`traverse-gen`)
+
+Generate typed Go clients directly from your OData `$metadata` endpoint:
+
+```bash
+# Install
+go install github.com/jhonsferg/traverse/cmd/traverse-gen@latest
+
+# Generate from live endpoint
+traverse-gen --metadata-url https://services.odata.org/V4/Northwind/Northwind.svc/$metadata \
+             --output-dir ./odata --package-name odata
+
+# Generate from local EDMX file
+traverse-gen --metadata-file northwind.edmx --output-dir ./odata --package-name odata
+```
+
+The generator produces three files:
+
+| File | Contents |
+|------|----------|
+| `types.go` | Go structs for every EntityType and ComplexType with json + odata tags |
+| `client.go` | `GeneratedClient` with typed entity set accessor methods |
+| `queries.go` | `*XxxQuery` typed QueryBuilder wrappers per entity set |
+
+**Generated usage:**
+
+```go
+c, err := odata.NewGeneratedClient("https://services.odata.org/V4/Northwind/Northwind.svc")
+if err != nil {
+    log.Fatal(err)
+}
+
+// Fully typed - no string-based entity set names
+var customers []odata.Customer
+err = c.Customers().Top(10).Filter("Country eq 'Germany'").List(ctx, &customers)
+```
+
+---
+
+## Lambda Filter DSL
+
+Build OData lambda expressions (`any`/`all`) fluently:
+
+```go
+// Orders where any tag name is 'priority'
+query := client.From("Orders").
+    LambdaAny("Tags", func(b *traverse.LambdaBuilder) {
+        b.Field("Name").Eq("priority")
+    })
+
+// Products where all variants have stock > 0
+query = client.From("Products").
+    LambdaAll("Variants", func(b *traverse.LambdaBuilder) {
+        b.Field("Stock").Gt(0)
+    })
+
+// Combine with regular filters using and
+query = client.From("Items").
+    Filter("Active eq true").
+    LambdaAny("Tags", func(b *traverse.LambdaBuilder) {
+        b.Field("Category").Contains("sale")
+    })
+```
+
+Supported operators: `Eq`, `Ne`, `Lt`, `Le`, `Gt`, `Ge`, `Contains`, `StartsWith`, `EndsWith`.
+
+---
+
+## Deep Insert
+
+Create an entity with related entities in a single request (OData 4.01):
+
+```go
+type Order struct {
+    CustomerID string       `json:"CustomerID"`
+    Lines      []OrderLine  `json:"Lines"`
+}
+
+order := Order{
+    CustomerID: "ALFKI",
+    Lines: []OrderLine{
+        {ProductID: 1, Quantity: 10},
+        {ProductID: 2, Quantity: 5},
+    },
+}
+
+resp, err := client.From("Orders").CreateDeep(ctx, order)
+```
+
+For custom `Prefer` semantics:
+
+```go
+opts := traverse.DeepInsertOptions{
+    ReturnRepresentation: true,
+    ContinueOnError:      false,
+}
+resp, err := client.From("Orders").CreateDeepWithPrefer(ctx, order, opts.Header())
+```
+
+---
+
+## Conditional Request Headers
+
+Attach standard HTTP conditional headers to any query:
+
+```go
+// Optimistic update - only apply if ETag matches
+_, err := client.From("Products(1)").
+    IfMatch(`"abc123"`).
+    Update(ctx, patch)
+
+// Only fetch if modified since last sync
+resp, err := client.From("Reports('Q4')").
+    IfModifiedSince(lastSyncTime).
+    Get(ctx, &report)
+
+// Create only if not exists
+resp, err := client.From("Settings('global')").
+    IfNoneMatch("*").
+    Create(ctx, defaults)
+```
+
+All four standard conditional headers are supported: `IfMatch`, `IfNoneMatch`, `IfModifiedSince`, `IfUnmodifiedSince`.
+
+---
+
+## Named Stream Properties
+
+Read binary/media stream properties without loading them into memory:
+
+```go
+// Get a document attachment as a streaming reader
+rc, err := client.From("Documents(42)").StreamProperty(ctx, "Attachment")
+if err != nil {
+    log.Fatal(err)
+}
+defer rc.Close()
+
+// Stream directly to disk
+f, _ := os.Create("attachment.pdf")
+_, _ = io.Copy(f, rc)
+
+// Check size before downloading
+size, err := client.From("Documents(42)").StreamPropertySize(ctx, "Attachment")
+fmt.Printf("attachment is %d bytes\n", size)
+```
+
+---
+
 ## Extension Modules
 
 Extensions are optional and independently versioned. Install only what you need.
