@@ -4,6 +4,7 @@
 
 [![Go Version](https://img.shields.io/badge/Go-1.24%2B-00ADD8?style=flat-square&logo=go)](https://pkg.go.dev/github.com/jhonsferg/traverse)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg?style=flat-square)](https://github.com/jhonsferg/traverse/blob/master/LICENSE)
+[![pkg.go.dev](https://img.shields.io/badge/pkg.go.dev-reference-007D9C?style=flat-square&logo=go)](https://pkg.go.dev/github.com/jhonsferg/traverse)
 
 traverse is a declarative OData v2/v4 client for Go, built on top of [relay](https://github.com/jhonsferg/relay) for HTTP transport. It handles all OData protocol details - pagination, CSRF tokens, ETag concurrency, delta sync, batch requests, async long-running operations - so you can focus on the data.
 
