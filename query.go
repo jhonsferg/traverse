@@ -225,6 +225,9 @@ type QueryBuilder struct {
 	urlCache string
 	// urlDirty indicates the cached URL is stale and needs rebuilding
 	urlDirty bool
+
+	// conditionalHeaders holds HTTP conditional request headers (If-Match, If-None-Match, etc.)
+	conditionalHeaders map[string]string
 }
 
 // Select limits the returned properties to only the specified fields.
@@ -990,6 +993,9 @@ func (q *QueryBuilder) FindByKey(ctx context.Context, key interface{}) (map[stri
 	url := fmt.Sprintf("%s(%s)", q.entitySet, keyStr)
 	req := q.client.http.Get(url)
 	req = req.WithContext(ctx)
+	for k, v := range q.conditionalHeaders {
+		req = req.WithHeader(k, v)
+	}
 
 	resp, err := q.client.http.Execute(req)
 	if err != nil {
@@ -1058,6 +1064,9 @@ func (q *QueryBuilder) FindByCompositeKey(ctx context.Context, keys map[string]i
 	url := fmt.Sprintf("%s(%s)", q.entitySet, strings.Join(keyParts, ","))
 	req := q.client.http.Get(url)
 	req = req.WithContext(ctx)
+	for k, v := range q.conditionalHeaders {
+		req = req.WithHeader(k, v)
+	}
 
 	resp, err := q.client.http.Execute(req)
 	if err != nil {
@@ -1164,6 +1173,9 @@ func (q *QueryBuilder) Count(ctx context.Context) (int64, error) {
 
 	req := q.client.http.Get(path)
 	req = req.WithContext(ctx)
+	for k, v := range q.conditionalHeaders {
+		req = req.WithHeader(k, v)
+	}
 
 	resp, err := q.client.http.Execute(req)
 	if err != nil {
@@ -1253,6 +1265,9 @@ func (q *QueryBuilder) Page(ctx context.Context) (*Page, error) {
 	url := q.buildURL()
 	req := q.client.http.Get(url)
 	req = req.WithContext(ctx)
+	for k, v := range q.conditionalHeaders {
+		req = req.WithHeader(k, v)
+	}
 
 	resp, err := q.client.http.Execute(req)
 	if err != nil {

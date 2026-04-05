@@ -417,12 +417,13 @@ func (c *Client) PageSize() int {
 //	}
 func (c *Client) From(entitySet string) *QueryBuilder {
 	return &QueryBuilder{
-		client:       c,
-		entitySet:    entitySet,
-		selectFields: make([]string, 0, 20),
-		expandProps:  make([]string, 0, 10),
-		params:       make(map[string]string),
-		urlDirty:     true,
+		client:             c,
+		entitySet:          entitySet,
+		selectFields:       make([]string, 0, 20),
+		expandProps:        make([]string, 0, 10),
+		params:             make(map[string]string),
+		urlDirty:           true,
+		conditionalHeaders: make(map[string]string),
 	}
 }
 
