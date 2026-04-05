@@ -48,3 +48,6 @@ CLAUDE.md
 # Other directories
 .benchmarks
 traverse-gen
+
+# Copilot local work plans (never commit)
+.copilot/
