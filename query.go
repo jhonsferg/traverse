@@ -1279,6 +1279,34 @@ func (q *QueryBuilder) Page(ctx context.Context) (*Page, error) {
 	return page, nil
 }
 
+// FetchPageAt fetches and parses an OData page from an arbitrary URL.
+// It is primarily used by [Paginator] to follow @odata.nextLink (or __next)
+// URLs returned by the server between pages.
+//
+// The rawURL must be a fully-qualified URL (absolute) or a path relative to
+// the client base URL that the server returned.
+func (c *Client) FetchPageAt(ctx context.Context, rawURL string) (*Page, error) {
+	req := c.http.Get(rawURL)
+	req = req.WithContext(ctx)
+
+	resp, err := c.http.Execute(req)
+	if err != nil {
+		return nil, fmt.Errorf("traverse: FetchPageAt failed: %w", err)
+	}
+	if resp.StatusCode != 200 {
+		return nil, fmt.Errorf("traverse: FetchPageAt returned status %d", resp.StatusCode)
+	}
+
+	page := &Page{
+		Value: make([]map[string]interface{}, 0, c.pageSize),
+	}
+	decoder := json.NewDecoder(resp.BodyReader())
+	if parseErr := parseODataResponse(decoder, page, c.version); parseErr != nil {
+		return nil, fmt.Errorf("traverse: FetchPageAt parse error: %w", parseErr)
+	}
+	return page, nil
+}
+
 // Collect materializes all matching records into a single slice.
 //
 // Collect streams all pages and accumulates all matching records into a single
