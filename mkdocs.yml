@@ -1,0 +1,117 @@
+site_name: traverse
+site_description: A declarative OData v2/v4 client for Go
+site_url: https://jhonsferg.github.io/traverse
+repo_name: jhonsferg/traverse
+repo_url: https://github.com/jhonsferg/traverse
+edit_uri: edit/master/docs/
+
+theme:
+  name: material
+  palette:
+    - scheme: default
+      primary: teal
+      accent: teal
+      toggle:
+        icon: material/brightness-7
+        name: Switch to dark mode
+    - scheme: slate
+      primary: teal
+      accent: teal
+      toggle:
+        icon: material/brightness-4
+        name: Switch to light mode
+  font:
+    text: Roboto
+    code: Roboto Mono
+  features:
+    - navigation.tabs
+    - navigation.tabs.sticky
+    - navigation.sections
+    - navigation.expand
+    - navigation.path
+    - navigation.top
+    - search.suggest
+    - search.highlight
+    - content.tabs.link
+    - content.code.annotation
+    - content.code.copy
+    - toc.follow
+  icon:
+    repo: fontawesome/brands/github
+
+plugins:
+  - search
+  - minify:
+      minify_html: true
+
+markdown_extensions:
+  - pymdownx.highlight:
+      anchor_linenums: true
+      line_spans: __span
+      pygments_lang_class: true
+  - pymdownx.inlinehilite
+  - pymdownx.snippets
+  - pymdownx.superfences
+  - pymdownx.tabbed:
+      alternate_style: true
+  - pymdownx.details
+  - pymdownx.emoji:
+      emoji_index: !!python/name:material.extensions.emoji.twemoji
+      emoji_generator: !!python/name:material.extensions.emoji.to_svg
+  - admonition
+  - tables
+  - attr_list
+  - md_in_html
+  - toc:
+      permalink: true
+
+nav:
+  - Home: index.md
+  - Getting Started:
+    - Installation: installation.md
+    - Quick Start: quickstart.md
+    - OData Primer: odata-primer.md
+  - Guides:
+    - Query Builder: guides/query-builder.md
+    - CRUD Operations: guides/crud.md
+    - ETag & Concurrency: guides/etag-concurrency.md
+    - Entity Change Tracking: guides/change-tracking.md
+    - Typed Pagination: guides/pagination.md
+    - Async Operations: guides/async-operations.md
+    - Streaming: guides/streaming.md
+    - Batch Requests: guides/batch.md
+    - Delta Sync: guides/delta-sync.md
+    - Lambda Filters: guides/lambda-filters.md
+    - Deep Insert: guides/deep-insert.md
+    - Stream Properties: guides/stream-properties.md
+    - SAP Compatibility: guides/sap.md
+  - Code Generation:
+    - Overview: codegen/index.md
+    - Installation: codegen/installation.md
+    - Usage: codegen/usage.md
+    - Type Mapping: codegen/type-mapping.md
+    - Generated Client: codegen/generated-client.md
+  - Extensions:
+    - Overview: extensions/index.md
+    - SAP: extensions/sap.md
+    - OAuth2: extensions/oauth2.md
+    - Prometheus: extensions/prometheus.md
+    - OpenTelemetry: extensions/tracing.md
+    - Cache: extensions/cache.md
+    - GraphQL Bridge: extensions/graphql.md
+  - Reference:
+    - Client: reference/client.md
+    - Query Builder API: reference/query-builder.md
+    - ETag Types: reference/etag.md
+    - Paginator[T]: reference/paginator.md
+    - Change Tracking: reference/change-tracking.md
+    - Async Poller: reference/async-op.md
+    - Errors: reference/errors.md
+  - Changelog: changelog.md
+
+extra:
+  social:
+    - icon: fontawesome/brands/github
+      link: https://github.com/jhonsferg/traverse
+
+copyright: Copyright &copy; jhonsferg - MIT License
