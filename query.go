@@ -216,6 +216,10 @@ type QueryBuilder struct {
 	apply string
 	// deltaToken is used for incremental updates (OData v4)
 	deltaToken string
+	// schema holds the entity schema for filter and orderby validation
+	schema *EntitySchema
+	// lastError stores the most recent validation or operational error
+	lastError error
 	// params contains custom query parameters added via Param
 	params map[string]string
 	// paramsInitialized tracks whether the params map has been allocated (lazy init optimization)
@@ -335,6 +339,13 @@ func (q *QueryBuilder) Select(fields ...string) *QueryBuilder {
 //
 //	query.Where("Age").Gt(30).Where("Status").Ne("Inactive")
 func (q *QueryBuilder) Filter(expr string) *QueryBuilder {
+	// Validate against schema if one is set
+	if q.schema != nil {
+		if err := validateFilter(*q.schema, expr); err != nil {
+			q.lastError = err
+			return q
+		}
+	}
 	q.filterExpr = expr
 	q.urlDirty = true
 	return q
@@ -528,6 +539,23 @@ func (q *QueryBuilder) Expand(navProp string, opts ...ExpandOption) *QueryBuilde
 //		OrderByDesc("CreatedDate").
 //		Top(100)
 func (q *QueryBuilder) OrderBy(field string) *QueryBuilder {
+	// Check if validation has already failed
+	if q.lastError != nil {
+		return q
+	}
+
+	// Validate against schema if one is set
+	if q.schema != nil {
+		// Validate this field to be added
+		if _, exists := q.schema.Properties[field]; !exists {
+			q.lastError = &SchemaValidationError{
+				Field:   field,
+				Message: "field not found in schema",
+			}
+			return q
+		}
+	}
+
 	if q.orderByExpr != "" {
 		q.orderByExpr += ","
 	}
@@ -590,11 +618,72 @@ func (q *QueryBuilder) OrderBy(field string) *QueryBuilder {
 //		Top(50).
 //		Collect(ctx)
 func (q *QueryBuilder) OrderByDesc(field string) *QueryBuilder {
+	// Check if validation has already failed
+	if q.lastError != nil {
+		return q
+	}
+
+	// Validate against schema if one is set
+	if q.schema != nil {
+		// Validate this field to be added
+		if _, exists := q.schema.Properties[field]; !exists {
+			q.lastError = &SchemaValidationError{
+				Field:   field,
+				Message: "field not found in schema",
+			}
+			return q
+		}
+	}
+
 	if q.orderByExpr != "" {
 		q.orderByExpr += ","
 	}
 	q.orderByExpr += field + " desc"
 	q.urlDirty = true
+	return q
+}
+
+// WithSchema attaches an EntitySchema to the QueryBuilder for filter and orderby validation.
+//
+// WithSchema enables schema-based validation of filter and orderby expressions before
+// sending the request to the OData service. This catches typos in field names and type
+// mismatches at build time rather than at runtime when the service rejects the request.
+//
+// When a schema is set, subsequent calls to Filter() and OrderBy() validate field names
+// against the schema properties. If a referenced field is not found, a SchemaValidationError
+// is returned immediately.
+//
+// Backward Compatibility:
+// If schema is nil (not set), validation is skipped and the QueryBuilder behaves as before.
+// This ensures existing code continues to work without modification.
+//
+// Returns:
+//   - *QueryBuilder: For method chaining
+//
+// Chainable: Yes
+//
+// Examples:
+//
+// Define a schema and attach it:
+//
+//	schema := &EntitySchema{
+//	    Properties: map[string]string{
+//	        "ID":    "int",
+//	        "Name":  "string",
+//	        "Email": "string",
+//	    },
+//	}
+//	query := client.From("Users").WithSchema(schema)
+//
+// Now Filter() validates field names:
+//
+//	query.Filter("UnknownField eq 'value'")  // Returns error
+//
+// Valid filters are accepted:
+//
+//	query.Filter("Name eq 'John'")  // OK, Name exists in schema
+func (q *QueryBuilder) WithSchema(schema *EntitySchema) *QueryBuilder {
+	q.schema = schema
 	return q
 }
 
@@ -1302,6 +1391,11 @@ func (q *QueryBuilder) Count(ctx context.Context) (int64, error) {
 //		url = page.NextLink  // May require converting to query
 //	}
 func (q *QueryBuilder) Page(ctx context.Context) (*Page, error) {
+	// Check for validation errors
+	if q.lastError != nil {
+		return nil, q.lastError
+	}
+
 	url := q.buildURL()
 	req := q.client.http.Get(url)
 	req = req.WithContext(ctx)
@@ -1432,6 +1526,11 @@ func (c *Client) FetchPageAt(ctx context.Context, rawURL string) (*Page, error) 
 //		results = append(results, result.Value)
 //	}
 func (q *QueryBuilder) Collect(ctx context.Context) ([]map[string]interface{}, error) {
+	// Check for validation errors
+	if q.lastError != nil {
+		return nil, q.lastError
+	}
+
 	// Estimate capacity from query parameters if available
 	// If $top is set, use that as a hint; otherwise use reasonable default
 	estimatedCapacity := 1000 // Default estimate

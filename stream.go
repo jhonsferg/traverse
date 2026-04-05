@@ -206,6 +206,14 @@ func returnPageToPool(page *Page, count int) {
 //
 // This is an unexported method called internally by [QueryBuilder.Stream].
 func (q *QueryBuilder) doStreamPages(ctx context.Context, out chan<- Result[map[string]interface{}]) {
+	// Check for validation errors
+	if q.lastError != nil {
+		out <- Result[map[string]interface{}]{
+			Err: q.lastError,
+		}
+		return
+	}
+
 	pageNum := 1
 	nextLink := q.buildURL()
 
@@ -269,6 +277,14 @@ func (q *QueryBuilder) doStreamPages(ctx context.Context, out chan<- Result[map[
 //
 // This is an unexported method called internally by [QueryBuilder.streamRaw].
 func (q *QueryBuilder) doStreamPagesRaw(ctx context.Context, out chan<- RawResult) {
+	// Check for validation errors
+	if q.lastError != nil {
+		out <- RawResult{
+			Err: q.lastError,
+		}
+		return
+	}
+
 	pageNum := 1
 	nextLink := q.buildURL()
 
