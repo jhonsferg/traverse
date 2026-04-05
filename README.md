@@ -19,17 +19,17 @@
 
 ---
 
-**[Installation](#installation) • [Quick start](#quick-start) • [Features](#features) • [Extensions](#extension-modules) • [Contributing](#contributing)**
+**[Installation](#installation) - [Quick Start](#quick-start) - [Query Builder](#query-builder) - [CRUD](#crud) - [ETag & Concurrency](#etag--concurrency-control) - [Change Tracking](#entity-change-tracking) - [Pagination](#typed-pagination) - [Async Ops](#async-operation-polling) - [Streaming](#streaming) - [Batch](#batch-requests) - [Delta Sync](#delta-sync) - [Extensions](#extension-modules)**
 
 </div>
 
 ## Overview
 
-Traverse is a Go library for consuming OData v2 and v4 services. It handles the protocol details - pagination, CSRF tokens, delta sync, batch requests - so you can focus on the data.
+Traverse is a Go library for consuming OData v2 and v4 services. It handles all protocol details - pagination, CSRF tokens, ETag concurrency control, delta sync, batch requests, async long-running operations - so you can focus on the data.
 
-It is built on top of [relay](https://github.com/jhonsferg/relay) for HTTP transport and is well-suited for SAP environments (classic ABAP Gateway / OData v2, S/4HANA / OData v4), though it works with any standards-compliant OData service.
+Built on top of [relay](https://github.com/jhonsferg/relay) for HTTP transport. Well-suited for SAP environments (classic ABAP Gateway / OData v2, S/4HANA / OData v4), but compatible with any standards-compliant OData service.
 
-Large result sets are handled through streaming (`json.Decoder` + Go channels), keeping memory usage constant regardless of payload size.
+Large result sets are handled through streaming (`json.Decoder` + Go channels), keeping memory constant regardless of payload size.
 
 ---
 
@@ -41,11 +41,9 @@ go get github.com/jhonsferg/traverse
 
 Requires Go 1.24 or later. The core module has no external dependencies beyond relay.
 
-Optional extensions can be installed independently - see [Extension modules](#extension-modules).
-
 ---
 
-## Quick start
+## Quick Start
 
 ```go
 package main
@@ -57,6 +55,12 @@ import (
 
     "github.com/jhonsferg/traverse"
 )
+
+type SalesOrder struct {
+    ID          string  `json:"SalesOrderID"`
+    CustomerID  string  `json:"CustomerID"`
+    TotalAmount float64 `json:"TotalAmount"`
+}
 
 func main() {
     client, err := traverse.New(
@@ -70,114 +74,490 @@ func main() {
 
     ctx := context.Background()
 
-    // Stream all records - memory stays constant as pages are fetched
-    for result := range client.From("MaterialSet").Stream(ctx) {
-        if result.Err != nil {
-            log.Fatal(result.Err)
-        }
-        fmt.Println(result.Value) // map[string]any
+    // Typed query into a slice
+    var orders []SalesOrder
+    err = client.From("SalesOrderSet").
+        Filter("TotalAmount gt 1000").
+        Select("SalesOrderID", "CustomerID", "TotalAmount").
+        OrderBy("TotalAmount desc").
+        Top(20).
+        Into(ctx, &orders)
+    if err != nil {
+        log.Fatal(err)
+    }
+
+    for _, o := range orders {
+        fmt.Printf("%s: %.2f\n", o.ID, o.TotalAmount)
     }
 }
 ```
 
-### Queries
+---
+
+## Query Builder
+
+The fluent query builder covers every OData system query option:
 
 ```go
-// Fetch a filtered, projected result set into a typed slice
-var materials []Material
-err := client.From("MaterialSet").
-    Filter("Activated eq true").
-    Select("MaterialID", "Description", "UnitOfMeasure").
-    OrderBy("MaterialID asc").
+query := client.From("Products").
+    Select("ID", "Name", "Price", "Category").
+    Filter("Price gt 10 and Category eq 'Electronics'").
+    OrderBy("Price asc").
     Top(50).
-    Into(ctx, &materials)
+    Skip(100).
+    Expand("Supplier").
+    WithCount()
+```
 
-// Count records matching a filter
-count, err := client.From("SalesOrderSet").
-    Filter("CustomerID eq '1001'").
-    Count(ctx)
+### Filtering
 
-// Expand a navigation property
-err = client.From("SalesOrderSet").
-    Expand("Items").
-    Filter("Status eq 'OPEN'").
+```go
+// Simple equality
+.Filter("Status eq 'OPEN'")
+
+// Compound conditions
+.Filter("Price gt 10 and Price lt 100")
+
+// String functions
+.Filter("startswith(Name,'Widget')")
+
+// Nested property
+.Filter("Address/City eq 'Berlin'")
+```
+
+### Deep Expand (Nested Navigation)
+
+Configure per-level options for expanded navigation properties:
+
+```go
+orders, err := client.From("Orders").
+    ExpandNested("Items").
+        Select("ID", "Qty", "UnitPrice").
+        Filter("Qty gt 0").
+        OrderBy("UnitPrice desc").
+        Top(10).
+    Done().
+    ExpandNested("Customer").
+        Select("Name", "Email").
+    Done().
     Into(ctx, &orders)
 ```
 
-### CRUD
+Generates: `$expand=Items($select=ID,Qty,UnitPrice;$filter=Qty gt 0;$orderby=UnitPrice desc;$top=10),Customer($select=Name,Email)`
+
+### Aggregation with $apply
+
+Server-side aggregation using the OData v4 `$apply` extension:
 
 ```go
-// Create
-id, err := client.Create(ctx, "SalesOrderSet", newOrder)
-
-// Read by key
-var order SalesOrder
-err = client.Read(ctx, "SalesOrderSet", "SO_NUMBER='4500001'", &order)
-
-// Update (PATCH / MERGE)
-err = client.Update(ctx, "SalesOrderSet", "SO_NUMBER='4500001'", changes)
-
-// Delete
-err = client.Delete(ctx, "SalesOrderSet", "SO_NUMBER='4500001'")
+page, err := client.From("SalesItems").
+    Apply("groupby((Category),aggregate(Amount with sum as TotalAmount))").
+    Page(ctx)
 ```
 
-### Batch requests
+### Count
+
+```go
+// Count without fetching data
+n, err := client.From("Products").Filter("Active eq true").Count(ctx)
+
+// Count inline with results
+page, err := client.From("Products").WithCount().Page(ctx)
+if page.Count != nil {
+    fmt.Printf("total: %d, returned: %d\n", *page.Count, len(page.Value))
+}
+```
+
+---
+
+## CRUD
+
+### Create
+
+```go
+id, err := client.Create(ctx, "SalesOrderSet", map[string]any{
+    "CustomerID":  "C-001",
+    "Description": "New order",
+})
+```
+
+### Read
+
+```go
+var order SalesOrder
+err := client.Read(ctx, "SalesOrderSet", "SalesOrderID='4500001'", &order)
+```
+
+### Update (PATCH / MERGE)
+
+```go
+// Partial update - only specified fields are changed
+err := client.Update(ctx, "SalesOrderSet", "SalesOrderID='4500001'", map[string]any{
+    "Status": "CONFIRMED",
+})
+```
+
+### Delete
+
+```go
+err := client.Delete(ctx, "SalesOrderSet", "SalesOrderID='4500001'")
+```
+
+### Upsert
+
+Create a new entity or replace an existing one in a single operation (OData 4.01 §11.4.4).
+Uses `PUT` with `If-None-Match: *`:
+
+```go
+err := client.Upsert(ctx, "Products", "ProductID=42", map[string]any{
+    "ProductID": 42,
+    "Name":      "Widget Pro",
+    "Price":     29.99,
+})
+// 201 Created if new, 200/204 if replaced
+```
+
+---
+
+## ETag & Concurrency Control
+
+ETag-aware operations prevent lost updates when multiple clients modify the same entity.
+
+### Read with ETag
+
+```go
+result, err := client.ReadWithETag(ctx, "Products", "42")
+// result.ETag holds the token; result.Entity holds the data
+
+fmt.Println(result.ETag.Value)     // "W/"abc123""
+fmt.Println(result.ETag.IsWeak())  // true
+```
+
+### Update with ETag
+
+```go
+// Fetch and capture ETag
+result, err := client.ReadWithETag(ctx, "Products", "42")
+
+// Apply conditional update - fails with ErrConcurrencyConflict if stale
+err = client.UpdateWithETag(ctx, "Products", "42", map[string]any{
+    "Price": 19.99,
+}, result.ETag)
+
+if errors.Is(err, traverse.ErrConcurrencyConflict) {
+    // Another client modified the entity - re-read and retry
+}
+```
+
+### Replace and Delete with ETag
+
+```go
+// Full replacement (PUT)
+err = client.ReplaceWithETag(ctx, "Products", "42", fullEntity, etag)
+
+// Conditional delete
+err = client.DeleteWithETag(ctx, "Products", "42", etag)
+```
+
+---
+
+## Entity Change Tracking
+
+Track which fields of an entity have been modified and generate minimal PATCH payloads.
+Inspired by the dirty-bit pattern from .NET EF Core and pnpcore.
+
+```go
+// 1. Fetch the entity
+var raw map[string]any
+client.Read(ctx, "Products", "42", &raw)
+
+// 2. Start tracking
+tracked := traverse.TrackEntity(raw)
+
+// 3. Modify fields
+tracked.Set("Price", 24.99)
+tracked.Set("Status", "ACTIVE")
+
+// 4. Check what changed
+fmt.Println(tracked.IsDirty())       // true
+fmt.Println(tracked.DirtyFields())   // ["Price", "Status"]
+
+// 5. Send only changed fields as a PATCH
+changes := tracked.Changes()         // map[string]any{"Price": 24.99, "Status": "ACTIVE"}
+err := client.Update(ctx, "Products", "42", changes)
+
+// Or use SaveChanges for a one-step save + reset
+err = tracked.SaveChanges(ctx, client, "Products", "42")
+```
+
+### Discard and Reset
+
+```go
+tracked.Discard()   // revert all changes back to original snapshot
+tracked.Reset()     // mark current state as the new baseline (no more dirty fields)
+```
+
+### JSON Serialization
+
+`TrackedEntity` implements `json.Marshaler` and encodes only changed fields:
+
+```go
+body, _ := json.Marshal(tracked) // {"Price":24.99,"Status":"ACTIVE"}
+```
+
+---
+
+## Typed Pagination
+
+`Paginator[T]` provides a type-safe, iterator-style interface for paging through
+large result sets. Automatically follows `@odata.nextLink` (v4) or `__next` (v2).
+
+```go
+type Product struct {
+    ID    int    `json:"ProductID"`
+    Name  string `json:"Name"`
+    Price float64 `json:"Price"`
+}
+
+p := traverse.NewPaginator[Product](
+    client.From("Products").Top(100).OrderBy("ProductID asc"),
+)
+
+for p.HasMorePages() {
+    items, err := p.NextPage(ctx)
+    if err != nil {
+        log.Fatal(err)
+    }
+    for _, item := range items {
+        fmt.Printf("%d: %s - %.2f\n", item.ID, item.Name, item.Price)
+    }
+}
+```
+
+### Custom Decoder
+
+```go
+p := traverse.NewPaginatorWithDecoder[Product](
+    client.From("Products"),
+    func(raw json.RawMessage) (Product, error) {
+        var p Product
+        return p, json.Unmarshal(raw, &p)
+    },
+)
+```
+
+### Reset and Total Count
+
+```go
+p.Reset()                           // restart from the first page
+
+count, err := p.TotalCount(ctx)     // requires .WithCount() on the query
+```
+
+### Fetch Page at Arbitrary URL
+
+Follow server-provided links directly:
+
+```go
+page, err := client.FetchPageAt(ctx, "https://service.example.com/Products?$skiptoken=xyz")
+```
+
+---
+
+## Async Operation Polling
+
+Many OData services (SAP, Dynamics 365) process long-running operations asynchronously.
+The server returns `202 Accepted` with a `Location` header pointing to a status URL.
+
+```go
+// 1. Send the initial request with Prefer: respond-async
+req := client.http.Post("/SalesOrderSet").
+    WithHeader("Prefer", "respond-async").
+    WithJSON(newOrder)
+
+resp, err := client.Execute(req)
+if resp.StatusCode != 202 {
+    // synchronous completion - no polling needed
+    return
+}
+
+// 2. Create a poller from the Location header
+poller := client.NewAsyncPoller(resp.Headers.Get("Location")).
+    WithPollInterval(2 * time.Second).
+    WithMaxPolls(30)
+
+// 3. Wait for completion (respects Retry-After header from server)
+result, err := poller.Wait(ctx)
+if errors.Is(err, traverse.ErrAsyncOpFailed) {
+    log.Printf("operation failed: %s", result.Body)
+}
+if err == nil {
+    fmt.Printf("completed with status %d\n", result.StatusCode)
+}
+```
+
+### Status Values
+
+| Status | Meaning |
+|--------|---------|
+| `AsyncOpRunning` | Operation still in progress (202) |
+| `AsyncOpSucceeded` | Completed successfully (200, 201, 204) |
+| `AsyncOpFailed` | Server reported failure (4xx, 5xx) |
+| `AsyncOpCancelled` | Operation was cancelled server-side |
+
+### Sentinel Errors
+
+| Error | When returned |
+|-------|--------------|
+| `ErrAsyncOpFailed` | Server returned 4xx/5xx during polling |
+| `ErrAsyncOpTimeout` | MaxPolls exhausted before completion |
+
+---
+
+## Streaming
+
+For large datasets, streaming processes results record-by-record with constant memory.
+
+### Channel-based Streaming
+
+```go
+for result := range client.From("MaterialSet").Stream(ctx) {
+    if result.Err != nil {
+        log.Fatal(result.Err)
+    }
+    fmt.Println(result.Value["MaterialID"])
+}
+```
+
+### Typed Streaming with Callback
+
+```go
+err := client.From("SalesOrderSet").
+    Filter("Status eq 'OPEN'").
+    Stream(ctx).
+    ForEach(func(record map[string]any, page, index int) error {
+        return processRecord(record)
+    })
+```
+
+### Raw JSONL Streaming
+
+```go
+stream, err := client.ExecuteStream(ctx, req)
+defer stream.Close()
+for stream.Next() {
+    fmt.Println(stream.Value()) // each raw JSON entity
+}
+```
+
+Memory stays constant regardless of total result count because records are processed
+as they arrive from the network, without buffering the full response.
+
+---
+
+## Batch Requests
+
+Execute multiple operations in a single HTTP round-trip.
+
+### Read Batch
 
 ```go
 batch := client.NewBatch()
 batch.Get("MaterialSet('MAT-001')")
 batch.Get("MaterialSet('MAT-002')")
+batch.Get("SalesOrderSet('SO-100')")
+
+results, err := batch.Execute(ctx)
+for i, r := range results {
+    fmt.Printf("request %d: status %d\n", i, r.StatusCode)
+}
+```
+
+### Changeset (Atomic Batch)
+
+Group multiple mutations into a changeset - all succeed or all roll back:
+
+```go
+batch := client.NewBatch()
+cs := batch.NewChangeset()
+cs.Post("SalesOrderSet", newOrder)
+cs.Patch("SalesOrderSet('SO-100')", patch)
+cs.Delete("SalesOrderSet('SO-099')")
+
 results, err := batch.Execute(ctx)
 ```
 
-### Delta sync
+---
+
+## Delta Sync
+
+Incremental updates fetch only records that changed since the last sync.
 
 ```go
-// First run: fetch all and store the token
+// First run: fetch all + store the delta token
 stream, deltaToken, err := client.From("SalesOrderSet").Delta(ctx, "")
 
-// Later runs: fetch only what changed
+// Process all records...
+for result := range stream { /* ... */ }
+
+// Subsequent runs: only what changed
 stream, newToken, err := client.From("SalesOrderSet").Delta(ctx, deltaToken)
+```
+
+Delta links are preserved across sessions and service restarts.
+
+---
+
+## SAP Compatibility
+
+Traverse handles SAP-specific OData protocol quirks automatically:
+
+- **CSRF token fetching** - automatically fetches and rotates `x-csrf-token` for write operations
+- **MERGE method** - OData v2 uses `X-HTTP-Method: MERGE` tunneling (since MERGE is not standard HTTP)
+- **ETag handling** - parses both `ETag` and `W/` weak ETags from SAP ABAP Gateway responses
+- **Basic auth** - `WithBasicAuth(user, pass)` for classic ABAP Gateway authentication
+- **Client cert** - `WithClientCert(certFile, keyFile)` for mutual TLS
+
+```go
+client, err := traverse.New(
+    traverse.WithBaseURL("https://s4hana.example.com/sap/opu/odata/sap/API_SALES_ORDER_SRV"),
+    traverse.WithBasicAuth(os.Getenv("SAP_USER"), os.Getenv("SAP_PASS")),
+    traverse.WithODataVersion(traverse.ODataV2),
+)
 ```
 
 ---
 
-## Features
-
-- **OData v2 and v4** - automatic version detection from service metadata
-- **Streaming** - server-side pagination via Go channels; constant memory on large datasets
-- **Fluent query builder** - `$filter`, `$select`, `$expand`, `$orderby`, `$top`, `$skip`, `$count`
-- **CRUD** - create, read, update, delete with OData-compliant error handling
-- **Delta sync** - incremental updates via delta tokens
-- **Batch** - `$batch` request support
-- **SAP compatibility** - CSRF token fetching, ETag handling, basic auth and OAuth2
-- **Object pooling** - `sync.Pool` reuse of buffers and decoders to reduce GC pressure on high-throughput workloads
-- **Thread-safe** - safe for concurrent use across goroutines
-- **Tested** - 94%+ coverage; CI runs on Linux, macOS, Windows (Go 1.24 & 1.25)
-
----
-
-## Extension modules
+## Extension Modules
 
 Extensions are optional and independently versioned. Install only what you need.
 
 | Module | Purpose | Install |
 |--------|---------|---------|
-| `ext/cache` | Metadata and response caching | `go get github.com/jhonsferg/traverse/ext/cache` |
-| `ext/oauth2` | OAuth2 token management | `go get github.com/jhonsferg/traverse/ext/oauth2` |
-| `ext/sap` | SAP-specific request handling | `go get github.com/jhonsferg/traverse/ext/sap` |
-| `ext/prometheus` | Prometheus metrics | `go get github.com/jhonsferg/traverse/ext/prometheus` |
+| `ext/cache/memory` | In-memory metadata + response caching | `go get github.com/jhonsferg/traverse/ext/cache/memory` |
+| `ext/cache/redis` | Redis-backed shared cache | `go get github.com/jhonsferg/traverse/ext/cache/redis` |
+| `ext/oauth2` | OAuth2 token management with auto-refresh | `go get github.com/jhonsferg/traverse/ext/oauth2` |
+| `ext/sap` | SAP-specific CSRF, headers, and gateway quirks | `go get github.com/jhonsferg/traverse/ext/sap` |
+| `ext/prometheus` | Prometheus metrics (requests, latency, errors) | `go get github.com/jhonsferg/traverse/ext/prometheus` |
 | `ext/tracing` | OpenTelemetry distributed tracing | `go get github.com/jhonsferg/traverse/ext/tracing` |
 | `ext/graphql` | GraphQL bridge (experimental) | `go get github.com/jhonsferg/traverse/ext/graphql` |
 
-Each extension has its own `go.mod`. See the README inside each `ext/` subdirectory.
+---
+
+## Performance
+
+- **Constant memory streaming** - channel-based pagination never buffers the full response; ideal for datasets with millions of records
+- **Object pooling** - `sync.Pool` for internal buffers and JSON decoders to reduce GC pressure
+- **Zero allocations on hot paths** - string interning for common OData keys and values
+- **Lazy URL construction** - query URLs are rebuilt only when options change (dirty flag)
+- **Thread-safe** - the client is safe for concurrent use across goroutines
 
 ---
 
-## Running locally
+## Running Locally
 
 ```bash
-# Tests
+# Tests (all platforms)
 go test ./...
 go test -race ./...
 
@@ -194,13 +574,14 @@ golangci-lint run
 
 Every push and pull request runs:
 
-- Tests on Linux, macOS and Windows (Go 1.24 and 1.25)
+- Tests on Linux, macOS, and Windows (Go 1.24 and 1.25)
 - `go vet` and golangci-lint v2
 - CodeQL static analysis
 - Trivy vulnerability scan
 - TruffleHog secrets scan
+- API compatibility check
 
-Tags are created automatically on every merge to master using Conventional Commits semantics (`feat` → minor bump, `fix`/`ci`/`chore` → patch, `BREAKING CHANGE` footer → major).
+Tags are created automatically on every merge to master using Conventional Commits semantics (`feat` - minor bump, `fix`/`ci`/`chore` - patch, `BREAKING CHANGE` footer - major).
 
 ---
 
@@ -215,8 +596,6 @@ feat(query): add $apply aggregation support
 fix(client): resolve context cancellation race condition
 docs(readme): update streaming example
 ```
-
-Issues and discussion are open on GitHub.
 
 ---
 
