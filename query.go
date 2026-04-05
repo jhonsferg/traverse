@@ -822,8 +822,48 @@ func (q *QueryBuilder) WithDeltaToken(token string) *QueryBuilder {
 	return q
 }
 
-// Stream executes the query and returns a channel of results.
+// BoundFunction creates a builder for an OData function bound to this entity set.
 //
+// The function URL is constructed as: /<entitySet>/<name>(params...)
+// This is typically used for namespace-qualified functions bound to a collection or
+// a specific entity, for example:
+//
+//	// Bound to collection: /Products/Namespace.GetDiscounted(threshold=10)
+//	var result MyResult
+//	err := client.From("Products").
+//		BoundFunction("Namespace.GetDiscounted").
+//		Param("threshold", 10).
+//		Invoke(ctx, &result)
+func (q *QueryBuilder) BoundFunction(name string) *FunctionBuilder {
+	return &FunctionBuilder{
+		client:     q.client,
+		name:       name,
+		basePath:   q.entitySet,
+		parameters: make(map[string]interface{}),
+	}
+}
+
+// BoundAction creates a builder for an OData action bound to this entity set.
+//
+// The action URL is constructed as: /<entitySet>/<name>
+// Parameters are sent as a JSON body. This is typically used for namespace-qualified
+// actions bound to a collection or a specific entity, for example:
+//
+//	// Bound to collection: POST /Products/Namespace.BulkDiscount {"percent": 10}
+//	var result ActionResult
+//	err := client.From("Products").
+//		BoundAction("Namespace.BulkDiscount").
+//		Param("percent", 10).
+//		Invoke(ctx, &result)
+func (q *QueryBuilder) BoundAction(name string) *ActionBuilder {
+	return &ActionBuilder{
+		client:     q.client,
+		name:       name,
+		basePath:   q.entitySet,
+		parameters: make(map[string]interface{}),
+	}
+}
+
 // Stream streams all matching records from all pages using adaptive buffering.
 // The returned channel will receive [Result] values containing either a data record
 // (in Result.Value) or an error (in Result.Err). The channel is closed when streaming

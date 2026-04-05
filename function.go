@@ -26,6 +26,7 @@ import (
 type FunctionBuilder struct {
 	client     *Client
 	name       string
+	basePath   string
 	parameters map[string]interface{}
 }
 
@@ -44,6 +45,7 @@ type FunctionBuilder struct {
 type ActionBuilder struct {
 	client     *Client
 	name       string
+	basePath   string
 	body       interface{}
 	parameters map[string]interface{}
 }
@@ -359,9 +361,13 @@ func parseResponseValue(body []byte) (map[string]interface{}, error) {
 //		Execute(ctx)
 //	// result contains the function response data
 func (f *FunctionBuilder) Execute(ctx context.Context) (map[string]interface{}, error) {
-	// Build URL: /FunctionName(param1=value1,param2=value2)
 	paramStr := f.buildParameterString()
-	url := fmt.Sprintf("/%s(%s)", f.name, paramStr)
+	var url string
+	if f.basePath != "" {
+		url = fmt.Sprintf("/%s/%s(%s)", f.basePath, f.name, paramStr)
+	} else {
+		url = fmt.Sprintf("/%s(%s)", f.name, paramStr)
+	}
 
 	req := f.client.http.Get(url)
 	req = req.WithContext(ctx)
@@ -396,7 +402,12 @@ func (f *FunctionBuilder) Execute(ctx context.Context) (map[string]interface{}, 
 //		WithBody(approvalData).
 //		Execute(ctx)
 func (a *ActionBuilder) Execute(ctx context.Context) (map[string]interface{}, error) {
-	url := "/" + a.name
+	var url string
+	if a.basePath != "" {
+		url = fmt.Sprintf("/%s/%s", a.basePath, a.name)
+	} else {
+		url = "/" + a.name
+	}
 
 	var req *relay.Request
 	if a.body != nil {
@@ -529,4 +540,78 @@ func ExecuteFunctionImportAs[T any](f *FunctionImportBuilder, ctx context.Contex
 
 	// Use mapToStruct for type conversion
 	return mapToStruct[T](result)
+}
+
+// Invoke calls the function and unmarshals the response into result.
+//
+// Invoke is the result-receiver variant of [FunctionBuilder.Execute]. It sends an
+// HTTP GET request to the OData function URL (with inline parameters) and unmarshals
+// the response body into the value pointed to by result.
+//
+// result must be a non-nil pointer. Invoke uses JSON round-trip via [mapToStruct]
+// for the unmarshaling, so standard json struct tags are respected.
+//
+// Returns an error if the HTTP call fails, the response status is not 2xx, or
+// unmarshaling fails.
+//
+// Example:
+//
+//	type StatsResult struct {
+//		Count int    `json:"count"`
+//		Label string `json:"label"`
+//	}
+//
+//	var stats StatsResult
+//	err := client.Function("GetStats").Param("top", 10).Invoke(ctx, &stats)
+func (f *FunctionBuilder) Invoke(ctx context.Context, result any) error {
+	raw, err := f.Execute(ctx)
+	if err != nil {
+		return err
+	}
+	return unmarshalInto(raw, result)
+}
+
+// Invoke calls the action and unmarshals the response into result.
+//
+// Invoke is the result-receiver variant of [ActionBuilder.Execute]. It sends an
+// HTTP POST request to the OData action URL and unmarshals the response body into
+// the value pointed to by result. result may be nil when no response body is expected.
+//
+// If [ActionBuilder.WithBody] was called, that data forms the request body.
+// Otherwise parameters added via [ActionBuilder.Param] are sent as JSON.
+//
+// Returns an error if the HTTP call fails, the response status is not 2xx, or
+// unmarshaling fails.
+//
+// Example:
+//
+//	type ApprovalResult struct {
+//		Approved bool   `json:"approved"`
+//		Message  string `json:"message"`
+//	}
+//
+//	var res ApprovalResult
+//	err := client.Action("ApproveOrder").Param("orderID", 42).Invoke(ctx, &res)
+func (a *ActionBuilder) Invoke(ctx context.Context, result any) error {
+	raw, err := a.Execute(ctx)
+	if err != nil {
+		return err
+	}
+	if result == nil {
+		return nil
+	}
+	return unmarshalInto(raw, result)
+}
+
+// unmarshalInto converts a map[string]interface{} response into the provided destination.
+// It uses JSON round-trip so that standard json struct tags are respected.
+func unmarshalInto(raw map[string]interface{}, dest any) error {
+	b, err := json.Marshal(raw)
+	if err != nil {
+		return fmt.Errorf("traverse: failed to marshal response: %w", err)
+	}
+	if err := json.Unmarshal(b, dest); err != nil {
+		return fmt.Errorf("traverse: failed to unmarshal response: %w", err)
+	}
+	return nil
 }
