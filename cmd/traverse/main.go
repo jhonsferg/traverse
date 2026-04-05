@@ -33,6 +33,8 @@ func main() {
 		runSample(os.Args[2:])
 	case "query":
 		runQuery(os.Args[2:])
+	case "actions":
+		runActions(os.Args[2:])
 	case "export":
 		runExport(os.Args[2:])
 	case "profile":
@@ -53,6 +55,7 @@ Commands:
   count       Count records in an entity
   sample      Show N sample records from an entity
   query       Build and execute custom OData queries
+  actions     List available Actions and Functions
   export      Export data to CSV or JSON
   profile     Manage connection profiles
   interactive Start interactive exploration mode
@@ -129,6 +132,12 @@ Commands:
       -top int          Take N records
       -format string    Output format: json, text, table (default: table)
 
+  actions [options]
+    Lists all available Actions and Functions in the OData service.
+    Options:
+      -url string       OData service URL (required)
+      -format string    Output format: json, text (default: text)
+
   export [options]
     Exports entity data to CSV or JSON file.
     Options:
@@ -177,6 +186,9 @@ Examples:
   # Query with filters
   traverse query -url https://api.example.com/odata -entity Product \
     -filter "Price gt 100" -orderby "Name" -top 5
+
+  # List available actions and functions
+  traverse actions -url https://api.example.com/odata
 
   # Export all products to JSON
   traverse export -url https://api.example.com/odata -entity Product \
