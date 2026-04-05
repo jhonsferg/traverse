@@ -5,267 +5,176 @@ import (
 	"fmt"
 	"go/format"
 	"strings"
-
-	"github.com/jhonsferg/traverse"
+	"text/template"
 )
 
-// CodeGenerator handles template rendering and Go code formatting.
+// CodeGenerator renders Go source files from parsed OData schemas using templates.
 type CodeGenerator struct {
-	metadata  *traverse.Metadata
-	pkgName   string
-	templates *TemplateRegistry
+	schemas []Schema
+	pkgName string
+	reg     *TemplateRegistry
 }
 
-// NewCodeGenerator creates a new code generator with templates.
-func NewCodeGenerator(metadata *traverse.Metadata, pkgName string) *CodeGenerator {
+// NewCodeGenerator creates a new CodeGenerator for the given schemas.
+func NewCodeGenerator(schemas []Schema, pkgName string) *CodeGenerator {
 	return &CodeGenerator{
-		metadata:  metadata,
-		pkgName:   pkgName,
-		templates: NewTemplateRegistry(),
+		schemas: schemas,
+		pkgName: pkgName,
+		reg:     NewTemplateRegistry(),
 	}
 }
 
-// RenderTypes renders the types.go file using templates.
+// RenderTypes renders the types.go file content.
 func (cg *CodeGenerator) RenderTypes() (string, error) {
-	data := cg.buildTypesData()
-
-	var buf bytes.Buffer
-	if err := cg.templates.typesTemplate.Execute(&buf, data); err != nil {
-		return "", fmt.Errorf("template render error: %w", err)
-	}
-
-	return cg.formatGo(buf.String())
+	return cg.render(cg.reg.typesTemplate, cg.buildTypesData())
 }
 
-// RenderClient renders the client.go file using templates.
+// RenderClient renders the client.go file content.
 func (cg *CodeGenerator) RenderClient() (string, error) {
-	data := cg.buildClientData()
-
-	var buf bytes.Buffer
-	if err := cg.templates.clientTemplate.Execute(&buf, data); err != nil {
-		return "", fmt.Errorf("template render error: %w", err)
-	}
-
-	return cg.formatGo(buf.String())
+	return cg.render(cg.reg.clientTemplate, cg.buildClientData())
 }
 
-// RenderQueries renders the queries.go file using templates.
+// RenderQueries renders the queries.go file content.
 func (cg *CodeGenerator) RenderQueries() (string, error) {
-	data := cg.buildQueryData()
+	return cg.render(cg.reg.queriesTemplate, cg.buildQueriesData())
+}
 
+func (cg *CodeGenerator) render(tmpl *template.Template, data interface{}) (string, error) {
 	var buf bytes.Buffer
-	if err := cg.templates.queriesTemplate.Execute(&buf, data); err != nil {
+	if err := tmpl.Execute(&buf, data); err != nil {
 		return "", fmt.Errorf("template render error: %w", err)
 	}
-
-	return cg.formatGo(buf.String())
-}
-
-// buildTypesData constructs template data for types.go.
-func (cg *CodeGenerator) buildTypesData() TypesTemplateData {
-	entities := make([]EntityData, 0, len(cg.metadata.EntityTypes))
-
-	for _, et := range cg.metadata.EntityTypes {
-		ed := EntityData{
-			Name:     et.Name,
-			GoName:   PascalCase(et.Name),
-			Fields:   make([]FieldData, 0),
-			NavProps: make([]NavPropData, 0),
-			Keys:     make([]string, 0),
-		}
-
-		// Add fields
-		for _, prop := range et.Properties {
-			goType, _ := MapODataType(prop.Type, prop.Nullable)
-			isKey := isKeyField(et, prop.Name)
-
-			fd := FieldData{
-				Name:       prop.Name,
-				GoName:     PascalCase(prop.Name),
-				Type:       goType,
-				IsKey:      isKey,
-				IsNullable: prop.Nullable,
-				JSONTag:    FormatJSONTag(prop.Name, prop.Nullable),
-			}
-
-			ed.Fields = append(ed.Fields, fd)
-
-			if isKey {
-				ed.Keys = append(ed.Keys, prop.Name)
-			}
-		}
-
-		// Add navigation properties
-		for _, navProp := range et.NavigationProperties {
-			nd := NavPropData{
-				Name:       navProp.Name,
-				GoName:     PascalCase(navProp.Name),
-				JSONTag:    FormatJSONTag(navProp.Name, true),
-				TargetType: PascalCase(navProp.Name),
-				IsSingle:   false, // Default to collection
-			}
-
-			ed.NavProps = append(ed.NavProps, nd)
-		}
-
-		entities = append(entities, ed)
-	}
-
-	return TypesTemplateData{
-		PackageName: cg.pkgName,
-		Entities:    entities,
-	}
-}
-
-// buildClientData constructs template data for client.go.
-func (cg *CodeGenerator) buildClientData() ClientTemplateData {
-	entitySets := make([]EntitySetData, 0, len(cg.metadata.EntitySets))
-
-	for _, es := range cg.metadata.EntitySets {
-		esd := EntitySetData{
-			Name:       es.Name,
-			GoName:     PascalCase(es.Name),
-			EntityName: PascalCase(es.EntityTypeName),
-		}
-		entitySets = append(entitySets, esd)
-	}
-
-	return ClientTemplateData{
-		PackageName: cg.pkgName,
-		EntitySets:  entitySets,
-	}
-}
-
-// buildQueryData constructs template data for queries.go.
-func (cg *CodeGenerator) buildQueryData() QueryTemplateData {
-	builders := make([]QueryBuilderData, 0, len(cg.metadata.EntityTypes))
-
-	for _, et := range cg.metadata.EntityTypes {
-		keys := make([]string, 0, len(et.Key))
-		for _, k := range et.Key {
-			keys = append(keys, k.Name)
-		}
-
-		qbd := QueryBuilderData{
-			EntityName:   et.Name,
-			EntityGoName: PascalCase(et.Name),
-			QueryName:    PascalCase(et.Name) + "Query",
-			Keys:         keys,
-			HasKeyAccess: len(keys) > 0,
-		}
-
-		builders = append(builders, qbd)
-	}
-
-	return QueryTemplateData{
-		PackageName:   cg.pkgName,
-		QueryBuilders: builders,
-	}
-}
-
-// formatGo formats Go source code using gofmt.
-func (cg *CodeGenerator) formatGo(src string) (string, error) {
-	formatted, err := format.Source([]byte(src))
+	formatted, err := format.Source(buf.Bytes())
 	if err != nil {
-		// Return unformatted code with error info for debugging
-		return src, fmt.Errorf("gofmt error: %w", err)
+		return buf.String(), fmt.Errorf("gofmt error: %w\n--- source ---\n%s", err, buf.String())
 	}
 	return string(formatted), nil
 }
 
+// buildTypesData collects template data for types.go across all schemas.
+func (cg *CodeGenerator) buildTypesData() TypesTemplateData {
+	data := TypesTemplateData{
+		PackageName:         cg.pkgName,
+		NeedsTimeImport:     needsTimeImport(cg.schemas),
+		NeedsTraverseImport: needsTraverseImport(cg.schemas),
+	}
+
+	for _, s := range cg.schemas {
+		for _, et := range s.EntityTypes {
+			ed := EntityData{
+				Name:   et.Name,
+				GoName: PascalCase(et.Name),
+			}
+			for _, prop := range et.Properties {
+				isKey := isKeyProp(et.Keys, prop.Name)
+				goType := mapODataType(prop.Type, prop.Nullable)
+				ed.Fields = append(ed.Fields, FieldData{
+					Name:       prop.Name,
+					GoName:     PascalCase(prop.Name),
+					GoType:     goType,
+					IsKey:      isKey,
+					IsNullable: prop.Nullable,
+					Tag:        buildStructTag(prop.Name, isKey, false, prop.Nullable),
+				})
+			}
+			for _, nav := range et.NavigationProperties {
+				ed.NavProps = append(ed.NavProps, NavPropData{
+					Name:   nav.Name,
+					GoName: PascalCase(nav.Name),
+					GoType: navGoType(nav),
+					Tag:    buildStructTag(nav.Name, false, true, true),
+				})
+			}
+			data.Entities = append(data.Entities, ed)
+		}
+
+		for _, ct := range s.ComplexTypes {
+			cd := ComplexTypeData{
+				Name:   ct.Name,
+				GoName: PascalCase(ct.Name),
+			}
+			for _, prop := range ct.Properties {
+				cd.Fields = append(cd.Fields, FieldData{
+					Name:       prop.Name,
+					GoName:     PascalCase(prop.Name),
+					GoType:     mapODataType(prop.Type, prop.Nullable),
+					IsNullable: prop.Nullable,
+					Tag:        buildStructTag(prop.Name, false, false, prop.Nullable),
+				})
+			}
+			data.ComplexTypes = append(data.ComplexTypes, cd)
+		}
+
+		for _, et := range s.EnumTypes {
+			ed := EnumTypeData{
+				Name:   et.Name,
+				GoName: PascalCase(et.Name),
+			}
+			for _, m := range et.Members {
+				ed.Members = append(ed.Members, EnumMemberData{
+					Name:   m.Name,
+					GoName: PascalCase(m.Name),
+					Value:  m.Value,
+				})
+			}
+			data.EnumTypes = append(data.EnumTypes, ed)
+		}
+	}
+
+	return data
+}
+
+// buildClientData collects template data for client.go.
+func (cg *CodeGenerator) buildClientData() ClientTemplateData {
+	data := ClientTemplateData{PackageName: cg.pkgName}
+	for _, s := range cg.schemas {
+		for _, es := range s.EntitySets {
+			data.EntitySets = append(data.EntitySets, EntitySetData{
+				Name:       es.Name,
+				GoName:     PascalCase(es.Name),
+				EntityType: es.EntityType,
+				QueryType:  PascalCase(es.Name) + "Query",
+			})
+		}
+	}
+	return data
+}
+
+// buildQueriesData collects template data for queries.go.
+func (cg *CodeGenerator) buildQueriesData() QueriesTemplateData {
+	data := QueriesTemplateData{PackageName: cg.pkgName}
+	for _, s := range cg.schemas {
+		for _, es := range s.EntitySets {
+			data.QueryBuilders = append(data.QueryBuilders, QueryBuilderData{
+				Name:       es.Name,
+				GoName:     PascalCase(es.Name),
+				QueryType:  PascalCase(es.Name) + "Query",
+				EntityType: es.EntityType,
+			})
+		}
+	}
+	return data
+}
+
 // PascalCase converts a string to PascalCase.
+// Strings already in PascalCase (no separators, starts with uppercase) are returned as-is.
 func PascalCase(s string) string {
 	s = strings.TrimSpace(s)
 	if s == "" {
 		return ""
 	}
-
-	// Handle special characters and spaces
+	hasSep := strings.ContainsAny(s, "_ .-")
+	if !hasSep {
+		// Already PascalCase or a single word - just ensure first letter is upper.
+		return strings.ToUpper(s[:1]) + s[1:]
+	}
 	parts := strings.FieldsFunc(s, func(r rune) bool {
 		return r == '_' || r == ' ' || r == '-' || r == '.'
 	})
-
 	for i, part := range parts {
 		if len(part) > 0 {
 			parts[i] = strings.ToUpper(string(part[0])) + strings.ToLower(part[1:])
 		}
 	}
-
 	return strings.Join(parts, "")
-}
-
-// FormatJSONTag generates a JSON struct tag for a property.
-func FormatJSONTag(propName string, nullable bool) string {
-	tag := fmt.Sprintf("`json:\"%s\"", propName)
-	if nullable {
-		tag += ",omitempty"
-	}
-	tag += "`"
-	return tag
-}
-
-// NamingConvention defines how to convert property names.
-type NamingConvention int
-
-const (
-	// CamelCase converts to camelCase field names
-	CamelCase NamingConvention = iota
-	// SnakeCase converts to snake_case field names
-	SnakeCase
-	// PascalCase converts to PascalCase field names (default for Go)
-	PascalCaseNaming
-)
-
-// ToCamelCase converts a PascalCase string to camelCase.
-func ToCamelCase(s string) string {
-	if len(s) == 0 {
-		return s
-	}
-	s = PascalCase(s)
-	return strings.ToLower(string(s[0])) + s[1:]
-}
-
-// ToSnakeCase converts a PascalCase string to snake_case.
-func ToSnakeCase(s string) string {
-	s = PascalCase(s)
-	var buf bytes.Buffer
-
-	for i, r := range s {
-		if i > 0 && r >= 'A' && r <= 'Z' {
-			buf.WriteRune('_')
-		}
-		buf.WriteRune(r)
-	}
-
-	return strings.ToLower(buf.String())
-}
-
-// JSONTagGenerator handles JSON tag generation with customizable options.
-type JSONTagGenerator struct {
-	NamingConvention NamingConvention
-	OmitEmpty        bool
-	OmitZero         bool
-}
-
-// Generate creates a JSON tag for a property.
-func (jtg *JSONTagGenerator) Generate(propName string, nullable bool) string {
-	var fieldName string
-
-	switch jtg.NamingConvention {
-	case CamelCase:
-		fieldName = ToCamelCase(propName)
-	case SnakeCase:
-		fieldName = ToSnakeCase(propName)
-	default:
-		fieldName = propName
-	}
-
-	tag := fmt.Sprintf("`json:\"%s\"", fieldName)
-
-	if (nullable && jtg.OmitEmpty) || jtg.OmitZero {
-		tag += ",omitempty"
-	}
-
-	tag += "`"
-	return tag
 }

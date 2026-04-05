@@ -1,0 +1,43 @@
+<?xml version="1.0" encoding="utf-8"?>
+<edmx:Edmx Version="4.0" xmlns:edmx="http://docs.oasis-open.org/odata/ns/edmx">
+  <edmx:DataServices>
+    <Schema Namespace="NorthWind" xmlns="http://docs.oasis-open.org/odata/ns/edm">
+      <EntityType Name="Customer">
+        <Key><PropertyRef Name="CustomerID"/></Key>
+        <Property Name="CustomerID" Type="Edm.String" Nullable="false" MaxLength="5"/>
+        <Property Name="CompanyName" Type="Edm.String" Nullable="false" MaxLength="40"/>
+        <Property Name="ContactName" Type="Edm.String" MaxLength="30"/>
+        <NavigationProperty Name="Orders" Type="Collection(NorthWind.Order)" Partner="Customer"/>
+      </EntityType>
+      <EntityType Name="Order">
+        <Key><PropertyRef Name="OrderID"/></Key>
+        <Property Name="OrderID" Type="Edm.Int32" Nullable="false"/>
+        <Property Name="CustomerID" Type="Edm.String" MaxLength="5"/>
+        <Property Name="OrderDate" Type="Edm.DateTimeOffset"/>
+        <Property Name="Freight" Type="Edm.Decimal"/>
+        <NavigationProperty Name="Customer" Type="NorthWind.Customer" Partner="Orders"/>
+        <NavigationProperty Name="OrderDetails" Type="Collection(NorthWind.OrderDetail)" Partner="Order"/>
+      </EntityType>
+      <EntityType Name="OrderDetail">
+        <Key>
+          <PropertyRef Name="OrderID"/>
+          <PropertyRef Name="ProductID"/>
+        </Key>
+        <Property Name="OrderID" Type="Edm.Int32" Nullable="false"/>
+        <Property Name="ProductID" Type="Edm.Int32" Nullable="false"/>
+        <Property Name="UnitPrice" Type="Edm.Decimal" Nullable="false"/>
+        <Property Name="Quantity" Type="Edm.Int16" Nullable="false"/>
+      </EntityType>
+      <EntityContainer Name="NorthWindEntities">
+        <EntitySet Name="Customers" EntityType="NorthWind.Customer">
+          <NavigationPropertyBinding Path="Orders" Target="Orders"/>
+        </EntitySet>
+        <EntitySet Name="Orders" EntityType="NorthWind.Order">
+          <NavigationPropertyBinding Path="Customer" Target="Customers"/>
+          <NavigationPropertyBinding Path="OrderDetails" Target="OrderDetails"/>
+        </EntitySet>
+        <EntitySet Name="OrderDetails" EntityType="NorthWind.OrderDetail"/>
+      </EntityContainer>
+    </Schema>
+  </edmx:DataServices>
+</edmx:Edmx>

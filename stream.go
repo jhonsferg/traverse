@@ -331,6 +331,9 @@ func (q *QueryBuilder) doStreamPagesRaw(ctx context.Context, out chan<- RawResul
 func (q *QueryBuilder) fetchPageStreamed(ctx context.Context, pageURL string) (*Page, error) {
 	req := q.client.http.Get(pageURL)
 	req = req.WithContext(ctx)
+	for k, v := range q.conditionalHeaders {
+		req = req.WithHeader(k, v)
+	}
 
 	// Use ExecuteStream to avoid buffering the entire response body
 	stream, err := q.client.http.ExecuteStream(req)
