@@ -269,7 +269,19 @@ func (c *Client) Close() error {
 	return nil
 }
 
-// CircuitBreakerState returns the current state of the underlying relay circuit
+// RelayClient returns the underlying [relay.Client] used for HTTP transport.
+//
+// This provides access to relay's full request API for advanced use cases such
+// as extension modules that need to issue raw HTTP calls (e.g. OData webhook
+// subscription management) while reusing the same configured transport, auth,
+// retry and circuit-breaker settings as the parent traverse.Client.
+//
+// The returned client must not be closed independently — use [Client.Close]
+// to shut down both the traverse and relay clients together.
+func (c *Client) RelayClient() *relay.Client {
+	return c.http
+}
+
 // breaker: Closed (healthy), Open (failing, requests rejected), or Half-Open
 // (probing for recovery).
 //
