@@ -181,6 +181,136 @@ if result.Approved {
 
 ---
 
+## OData v2 Function Imports
+
+OData v2 services use **Function Imports** rather than v4 Functions. The `FunctionImportBuilder` API has been expanded with `Method`, `Invoke`, and `InvokeCollection`.
+
+### Basic usage
+
+```go
+// GET /GetTop10Orders()
+result, err := client.FunctionImport("GetTop10Orders").
+    Execute(ctx)
+```
+
+### Method -- choosing HTTP verb
+
+Some Function Imports require `POST` (for example when parameters are too large for a URL, or the import has side effects):
+
+```go
+err := client.FunctionImport("ProcessQueue").
+    Method("POST").
+    Invoke(ctx, &result)
+```
+
+The default method is `GET`. Parameters for `GET` requests are encoded inline: `FuncName(key='value',...)`. For `POST` requests they are sent as a JSON body.
+
+### Invoke -- typed single-entity response
+
+`Invoke` unwraps the OData v2 `{"d":{...}}` envelope and decodes the payload into your struct:
+
+```go
+type Stats struct {
+    Count int     `json:"Count"`
+    Avg   float64 `json:"Avg"`
+}
+
+var stats Stats
+err := client.FunctionImport("GetStats").
+    Param("top", 10).
+    Invoke(ctx, &stats)
+```
+
+Pass `nil` to discard the response body.
+
+### InvokeCollection -- typed collection response
+
+`InvokeCollection` handles all common OData v2/v4 collection wrappers automatically:
+
+| Response format | Handled |
+|-----------------|---------|
+| `{"d":{"results":[...]}}` | OData v2 collection |
+| `{"results":[...]}` | Flat results array |
+| `{"value":[...]}` | OData v4 collection |
+| `[...]` | Bare JSON array |
+
+```go
+var orders []Order
+err := client.FunctionImport("GetOrders").
+    Param("status", "pending").
+    InvokeCollection(ctx, &orders)
+```
+
+### FunctionImportBuilder API summary
+
+| Method | Description |
+|--------|-------------|
+| `Param(key, value)` | Add a URL or body parameter |
+| `Method(m)` | Set HTTP method (`"GET"` or `"POST"`, default `"GET"`) |
+| `Execute(ctx)` | Call and return `map[string]interface{}` |
+| `Invoke(ctx, result)` | Call and decode single-entity response |
+| `InvokeCollection(ctx, results)` | Call and decode collection response |
+
+The generic helper `ExecuteFunctionImportAs[T]` is also available for cases where you prefer to pass the builder rather than a receiver pointer.
+
+---
+
+## CLI playground -- traverse actions
+
+The `traverse` CLI includes an `actions` sub-command that connects to any OData service and lists every Function Import, Function, and Action exposed in its metadata. This is handy for exploring an unfamiliar service.
+
+### Usage
+
+```
+traverse actions [options]
+
+Options:
+  -url     string   OData service URL (required)
+  -user    string   Username for basic authentication
+  -pass    string   Password for basic authentication
+  -token   string   Bearer token for authentication
+  -profile string   Use a saved connection profile
+  -format  string   Output format: json, text (default "text")
+  -timeout int      Request timeout in seconds (default 30)
+```
+
+### Text output
+
+```
+$ traverse actions -url https://services.odata.org/V4/Northwind/
+
+OData Service Actions and Functions
+====================================
+
+Function Imports (OData v2):
+---
+  GetProductsByRating
+    Return Type: Collection(NorthwindModel.Product)
+    Parameters:
+      - rating: Edm.Int32
+
+Actions (OData v4):
+---
+  ResetDataSource
+    Return Type:
+```
+
+### JSON output
+
+```
+$ traverse actions -url https://services.odata.org/V4/Northwind/ -format json
+```
+
+```json
+{
+  "actions": [...],
+  "function_imports": [...],
+  "functions": [...]
+}
+```
+
+---
+
 ## Error Handling
 
 ```go
