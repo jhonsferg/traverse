@@ -5,10 +5,12 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"net/http"
 	"net/url"
 	"strconv"
 	"strings"
 	"sync"
+	"time"
 )
 
 // validOpsSet contains all valid OData comparison and logical operators.
@@ -232,6 +234,14 @@ type QueryBuilder struct {
 
 	// conditionalHeaders holds HTTP conditional request headers (If-Match, If-None-Match, etc.)
 	conditionalHeaders map[string]string
+
+	// cacheTTL, when positive, marks the query as cacheable. Responses are stored
+	// in the client's ResponseCache for this duration and served from cache on
+	// repeated identical requests.
+	cacheTTL time.Duration
+	// noCacheFlag, when true, adds Cache-Control: no-cache to the request, bypassing
+	// any server-side or relay-level cache while still storing the fresh response.
+	noCacheFlag bool
 }
 
 // Select limits the returned properties to only the specified fields.
@@ -941,6 +951,59 @@ func (q *QueryBuilder) WithDeltaToken(token string) *QueryBuilder {
 	return q
 }
 
+// WithCache marks the query as cacheable with the given TTL.
+//
+// When WithCache is set and the client has a [ResponseCache] configured via
+// [WithResponseCache], the response body is stored in the cache under the full
+// request URL key. Subsequent identical requests served within the TTL window
+// are returned from cache without making an HTTP request.
+//
+// If the cached response carries an ETag or Last-Modified header, and the entry
+// has expired, traverse sends a conditional request (If-None-Match or
+// If-Modified-Since). A 304 Not Modified response renews the entry without
+// re-downloading the body.
+//
+// Cache invalidation happens automatically after [Client.Create], [Client.Update],
+// [Client.Replace], and [Client.Delete] operations on the same entity set.
+//
+// WithCache applies to [QueryBuilder.Page], [QueryBuilder.Collect], and
+// [QueryBuilder.First] calls. It has no effect if no ResponseCache is configured.
+//
+// Example:
+//
+//	client, _ := traverse.New(
+//	    traverse.WithBaseURL("https://odata.example.com/v4"),
+//	    traverse.WithResponseCache(traverse.NewInMemoryResponseCache()),
+//	)
+//	products, _ := client.From("Products").
+//	    WithCache(5 * time.Minute).
+//	    Collect(ctx)
+func (q *QueryBuilder) WithCache(ttl time.Duration) *QueryBuilder {
+	q.cacheTTL = ttl
+	return q
+}
+
+// NoCache bypasses the cache for this request.
+//
+// NoCache adds a Cache-Control: no-cache header to the outgoing request,
+// forcing revalidation with the server even if a fresh cache entry exists
+// in the relay-level HTTP cache. It does not affect the traverse-level
+// [ResponseCache]; use [QueryBuilder.WithCache] with a zero TTL to skip that.
+//
+// Use NoCache when you need guaranteed fresh data for a single query without
+// disabling caching globally.
+//
+// Example:
+//
+//	// Always fetch fresh data for this call
+//	page, _ := client.From("Orders").
+//	    NoCache().
+//	    Page(ctx)
+func (q *QueryBuilder) NoCache() *QueryBuilder {
+	q.noCacheFlag = true
+	return q
+}
+
 // BoundFunction creates a builder for an OData function bound to this entity set.
 //
 // The function URL is constructed as: /<entitySet>/<name>(params...)
@@ -1426,11 +1489,20 @@ func (q *QueryBuilder) Page(ctx context.Context) (*Page, error) {
 		return nil, q.lastError
 	}
 
-	url := q.buildURL()
-	req := q.client.http.Get(url)
+	rawURL := q.buildURL()
+
+	// Delegate to the caching path when a TTL is set and a cache is configured.
+	if q.cacheTTL > 0 && q.client.responseCache != nil {
+		return q.fetchPageCached(ctx, rawURL)
+	}
+
+	req := q.client.http.Get(rawURL)
 	req = req.WithContext(ctx)
 	for k, v := range q.conditionalHeaders {
 		req = req.WithHeader(k, v)
+	}
+	if q.noCacheFlag {
+		req = req.WithHeader("Cache-Control", "no-cache")
 	}
 
 	resp, err := q.client.http.Execute(req)
@@ -1455,6 +1527,78 @@ func (q *QueryBuilder) Page(ctx context.Context) (*Page, error) {
 		return nil, fmt.Errorf("failed to parse OData response: %w", err)
 	}
 
+	return page, nil
+}
+
+// fetchPageCached executes a GET request for rawURL using the ResponseCache.
+//
+// The flow is:
+//  1. Fresh cache hit (entry not expired): return cached body without HTTP request.
+//  2. Stale/missing entry with ETag or Last-Modified: send conditional request;
+//     on 304 renew TTL and return cached body; on 200 update cache.
+//  3. Full cache miss: fetch, store in cache, return.
+func (q *QueryBuilder) fetchPageCached(ctx context.Context, rawURL string) (*Page, error) {
+	cache := q.client.responseCache
+
+	entry, ok := cache.Get(rawURL)
+
+	// Fresh cache hit: serve without HTTP request.
+	if ok && !entry.isExpired() {
+		return q.parsePageFromBytes(entry.Body)
+	}
+
+	// Build the HTTP request, applying any user-specified conditional headers.
+	req := q.client.http.Get(rawURL)
+	req = req.WithContext(ctx)
+	for k, v := range q.conditionalHeaders {
+		req = req.WithHeader(k, v)
+	}
+
+	// Add conditional revalidation headers from the stale cached entry when the
+	// caller has not already supplied the same header explicitly.
+	if ok {
+		if _, userSet := q.conditionalHeaders["If-None-Match"]; !userSet && entry.ETag != "" {
+			req = req.WithHeader("If-None-Match", entry.ETag)
+		} else if _, userSet := q.conditionalHeaders["If-Modified-Since"]; !userSet && entry.LastModified != "" {
+			req = req.WithHeader("If-Modified-Since", entry.LastModified)
+		}
+	}
+
+	resp, err := q.client.http.Execute(req)
+	if err != nil {
+		return nil, fmt.Errorf("traverse: Page failed: %w", err)
+	}
+
+	// 304 Not Modified: renew the existing cached entry without re-downloading.
+	if resp.StatusCode == http.StatusNotModified && ok {
+		cache.Set(rawURL, entry, q.cacheTTL)
+		return q.parsePageFromBytes(entry.Body)
+	}
+
+	if resp.StatusCode != 200 {
+		return nil, fmt.Errorf("traverse: Page returned status %d", resp.StatusCode)
+	}
+
+	body := append([]byte(nil), resp.Body()...)
+	newEntry := &ResponseCacheEntry{
+		Body:         body,
+		ETag:         resp.Header("ETag"),
+		LastModified: resp.Header("Last-Modified"),
+	}
+	cache.Set(rawURL, newEntry, q.cacheTTL)
+
+	return q.parsePageFromBytes(body)
+}
+
+// parsePageFromBytes parses a cached or buffered JSON response body into a Page.
+func (q *QueryBuilder) parsePageFromBytes(body []byte) (*Page, error) {
+	page := &Page{
+		Value: make([]map[string]interface{}, 0, q.client.pageSize),
+	}
+	decoder := json.NewDecoder(bytes.NewReader(body))
+	if err := parseODataResponse(decoder, page, q.client.version); err != nil {
+		return nil, fmt.Errorf("traverse: failed to parse cached response: %w", err)
+	}
 	return page, nil
 }
 
