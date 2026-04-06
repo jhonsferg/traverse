@@ -64,6 +64,7 @@ type ActionBuilder struct {
 type FunctionImportBuilder struct {
 	client     *Client
 	name       string
+	method     string
 	parameters map[string]interface{}
 }
 
@@ -122,6 +123,7 @@ func (c *Client) FunctionImport(name string) *FunctionImportBuilder {
 	return &FunctionImportBuilder{
 		client:     c,
 		name:       name,
+		method:     "GET",
 		parameters: make(map[string]interface{}),
 	}
 }
@@ -448,29 +450,155 @@ func (a *ActionBuilder) Execute(ctx context.Context) (map[string]interface{}, er
 // but for OData v2 Function Imports.
 //
 // Returns a map containing the function import result, or an error if the call fails.
+// Method sets the HTTP method for the function import call (default is "GET").
 //
+// Use Method("POST") for function imports that modify state or when parameters
+// must be sent in the request body instead of the URL.
+//
+// Returns the receiver for method chaining.
+//
+// Example:
+//
+//	err := client.FunctionImport("ProcessQueue").Method("POST").Invoke(ctx, &result)
+func (f *FunctionImportBuilder) Method(m string) *FunctionImportBuilder {
+	f.method = m
+	return f
+}
+
+// Invoke calls the function import and decodes the response into result.
+//
+// For GET requests, parameters are encoded in the URL as FuncName(k=v,...).
+// For POST requests, parameters are sent as a JSON body.
+//
+// The response is unwrapped from the OData {"d":{...}} envelope when present
+// before decoding into result. Pass nil to discard the response body.
+//
+// Returns an error if the HTTP call fails, the status is not 2xx, or JSON
+// decoding fails.
+//
+// Example:
+//
+//	var stats Stats
+//	err := client.FunctionImport("GetStats").Invoke(ctx, &stats)
+func (f *FunctionImportBuilder) Invoke(ctx context.Context, result any) error {
+	body, err := f.executeRaw(ctx)
+	if err != nil {
+		return err
+	}
+	if result == nil {
+		return nil
+	}
+
+	// Unwrap {"d":{...}} envelope (OData v2).
+	var raw map[string]json.RawMessage
+	if err := json.Unmarshal(body, &raw); err != nil {
+		return fmt.Errorf("traverse: function import response parse failed: %w", err)
+	}
+	payload := body
+	if inner, ok := raw["d"]; ok {
+		payload = inner
+	}
+	return json.Unmarshal(payload, result)
+}
+
+// InvokeCollection calls the function import and decodes a collection response.
+//
+// It handles the following OData collection envelope formats:
+//   - {"d":{"results":[...]}} — OData v2 collection
+//   - {"results":[...]}       — flat results array
+//   - {"value":[...]}         — OData v4 collection
+//   - [...]                   — bare JSON array
+//
+// results must be a pointer to a slice, or nil to discard.
+//
+// Returns an error if the HTTP call fails, the status is not 2xx, or JSON
+// decoding fails.
+//
+// Example:
+//
+//	var orders []Order
+//	err := client.FunctionImport("GetOrders").InvokeCollection(ctx, &orders)
+func (f *FunctionImportBuilder) InvokeCollection(ctx context.Context, results any) error {
+	body, err := f.executeRaw(ctx)
+	if err != nil {
+		return err
+	}
+	if results == nil {
+		return nil
+	}
+
+	// Try to find the collection under common OData wrappers.
+	var raw map[string]json.RawMessage
+	if jsonErr := json.Unmarshal(body, &raw); jsonErr == nil {
+		// {"d":{"results":[...]}}
+		if d, ok := raw["d"]; ok {
+			var inner map[string]json.RawMessage
+			if jsonErr2 := json.Unmarshal(d, &inner); jsonErr2 == nil {
+				if arr, ok2 := inner["results"]; ok2 {
+					return json.Unmarshal(arr, results)
+				}
+			}
+		}
+		// {"results":[...]}
+		if arr, ok := raw["results"]; ok {
+			return json.Unmarshal(arr, results)
+		}
+		// {"value":[...]}
+		if arr, ok := raw["value"]; ok {
+			return json.Unmarshal(arr, results)
+		}
+	}
+
+	// Bare array fallback.
+	return json.Unmarshal(body, results)
+}
+
+// executeRaw issues the HTTP request (GET or POST) and returns the raw body bytes.
+// It validates the response status and wraps any error.
+func (f *FunctionImportBuilder) executeRaw(ctx context.Context) ([]byte, error) {
+	var (
+		req *relay.Request
+		err error
+	)
+
+	if f.method == "POST" {
+		url := fmt.Sprintf("/%s", f.name)
+		var bodyBytes []byte
+		if len(f.parameters) > 0 {
+			bodyBytes, err = json.Marshal(f.parameters)
+			if err != nil {
+				return nil, fmt.Errorf("traverse: function import marshal params: %w", err)
+			}
+		}
+		req = f.client.http.Post(url).
+			WithBody(bodyBytes).
+			WithHeader("Content-Type", "application/json")
+	} else {
+		paramStr := f.buildParameterString()
+		url := fmt.Sprintf("/%s(%s)", f.name, paramStr)
+		req = f.client.http.Get(url)
+	}
+
+	req = req.WithContext(ctx)
+	resp, respErr := f.client.http.Execute(req)
+	if respErr != nil {
+		return nil, fmt.Errorf("traverse: function import call failed: %w", respErr)
+	}
+	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
+		return nil, fmt.Errorf("traverse: function import call returned status %d", resp.StatusCode)
+	}
+	return resp.Body(), nil
+}
+
 // Example:
 //
 //	result, err := client.FunctionImport("GetTop10Orders").Execute(ctx)
 func (f *FunctionImportBuilder) Execute(ctx context.Context) (map[string]interface{}, error) {
-	// OData v2 function imports are similar to v4 functions
-	paramStr := f.buildParameterString()
-	url := fmt.Sprintf("/%s(%s)", f.name, paramStr)
-
-	req := f.client.http.Get(url)
-	req = req.WithContext(ctx)
-
-	resp, err := f.client.http.Execute(req)
+	body, err := f.executeRaw(ctx)
 	if err != nil {
-		return nil, fmt.Errorf("traverse: function import call failed: %w", err)
+		return nil, err
 	}
-
-	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
-		return nil, fmt.Errorf("traverse: function import call returned status %d", resp.StatusCode)
-	}
-
-	// Parse response
-	return parseResponseValue(resp.Body())
+	return parseResponseValue(body)
 }
 
 // ExecuteFunctionAs is the generic version of [FunctionBuilder.Execute].
