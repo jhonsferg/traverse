@@ -114,7 +114,7 @@ func TestQuerySkip(t *testing.T) {
 // TestQuerySearch tests the Search method.
 func TestQuerySearch(t *testing.T) {
 	qb := &QueryBuilder{client: &Client{}, entitySet: "Products", urlDirty: true}
-	qb.Search("Product")
+	qb.Search(SearchWord("Product"))
 	u := qb.buildURL()
 	if !strings.Contains(u, "%24search=") && !strings.Contains(u, "$search=") {
 		t.Errorf("buildURL() should contain $search, got: %s", u)
