@@ -6,12 +6,15 @@ traverse extensions add optional capabilities that are not part of the core ODat
 
 | Extension | Module | Description |
 |-----------|--------|-------------|
-| [SAP](sap.md) | `ext/sap` | CSRF tokens, SAP error parsing, function imports |
+| [SAP](sap.md) | `ext/sap` | CSRF tokens, SAP error parsing, BTP/XSUAA token exchange |
 | [OAuth2](oauth2.md) | `ext/oauth2` | OAuth2 token management and automatic refresh |
 | [Prometheus](prometheus.md) | `ext/prometheus` | Request metrics exposed as Prometheus counters/histograms |
 | [OpenTelemetry](tracing.md) | `ext/otel` | Distributed tracing with OTel spans |
 | [Cache](cache.md) | `ext/cache` | Response caching with ETag and `Cache-Control` awareness |
+| [Stale Cache](stale-cache.md) | `ext/cache/stale` | Stale-while-revalidate cache for metadata and reference data |
+| [Webhooks](webhooks.md) | `ext/webhooks` | OData v4 webhook subscription lifecycle and dispatch |
 | [GraphQL Bridge](graphql.md) | `ext/graphql` | Translate OData queries to GraphQL automatically |
+| [Microsoft Graph](graph.md) | `ext/graph` | Microsoft Graph API helpers |
 
 ## Installing extensions
 

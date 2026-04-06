@@ -63,5 +63,6 @@ _, err := client.R().
 
 ## See also
 
+- [Stale Cache](stale-cache.md) -- stale-while-revalidate caching for metadata and reference data
 - [ETag & Concurrency](../guides/etag-concurrency.md)
 - [Extensions Overview](index.md)
