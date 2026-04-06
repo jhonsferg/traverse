@@ -615,7 +615,7 @@ func TestQueryBuilderExpand_WithTop(t *testing.T) {
 // TestQueryBuilderSearch tests the Search method.
 func TestQueryBuilderSearch(t *testing.T) {
 	qb := &QueryBuilder{client: &Client{}, entitySet: "Products", urlDirty: true}
-	qb.Search("laptop")
+	qb.Search(SearchWord("laptop"))
 	u := qb.buildURL()
 	if !strings.Contains(u, "laptop") {
 		t.Errorf("buildURL() should contain 'laptop' in search, got: %s", u)

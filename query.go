@@ -869,16 +869,21 @@ func (q *QueryBuilder) WithCount() *QueryBuilder {
 
 // Search performs a full-text search using the $search system query option.
 //
-// Search is only available in OData v4. The search term is added to the query,
-// and the OData service will return entities matching the search term using
-// implementation-defined search semantics.
+// Search is only available in OData v4. Pass a [SearchExpression] built with
+// [SearchWord], [SearchPhrase], [SearchAnd], [SearchOr], or [SearchNot] to
+// construct complex search expressions. Use the package-level [Search]
+// convenience function to create a simple word-or-phrase term from a plain string.
 // Search is chainable and returns q for method chaining.
 //
-// Example:
+// Examples:
 //
-//	query.Search("customer")  // OData v4 only
-func (q *QueryBuilder) Search(term string) *QueryBuilder {
-	q.search = term
+//	// Simple word search
+//	query.Search(traverse.SearchWord("mountain"))
+//
+//	// Combined expression
+//	query.Search(traverse.SearchAnd(traverse.SearchWord("mountain"), traverse.SearchNot(traverse.SearchWord("bike"))))
+func (q *QueryBuilder) Search(expr SearchExpression) *QueryBuilder {
+	q.search = expr.searchString()
 	q.urlDirty = true
 	return q
 }
