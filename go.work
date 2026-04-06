@@ -11,6 +11,7 @@ use (
 ./ext/prometheus
 ./ext/sap
 ./ext/tracing
+./ext/webhooks
 )
 
 replace (
@@ -24,4 +25,5 @@ github.com/jhonsferg/traverse/ext/oauth2 v0.1.0 => ./ext/oauth2
 github.com/jhonsferg/traverse/ext/prometheus v0.1.0 => ./ext/prometheus
 github.com/jhonsferg/traverse/ext/sap v0.1.0 => ./ext/sap
 github.com/jhonsferg/traverse/ext/tracing v0.1.0 => ./ext/tracing
+github.com/jhonsferg/traverse/ext/webhooks v0.1.0 => ./ext/webhooks
 )
