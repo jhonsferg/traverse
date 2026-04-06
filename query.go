@@ -1003,10 +1003,13 @@ func (q *QueryBuilder) Key(key any) *QueryBuilder {
 //
 //	err := client.From("TempLogs").Filter("CreatedAt lt 2024-01-01").BulkDelete(ctx)
 func (q *QueryBuilder) BulkDelete(ctx context.Context) error {
-	rawURL := q.buildURL()
+	path := "/" + q.entitySet
 
-	req := q.client.http.Delete(rawURL)
-	req = req.WithContext(ctx)
+	req := q.client.http.Delete(path).WithContext(ctx)
+
+	if q.filterExpr != "" {
+		req = req.WithQueryParam("$filter", q.filterExpr)
+	}
 
 	for k, v := range q.conditionalHeaders {
 		req = req.WithHeader(k, v)
