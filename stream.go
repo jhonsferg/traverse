@@ -345,10 +345,19 @@ func (q *QueryBuilder) doStreamPagesRaw(ctx context.Context, out chan<- RawResul
 //
 // This is an unexported method called internally by streaming functions.
 func (q *QueryBuilder) fetchPageStreamed(ctx context.Context, pageURL string) (*Page, error) {
+	// When caching is enabled, use the buffered Execute path so the response
+	// body can be stored in the cache.
+	if q.cacheTTL > 0 && q.client.responseCache != nil {
+		return q.fetchPageCached(ctx, pageURL)
+	}
+
 	req := q.client.http.Get(pageURL)
 	req = req.WithContext(ctx)
 	for k, v := range q.conditionalHeaders {
 		req = req.WithHeader(k, v)
+	}
+	if q.noCacheFlag {
+		req = req.WithHeader("Cache-Control", "no-cache")
 	}
 
 	// Use ExecuteStream to avoid buffering the entire response body

@@ -121,6 +121,8 @@ type Client struct {
 
 	// metadataCache stores metadata for improved performance across requests.
 	metadataCache CacheStore
+	// responseCache is the HTTP-level response cache for entity set queries.
+	responseCache ResponseCache
 	// beforeQuery is a list of hooks called before query execution.
 	beforeQuery []func(*QueryBuilder) error
 	// afterExecute is a list of hooks called after query execution.
@@ -173,6 +175,8 @@ type clientConfig struct {
 
 	// metadataCache stores OData service metadata.
 	metadataCache CacheStore
+	// responseCache is the HTTP-level response cache for entity set queries.
+	responseCache ResponseCache
 	// beforeQuery are hooks called before query execution.
 	beforeQuery []func(*QueryBuilder) error
 	// afterExecute are hooks called after query execution.
@@ -234,6 +238,7 @@ func New(opts ...Option) (*Client, error) {
 		logger:         cfg.logger,
 		responseFormat: cfg.responseFormat,
 		metadataCache:  cfg.metadataCache,
+		responseCache:  cfg.responseCache,
 		beforeQuery:    cfg.beforeQuery,
 		afterExecute:   cfg.afterExecute,
 	}
@@ -674,6 +679,9 @@ func (c *Client) Create(ctx context.Context, entitySet string, data interface{})
 		return nil, fmt.Errorf("traverse: create returned status %d", resp.StatusCode)
 	}
 
+	// Invalidate cached responses for this entity set since data has changed.
+	c.invalidateEntitySetCache(entitySet)
+
 	// Parse response body based on OData version
 	var result map[string]interface{}
 
@@ -771,6 +779,9 @@ func (c *Client) Update(ctx context.Context, entitySet string, key interface{}, 
 		return fmt.Errorf("traverse: update returned status %d", resp.StatusCode)
 	}
 
+	// Invalidate cached responses for this entity set since data has changed.
+	c.invalidateEntitySetCache(entitySet)
+
 	return nil
 }
 
@@ -838,6 +849,9 @@ func (c *Client) Replace(ctx context.Context, entitySet string, key interface{},
 	if resp.StatusCode != 204 {
 		return fmt.Errorf("traverse: replace returned status %d", resp.StatusCode)
 	}
+
+	// Invalidate cached responses for this entity set since data has changed.
+	c.invalidateEntitySetCache(entitySet)
 
 	return nil
 }
@@ -912,7 +926,19 @@ func (c *Client) Delete(ctx context.Context, entitySet string, key interface{}) 
 		return fmt.Errorf("traverse: delete returned status %d", resp.StatusCode)
 	}
 
+	// Invalidate cached responses for this entity set since data has changed.
+	c.invalidateEntitySetCache(entitySet)
+
 	return nil
+}
+
+// invalidateEntitySetCache removes all response cache entries for the given
+// entity set. Called after successful Create, Update, Replace, and Delete
+// operations to ensure stale cached pages are not served.
+func (c *Client) invalidateEntitySetCache(entitySet string) {
+	if c.responseCache != nil {
+		c.responseCache.Invalidate(entitySet)
+	}
 }
 
 // encodeKey encodes a key value for use in OData URLs.
@@ -1214,6 +1240,36 @@ func WithMetadataCache(cache CacheStore) Option {
 			return fmt.Errorf("metadata cache cannot be nil")
 		}
 		cfg.metadataCache = cache
+		return nil
+	}
+}
+
+// WithResponseCache sets a custom HTTP-level response cache for entity set queries.
+//
+// WithResponseCache attaches a [ResponseCache] to the client. When a [QueryBuilder]
+// uses [QueryBuilder.WithCache], query responses are stored in this cache and served
+// on subsequent identical requests until the TTL expires.
+//
+// The default is no response cache. Provide [NewInMemoryResponseCache] for a simple
+// in-process cache, or implement [ResponseCache] for a distributed backend.
+//
+// Example:
+//
+//	client, _ := traverse.New(
+//	    traverse.WithBaseURL("https://odata.example.com/v4"),
+//	    traverse.WithResponseCache(traverse.NewInMemoryResponseCache()),
+//	)
+//
+//	// Cache Products queries for 5 minutes
+//	products, _ := client.From("Products").
+//	    WithCache(5 * time.Minute).
+//	    Collect(ctx)
+func WithResponseCache(cache ResponseCache) Option {
+	return func(cfg *clientConfig) error {
+		if cache == nil {
+			return fmt.Errorf("response cache cannot be nil")
+		}
+		cfg.responseCache = cache
 		return nil
 	}
 }
