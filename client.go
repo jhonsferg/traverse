@@ -43,6 +43,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/url"
+	"strings"
 	"sync"
 	"time"
 
@@ -609,10 +610,18 @@ func (c *Client) fetchMetadata(ctx context.Context) (*Metadata, error) {
 		return nil, fmt.Errorf("traverse: $metadata returned status %d: %w", resp.StatusCode, ErrMetadataInvalid)
 	}
 
-	// Parse EDMX (XML) format
-	metadata, err := ParseEDMX(resp.BodyReader())
-	if err != nil {
-		return nil, fmt.Errorf("traverse: failed to parse EDMX: %w", err)
+	// Auto-detect format: JSON for CSDL JSON, XML for EDMX.
+	var (
+		metadata *Metadata
+		parseErr error
+	)
+	if ct := resp.ContentType(); strings.Contains(ct, "application/json") {
+		metadata, parseErr = ParseCSDLJSONReader(resp.BodyReader())
+	} else {
+		metadata, parseErr = ParseEDMX(resp.BodyReader())
+	}
+	if parseErr != nil {
+		return nil, fmt.Errorf("traverse: failed to parse $metadata: %w", parseErr)
 	}
 
 	return metadata, nil
@@ -1376,6 +1385,10 @@ type Metadata struct {
 	Actions []ActionInfo
 	// Functions contains function definitions (OData v4).
 	Functions []FunctionInfo
+	// ComplexTypes contains complex type definitions (OData v4).
+	ComplexTypes []ComplexType
+	// EnumTypes contains enum type definitions (OData v4).
+	EnumTypes []EnumType
 }
 
 // EntitySetInfo represents an OData entity set definition.
@@ -1510,4 +1523,33 @@ type FunctionInfo struct {
 	Parameters   []FunctionParameter
 	ReturnType   string
 	IsComposable bool
+}
+
+// ComplexType represents an OData complex type definition.
+// Complex types are structured types without a key (not independently addressable).
+type ComplexType struct {
+	// Name is the name of the complex type.
+	Name string
+	// Properties is the list of all properties defined for this complex type.
+	Properties []Property
+}
+
+// EnumMember represents a single member of an OData enum type.
+type EnumMember struct {
+	// Name is the name of the enum member.
+	Name string
+	// Value is the integer value of the enum member.
+	Value int
+}
+
+// EnumType represents an OData enum type definition.
+type EnumType struct {
+	// Name is the name of the enum type.
+	Name string
+	// Members is the list of enum members.
+	Members []EnumMember
+	// IsFlags indicates whether multiple members can be combined.
+	IsFlags bool
+	// UnderlyingType is the underlying integer type (e.g., "Edm.Int32").
+	UnderlyingType string
 }
