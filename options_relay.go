@@ -268,6 +268,32 @@ func WithMaxRedirects(n int) Option {
 	}
 }
 
+// WithHTTPOption passes a raw [relay.Option] through to the underlying relay client.
+//
+// Use this to inject low-level relay transport options that do not have a
+// dedicated traverse wrapper - for example, audit trail or custom transport
+// middleware provided by a third-party extension.
+//
+// Example:
+//
+//	import "github.com/jhonsferg/traverse/ext/audit"
+//
+//	logger := audit.AuditLoggerFunc(func(ctx context.Context, e audit.AuditEntry) {
+//	    log.Printf("[AUDIT] %s %s %d", e.Operation, e.EntitySet, e.StatusCode)
+//	})
+//	client, _ := traverse.New(url,
+//	    traverse.WithHTTPOption(audit.WithAuditTrail(logger)),
+//	)
+func WithHTTPOption(opt relay.Option) Option {
+	return func(c *clientConfig) error {
+		if opt == nil {
+			return errorf("WithHTTPOption: option must not be nil")
+		}
+		c.relayOpts = append(c.relayOpts, opt)
+		return nil
+	}
+}
+
 // WithODataErrors configures the client to decode OData error responses into
 // structured [ODataError] values.
 //
