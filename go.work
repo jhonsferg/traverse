@@ -2,6 +2,7 @@ go 1.24.0
 
 use (
 .
+./ext/audit
 ./ext/cache
 ./ext/cache/memory
 ./ext/cache/redis
@@ -16,6 +17,7 @@ use (
 
 replace (
 github.com/jhonsferg/traverse v0.1.0 => .
+github.com/jhonsferg/traverse/ext/audit v0.1.0 => ./ext/audit
 github.com/jhonsferg/traverse/ext/cache v0.1.0 => ./ext/cache
 github.com/jhonsferg/traverse/ext/cache/memory v0.1.0 => ./ext/cache/memory
 github.com/jhonsferg/traverse/ext/cache/redis v0.1.0 => ./ext/cache/redis
