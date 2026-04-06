@@ -216,6 +216,8 @@ type QueryBuilder struct {
 	search string
 	// apply is the aggregation expression (OData v4)
 	apply string
+	// compute is the $compute expression (OData v4.01)
+	compute string
 	// deltaToken is used for incremental updates (OData v4)
 	deltaToken string
 	// schema holds the entity schema for filter and orderby validation
@@ -232,6 +234,9 @@ type QueryBuilder struct {
 	// urlDirty indicates the cached URL is stale and needs rebuilding
 	urlDirty bool
 
+	// keyValue holds the entity key set via Key(), used by DeleteLink and DeleteLinks.
+	keyValue any
+
 	// conditionalHeaders holds HTTP conditional request headers (If-Match, If-None-Match, etc.)
 	conditionalHeaders map[string]string
 
@@ -242,6 +247,11 @@ type QueryBuilder struct {
 	// noCacheFlag, when true, adds Cache-Control: no-cache to the request, bypassing
 	// any server-side or relay-level cache while still storing the fresh response.
 	noCacheFlag bool
+
+	// prefetchPages, when > 0, enables background page prefetching in Stream().
+	// The value controls how many pages may be fetched ahead (clamped to 1-3).
+	// A value of -1 explicitly disables prefetching even if a previous call set it.
+	prefetchPages int
 }
 
 // Select limits the returned properties to only the specified fields.
@@ -877,6 +887,40 @@ func (q *QueryBuilder) WithCount() *QueryBuilder {
 	return q
 }
 
+// WithPrefetch enables background prefetching of the next page while the current
+// page is being processed by the caller.
+//
+// bufferPages controls how many pages to prefetch ahead. Values below 1 default
+// to 1; values above 3 are clamped to 3. When Stream() is called on a query with
+// prefetching enabled, an internal goroutine fetches page N+1 (and up to
+// bufferPages-1 more) while the caller iterates over page N, reducing per-page
+// latency for paginated reads.
+//
+// WithPrefetch is chainable and returns q for method chaining.
+//
+// Example:
+//
+//	for result := range client.From("Orders").WithPrefetch(1).Stream(ctx) {
+//		// page 2 is already being fetched while you process page 1
+//	}
+func (q *QueryBuilder) WithPrefetch(bufferPages int) *QueryBuilder {
+	if bufferPages < 1 {
+		bufferPages = 1
+	}
+	q.prefetchPages = bufferPages
+	return q
+}
+
+// WithNoPrefetch disables background page prefetching.
+//
+// WithNoPrefetch is useful when strict sequential page fetching is required, or
+// when you want to undo an earlier WithPrefetch call on the same builder.
+// WithNoPrefetch is chainable and returns q for method chaining.
+func (q *QueryBuilder) WithNoPrefetch() *QueryBuilder {
+	q.prefetchPages = -1
+	return q
+}
+
 // Search performs a full-text search using the $search system query option.
 //
 // Search is only available in OData v4. Pass a [SearchExpression] built with
@@ -932,6 +976,58 @@ func (q *QueryBuilder) Param(key, value string) *QueryBuilder {
 	q.params[key] = value
 	q.urlDirty = true
 	return q
+}
+
+// Key sets the entity key for operations that target a single entity, such as
+// DeleteLink and DeleteLinks.
+//
+// Key is chainable and returns q for method chaining.
+//
+// Example:
+//
+//	err := client.From("Orders").Key(1).DeleteLink(ctx, "Items", 5)
+func (q *QueryBuilder) Key(key any) *QueryBuilder {
+	q.keyValue = key
+	return q
+}
+
+// BulkDelete deletes all entities in the entity set that match the current filter.
+//
+// BulkDelete sends a DELETE request against the collection URL with any $filter
+// already set on the QueryBuilder (OData v4.01 collection DELETE pattern).
+//
+// This is useful for removing many records at once, such as purging old log entries,
+// without fetching them first.
+//
+// Example:
+//
+//	err := client.From("TempLogs").Filter("CreatedAt lt 2024-01-01").BulkDelete(ctx)
+func (q *QueryBuilder) BulkDelete(ctx context.Context) error {
+	rawURL := q.buildURL()
+
+	req := q.client.http.Delete(rawURL)
+	req = req.WithContext(ctx)
+
+	for k, v := range q.conditionalHeaders {
+		req = req.WithHeader(k, v)
+	}
+
+	resp, execErr := q.client.http.Execute(req)
+	if execErr != nil {
+		return fmt.Errorf("traverse: BulkDelete failed: %w", execErr)
+	}
+
+	switch resp.StatusCode {
+	case http.StatusOK, http.StatusNoContent:
+		q.client.invalidateEntitySetCache(q.entitySet)
+		return nil
+	case http.StatusNotFound:
+		return fmt.Errorf("traverse: BulkDelete: %w", ErrEntityNotFound)
+	case http.StatusConflict:
+		return fmt.Errorf("traverse: BulkDelete conflict: %w", ErrConcurrencyConflict)
+	default:
+		return fmt.Errorf("traverse: BulkDelete returned status %d", resp.StatusCode)
+	}
 }
 
 // WithDeltaToken enables incremental updates using a delta token.
@@ -1083,7 +1179,11 @@ func (q *QueryBuilder) Stream(ctx context.Context, bufferSize ...int) <-chan Res
 
 	streamPool.submit(func() {
 		defer close(out)
-		q.doStreamPages(ctx, out)
+		if q.prefetchPages > 0 {
+			q.doPrefetchPages(ctx, out)
+		} else {
+			q.doStreamPages(ctx, out)
+		}
 	})
 
 	return out
@@ -1926,6 +2026,17 @@ func (q *QueryBuilder) buildURL() string {
 		}
 		buf.WriteString("$apply=")
 		buf.WriteString(url.QueryEscape(q.apply))
+	}
+
+	if q.compute != "" {
+		if !hasParams {
+			buf.WriteString("?")
+			hasParams = true
+		} else {
+			buf.WriteString("&")
+		}
+		buf.WriteString("$compute=")
+		buf.WriteString(url.QueryEscape(q.compute))
 	}
 
 	if q.deltaToken != "" {
