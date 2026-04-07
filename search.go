@@ -3,7 +3,7 @@ package traverse
 import "strings"
 
 // SearchExpression represents an OData $search expression.
-// OData $search is distinct from $filter — it performs full-text search
+// OData $search is distinct from $filter  -  it performs full-text search
 // across all searchable properties of an entity.
 //
 // Example:

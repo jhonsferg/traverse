@@ -766,7 +766,7 @@ func TestSerializeValue_AllTypes(t *testing.T) {
 		t.Error("serializeValue bool false: filterExpr should not be empty")
 	}
 
-	// default (struct — fallback to fmt.Sprint)
+	// default (struct  -  fallback to fmt.Sprint)
 	type custom struct{ Name string }
 	qb8 := (&QueryBuilder{client: &Client{}, entitySet: "P", urlDirty: true}).Where("Status").In(custom{Name: "open"})
 	if qb8.filterExpr == "" {

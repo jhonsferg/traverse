@@ -262,10 +262,10 @@ func WithSAPODataVersion(v traverse.ODataVersion) SAPOption {
 // WithSAPTLSConfig sets a custom [crypto/tls.Config] for the underlying HTTP transport.
 //
 // Use this option when the SAP system presents a self-signed or internal CA
-// certificate that is not trusted by the default system trust store — a common
+// certificate that is not trusted by the default system trust store  -  a common
 // situation in DEV and QAS environments.
 //
-//	// DEV / QAS only — never use InsecureSkipVerify in production.
+//	// DEV / QAS only  -  never use InsecureSkipVerify in production.
 //	client, err := sap.NewSAPClient(
 //	    sap.WithSAPBaseURL("https://s4h-dev.example.com:44300", "100", ""),
 //	    sap.WithSAPBasicAuth("user", "pass"),

@@ -282,7 +282,7 @@ func (c *Client) Close() error {
 // subscription management) while reusing the same configured transport, auth,
 // retry and circuit-breaker settings as the parent traverse.Client.
 //
-// The returned client must not be closed independently — use [Client.Close]
+// The returned client must not be closed independently  -  use [Client.Close]
 // to shut down both the traverse and relay clients together.
 func (c *Client) RelayClient() *relay.Client {
 	return c.http

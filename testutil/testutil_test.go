@@ -369,7 +369,7 @@ func TestMockServer_WaitForRequest_Timeout(t *testing.T) {
 	ms := NewMockServer()
 	defer ms.Close()
 
-	// Don't send any request — timeout should fire
+	// Don't send any request  -  timeout should fire
 	err := ms.WaitForRequest(50 * time.Millisecond)
 	if err == nil {
 		t.Fatal("WaitForRequest: expected timeout error, got nil")
@@ -380,13 +380,13 @@ func TestMockServer_WaitForRequest_Timeout(t *testing.T) {
 func TestAssertContains_Miss(t *testing.T) {
 	inner := &testing.T{}
 	AssertContains(inner, "hello world", "notfound", "should fail silently in inner T")
-	// inner.Errorf was called — just confirm no panic
+	// inner.Errorf was called  -  just confirm no panic
 }
 
 // TestAssertEqual_Fail covers the failure path of AssertEqual (values differ).
 func TestAssertEqual_Fail(t *testing.T) {
 	inner := &testing.T{}
-	AssertEqual(inner, 1, 2, "values differ — inner T records failure")
+	AssertEqual(inner, 1, 2, "values differ  -  inner T records failure")
 }
 
 // TestAssertNoError_Fail covers the failure path of AssertNoError (error is not nil).

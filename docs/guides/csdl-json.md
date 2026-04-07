@@ -1,6 +1,6 @@
 # CSDL JSON
 
-Parse OData Common Schema Definition Language (CSDL) JSON v4.01 metadata directly from a JSON endpoint or byte slice — no EDMX/XML required.
+Parse OData Common Schema Definition Language (CSDL) JSON v4.01 metadata directly from a JSON endpoint or byte slice  -  no EDMX/XML required.
 
 ## Quick Start
 

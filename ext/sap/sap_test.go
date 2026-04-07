@@ -160,7 +160,7 @@ func TestWithSAPTLSConfig_Nil(t *testing.T) {
 
 // TestNewSAPClient_WithTLSConfig verifies the full client creation path with TLS config.
 func TestNewSAPClient_WithTLSConfig(t *testing.T) {
-	tlsCfg := &tls.Config{InsecureSkipVerify: true} // #nosec G402 — test only
+	tlsCfg := &tls.Config{InsecureSkipVerify: true} // #nosec G402  -  test only
 	client, err := NewSAPClient(
 		WithSAPBaseURL("https://s4h-dev.example.com:44300", "100", "UI_PRODUCTLIST"),
 		WithSAPBasicAuth("user", "pass"),

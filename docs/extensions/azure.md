@@ -116,4 +116,4 @@ type ODataChangeData struct {
 - Authentication uses SAS key via the `aeg-sas-key` header. Managed Identity and shared-access-signature token auth are not built in.
 - The extension uses the Event Grid schema v1, not CloudEvents schema.
 - Batch size is not automatically split; callers must keep payloads under 1 MB.
-- Events are fire-and-forget relative to the OData operation — a publish failure does not roll back the entity change.
+- Events are fire-and-forget relative to the OData operation  -  a publish failure does not roll back the entity change.
