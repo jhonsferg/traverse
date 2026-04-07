@@ -43,9 +43,11 @@ func ParseEDMX(reader io.Reader) (*Metadata, error) {
 				XMLName     xml.Name `xml:"Schema"`
 				Namespace   string   `xml:"Namespace,attr"`
 				EntityTypes []struct {
-					XMLName xml.Name `xml:"EntityType"`
-					Name    string   `xml:"Name,attr"`
-					Key     []struct {
+					XMLName  xml.Name `xml:"EntityType"`
+					Name     string   `xml:"Name,attr"`
+					Abstract string   `xml:"Abstract,attr"`
+					BaseType string   `xml:"BaseType,attr"`
+					Key      []struct {
 						XMLName      xml.Name `xml:"Key"`
 						PropertyRefs []struct {
 							XMLName xml.Name `xml:"PropertyRef"`
@@ -73,15 +75,48 @@ func ParseEDMX(reader io.Reader) (*Metadata, error) {
 						ToRole       string   `xml:"ToRole,attr"`
 					} `xml:"NavigationProperty"`
 				} `xml:"EntityType"`
+				ComplexTypes []struct {
+					XMLName    xml.Name `xml:"ComplexType"`
+					Name       string   `xml:"Name,attr"`
+					BaseType   string   `xml:"BaseType,attr"`
+					Properties []struct {
+						XMLName       xml.Name `xml:"Property"`
+						Name          string   `xml:"Name,attr"`
+						Type          string   `xml:"Type,attr"`
+						Nullable      *bool    `xml:"Nullable,attr"`
+						MaxLength     *string  `xml:"MaxLength,attr"`
+						Precision     *string  `xml:"Precision,attr"`
+						Scale         *string  `xml:"Scale,attr"`
+						SAPLabel      *string  `xml:"sap:label,attr"`
+						SAPSortable   *string  `xml:"sap:sortable,attr"`
+						SAPFilterable *string  `xml:"sap:filterable,attr"`
+					} `xml:"Property"`
+				} `xml:"ComplexType"`
+				EnumTypes []struct {
+					XMLName        xml.Name `xml:"EnumType"`
+					Name           string   `xml:"Name,attr"`
+					IsFlags        string   `xml:"IsFlags,attr"`
+					UnderlyingType string   `xml:"UnderlyingType,attr"`
+					Members        []struct {
+						XMLName xml.Name `xml:"Member"`
+						Name    string   `xml:"Name,attr"`
+						Value   string   `xml:"Value,attr"`
+					} `xml:"Member"`
+				} `xml:"EnumType"`
 				EntityContainers []struct {
 					XMLName    xml.Name `xml:"EntityContainer"`
 					Name       string   `xml:"Name,attr"`
 					IsDefault  string   `xml:"m:IsDefaultEntityContainer,attr"`
 					EntitySets []struct {
-						XMLName    xml.Name `xml:"EntitySet"`
-						Name       string   `xml:"Name,attr"`
-						EntityType string   `xml:"EntityType,attr"`
-						Sap        string   `xml:"sap:label,attr"`
+						XMLName                    xml.Name `xml:"EntitySet"`
+						Name                       string   `xml:"Name,attr"`
+						EntityType                 string   `xml:"EntityType,attr"`
+						Sap                        string   `xml:"sap:label,attr"`
+						NavigationPropertyBindings []struct {
+							XMLName xml.Name `xml:"NavigationPropertyBinding"`
+							Path    string   `xml:"Path,attr"`
+							Target  string   `xml:"Target,attr"`
+						} `xml:"NavigationPropertyBinding"`
 					} `xml:"EntitySet"`
 					FunctionImports []struct {
 						XMLName   xml.Name `xml:"FunctionImport"`
@@ -149,6 +184,8 @@ func ParseEDMX(reader io.Reader) (*Metadata, error) {
 	for _, et := range schema.EntityTypes {
 		entityType := EntityType{
 			Name:                 et.Name,
+			Abstract:             et.Abstract == "true",
+			BaseType:             et.BaseType,
 			Key:                  make([]PropertyRef, 0),
 			Properties:           make([]Property, 0),
 			NavigationProperties: make([]NavigationProperty, 0),
@@ -218,13 +255,80 @@ func ParseEDMX(reader io.Reader) (*Metadata, error) {
 				// EntityType attribute includes namespace, extract just the type name
 				typeName := et.Name
 				if es.EntityType == schema.Namespace+"."+et.Name {
-					metadata.EntitySets = append(metadata.EntitySets, EntitySetInfo{
+					esInfo := EntitySetInfo{
 						Name:           es.Name,
 						EntityTypeName: typeName,
-					})
+					}
+					for _, nb := range es.NavigationPropertyBindings {
+						esInfo.NavigationBindings = append(esInfo.NavigationBindings, NavigationBinding{
+							Path:   nb.Path,
+							Target: nb.Target,
+						})
+					}
+					metadata.EntitySets = append(metadata.EntitySets, esInfo)
 				}
 			}
 		}
+	}
+
+	// Parse complex types
+	for _, ct := range schema.ComplexTypes {
+		complexType := ComplexType{
+			Name:       ct.Name,
+			Properties: make([]Property, 0),
+		}
+		for _, prop := range ct.Properties {
+			p := Property{
+				Name:     prop.Name,
+				Type:     prop.Type,
+				Nullable: true, // Default to true per OData spec
+			}
+			if prop.Nullable != nil {
+				p.Nullable = *prop.Nullable
+			}
+			if prop.MaxLength != nil {
+				if ml, err := strconv.Atoi(*prop.MaxLength); err == nil {
+					p.MaxLength = &ml
+				}
+			}
+			if prop.Precision != nil {
+				if pr, err := strconv.Atoi(*prop.Precision); err == nil {
+					p.Precision = &pr
+				}
+			}
+			if prop.Scale != nil {
+				if sc, err := strconv.Atoi(*prop.Scale); err == nil {
+					p.Scale = &sc
+				}
+			}
+			if prop.SAPLabel != nil || prop.SAPSortable != nil || prop.SAPFilterable != nil {
+				p.SAP = SAPAnnotations{
+					Label:      derefStr(prop.SAPLabel),
+					Filterable: derefBool(prop.SAPFilterable),
+					Sortable:   derefBool(prop.SAPSortable),
+				}
+			}
+			complexType.Properties = append(complexType.Properties, p)
+		}
+		metadata.ComplexTypes = append(metadata.ComplexTypes, complexType)
+	}
+
+	// Parse enum types
+	for _, et := range schema.EnumTypes {
+		enumType := EnumType{
+			Name:           et.Name,
+			IsFlags:        et.IsFlags == "true",
+			UnderlyingType: et.UnderlyingType,
+			Members:        make([]EnumMember, 0),
+		}
+		for _, m := range et.Members {
+			member := EnumMember{Name: m.Name}
+			if v, err := strconv.ParseInt(m.Value, 10, 64); err == nil {
+				member.Value = int(v)
+			}
+			enumType.Members = append(enumType.Members, member)
+		}
+		metadata.EnumTypes = append(metadata.EnumTypes, enumType)
 	}
 
 	// Parse associations
