@@ -2,182 +2,182 @@
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
     <url>
          <loc>https://jhonsferg.github.io/traverse/</loc>
-         <lastmod>2026-04-06</lastmod>
+         <lastmod>2026-04-07</lastmod>
     </url>
     <url>
          <loc>https://jhonsferg.github.io/traverse/changelog/</loc>
-         <lastmod>2026-04-06</lastmod>
+         <lastmod>2026-04-07</lastmod>
     </url>
     <url>
          <loc>https://jhonsferg.github.io/traverse/installation/</loc>
-         <lastmod>2026-04-06</lastmod>
+         <lastmod>2026-04-07</lastmod>
     </url>
     <url>
          <loc>https://jhonsferg.github.io/traverse/odata-primer/</loc>
-         <lastmod>2026-04-06</lastmod>
+         <lastmod>2026-04-07</lastmod>
     </url>
     <url>
          <loc>https://jhonsferg.github.io/traverse/quickstart/</loc>
-         <lastmod>2026-04-06</lastmod>
+         <lastmod>2026-04-07</lastmod>
     </url>
     <url>
          <loc>https://jhonsferg.github.io/traverse/codegen/</loc>
-         <lastmod>2026-04-06</lastmod>
+         <lastmod>2026-04-07</lastmod>
     </url>
     <url>
          <loc>https://jhonsferg.github.io/traverse/codegen/generated-client/</loc>
-         <lastmod>2026-04-06</lastmod>
+         <lastmod>2026-04-07</lastmod>
     </url>
     <url>
          <loc>https://jhonsferg.github.io/traverse/codegen/installation/</loc>
-         <lastmod>2026-04-06</lastmod>
+         <lastmod>2026-04-07</lastmod>
     </url>
     <url>
          <loc>https://jhonsferg.github.io/traverse/codegen/type-mapping/</loc>
-         <lastmod>2026-04-06</lastmod>
+         <lastmod>2026-04-07</lastmod>
     </url>
     <url>
          <loc>https://jhonsferg.github.io/traverse/codegen/usage/</loc>
-         <lastmod>2026-04-06</lastmod>
+         <lastmod>2026-04-07</lastmod>
     </url>
     <url>
          <loc>https://jhonsferg.github.io/traverse/extensions/</loc>
-         <lastmod>2026-04-06</lastmod>
+         <lastmod>2026-04-07</lastmod>
     </url>
     <url>
          <loc>https://jhonsferg.github.io/traverse/extensions/cache/</loc>
-         <lastmod>2026-04-06</lastmod>
+         <lastmod>2026-04-07</lastmod>
     </url>
     <url>
          <loc>https://jhonsferg.github.io/traverse/extensions/graph/</loc>
-         <lastmod>2026-04-06</lastmod>
+         <lastmod>2026-04-07</lastmod>
     </url>
     <url>
          <loc>https://jhonsferg.github.io/traverse/extensions/graphql/</loc>
-         <lastmod>2026-04-06</lastmod>
+         <lastmod>2026-04-07</lastmod>
     </url>
     <url>
          <loc>https://jhonsferg.github.io/traverse/extensions/oauth2/</loc>
-         <lastmod>2026-04-06</lastmod>
+         <lastmod>2026-04-07</lastmod>
     </url>
     <url>
          <loc>https://jhonsferg.github.io/traverse/extensions/prometheus/</loc>
-         <lastmod>2026-04-06</lastmod>
+         <lastmod>2026-04-07</lastmod>
     </url>
     <url>
          <loc>https://jhonsferg.github.io/traverse/extensions/sap/</loc>
-         <lastmod>2026-04-06</lastmod>
+         <lastmod>2026-04-07</lastmod>
     </url>
     <url>
          <loc>https://jhonsferg.github.io/traverse/extensions/stale-cache/</loc>
-         <lastmod>2026-04-06</lastmod>
+         <lastmod>2026-04-07</lastmod>
     </url>
     <url>
          <loc>https://jhonsferg.github.io/traverse/extensions/tracing/</loc>
-         <lastmod>2026-04-06</lastmod>
+         <lastmod>2026-04-07</lastmod>
     </url>
     <url>
          <loc>https://jhonsferg.github.io/traverse/extensions/webhooks/</loc>
-         <lastmod>2026-04-06</lastmod>
+         <lastmod>2026-04-07</lastmod>
     </url>
     <url>
          <loc>https://jhonsferg.github.io/traverse/guides/actions-functions/</loc>
-         <lastmod>2026-04-06</lastmod>
+         <lastmod>2026-04-07</lastmod>
     </url>
     <url>
          <loc>https://jhonsferg.github.io/traverse/guides/async-operations/</loc>
-         <lastmod>2026-04-06</lastmod>
+         <lastmod>2026-04-07</lastmod>
     </url>
     <url>
          <loc>https://jhonsferg.github.io/traverse/guides/batch/</loc>
-         <lastmod>2026-04-06</lastmod>
+         <lastmod>2026-04-07</lastmod>
     </url>
     <url>
          <loc>https://jhonsferg.github.io/traverse/guides/change-tracking/</loc>
-         <lastmod>2026-04-06</lastmod>
+         <lastmod>2026-04-07</lastmod>
     </url>
     <url>
          <loc>https://jhonsferg.github.io/traverse/guides/crud/</loc>
-         <lastmod>2026-04-06</lastmod>
+         <lastmod>2026-04-07</lastmod>
     </url>
     <url>
          <loc>https://jhonsferg.github.io/traverse/guides/deep-insert/</loc>
-         <lastmod>2026-04-06</lastmod>
+         <lastmod>2026-04-07</lastmod>
     </url>
     <url>
          <loc>https://jhonsferg.github.io/traverse/guides/delta-sync/</loc>
-         <lastmod>2026-04-06</lastmod>
+         <lastmod>2026-04-07</lastmod>
     </url>
     <url>
          <loc>https://jhonsferg.github.io/traverse/guides/etag-concurrency/</loc>
-         <lastmod>2026-04-06</lastmod>
+         <lastmod>2026-04-07</lastmod>
     </url>
     <url>
          <loc>https://jhonsferg.github.io/traverse/guides/filter-builder/</loc>
-         <lastmod>2026-04-06</lastmod>
+         <lastmod>2026-04-07</lastmod>
     </url>
     <url>
          <loc>https://jhonsferg.github.io/traverse/guides/lambda-filters/</loc>
-         <lastmod>2026-04-06</lastmod>
+         <lastmod>2026-04-07</lastmod>
     </url>
     <url>
          <loc>https://jhonsferg.github.io/traverse/guides/pagination/</loc>
-         <lastmod>2026-04-06</lastmod>
+         <lastmod>2026-04-07</lastmod>
     </url>
     <url>
          <loc>https://jhonsferg.github.io/traverse/guides/query-builder/</loc>
-         <lastmod>2026-04-06</lastmod>
+         <lastmod>2026-04-07</lastmod>
     </url>
     <url>
          <loc>https://jhonsferg.github.io/traverse/guides/ref-links/</loc>
-         <lastmod>2026-04-06</lastmod>
+         <lastmod>2026-04-07</lastmod>
     </url>
     <url>
          <loc>https://jhonsferg.github.io/traverse/guides/sap/</loc>
-         <lastmod>2026-04-06</lastmod>
+         <lastmod>2026-04-07</lastmod>
     </url>
     <url>
          <loc>https://jhonsferg.github.io/traverse/guides/schema-validation/</loc>
-         <lastmod>2026-04-06</lastmod>
+         <lastmod>2026-04-07</lastmod>
     </url>
     <url>
          <loc>https://jhonsferg.github.io/traverse/guides/stream-properties/</loc>
-         <lastmod>2026-04-06</lastmod>
+         <lastmod>2026-04-07</lastmod>
     </url>
     <url>
          <loc>https://jhonsferg.github.io/traverse/guides/streaming/</loc>
-         <lastmod>2026-04-06</lastmod>
+         <lastmod>2026-04-07</lastmod>
     </url>
     <url>
          <loc>https://jhonsferg.github.io/traverse/reference/async-op/</loc>
-         <lastmod>2026-04-06</lastmod>
+         <lastmod>2026-04-07</lastmod>
     </url>
     <url>
          <loc>https://jhonsferg.github.io/traverse/reference/capabilities/</loc>
-         <lastmod>2026-04-06</lastmod>
+         <lastmod>2026-04-07</lastmod>
     </url>
     <url>
          <loc>https://jhonsferg.github.io/traverse/reference/change-tracking/</loc>
-         <lastmod>2026-04-06</lastmod>
+         <lastmod>2026-04-07</lastmod>
     </url>
     <url>
          <loc>https://jhonsferg.github.io/traverse/reference/client/</loc>
-         <lastmod>2026-04-06</lastmod>
+         <lastmod>2026-04-07</lastmod>
     </url>
     <url>
          <loc>https://jhonsferg.github.io/traverse/reference/errors/</loc>
-         <lastmod>2026-04-06</lastmod>
+         <lastmod>2026-04-07</lastmod>
     </url>
     <url>
          <loc>https://jhonsferg.github.io/traverse/reference/etag/</loc>
-         <lastmod>2026-04-06</lastmod>
+         <lastmod>2026-04-07</lastmod>
     </url>
     <url>
          <loc>https://jhonsferg.github.io/traverse/reference/paginator/</loc>
-         <lastmod>2026-04-06</lastmod>
+         <lastmod>2026-04-07</lastmod>
     </url>
     <url>
          <loc>https://jhonsferg.github.io/traverse/reference/query-builder/</loc>
-         <lastmod>2026-04-06</lastmod>
+         <lastmod>2026-04-07</lastmod>
     </url>
 </urlset>
