@@ -1,6 +1,7 @@
 package sap
 
 import (
+	"crypto/tls"
 	"testing"
 
 	"github.com/jhonsferg/relay"
@@ -131,5 +132,44 @@ func TestSAPClientBackwardCompatibility(t *testing.T) {
 
 	if client == nil {
 		t.Fatalf("Client should not be nil")
+	}
+}
+
+// TestWithSAPTLSConfig verifies that WithSAPTLSConfig is accepted and applied.
+func TestWithSAPTLSConfig(t *testing.T) {
+	cfg := &tls.Config{MinVersion: tls.VersionTLS12}
+	opt := WithSAPTLSConfig(cfg)
+
+	sapCfg := &sapConfig{}
+	if err := opt(sapCfg); err != nil {
+		t.Fatalf("WithSAPTLSConfig returned error: %v", err)
+	}
+	if sapCfg.tlsConfig != cfg {
+		t.Errorf("tlsConfig not set correctly: got %v, want %v", sapCfg.tlsConfig, cfg)
+	}
+}
+
+// TestWithSAPTLSConfig_Nil verifies that passing nil returns an error.
+func TestWithSAPTLSConfig_Nil(t *testing.T) {
+	opt := WithSAPTLSConfig(nil)
+	sapCfg := &sapConfig{}
+	if err := opt(sapCfg); err == nil {
+		t.Error("expected error for nil TLS config, got nil")
+	}
+}
+
+// TestNewSAPClient_WithTLSConfig verifies the full client creation path with TLS config.
+func TestNewSAPClient_WithTLSConfig(t *testing.T) {
+	tlsCfg := &tls.Config{InsecureSkipVerify: true} // #nosec G402 — test only
+	client, err := NewSAPClient(
+		WithSAPBaseURL("https://s4h-dev.example.com:44300", "100", "UI_PRODUCTLIST"),
+		WithSAPBasicAuth("user", "pass"),
+		WithSAPTLSConfig(tlsCfg),
+	)
+	if err != nil {
+		t.Fatalf("NewSAPClient with TLS config failed: %v", err)
+	}
+	if client == nil {
+		t.Fatal("expected non-nil client")
 	}
 }

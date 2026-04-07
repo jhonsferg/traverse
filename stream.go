@@ -568,12 +568,20 @@ func parseODataV2Wrapper(decoder *json.Decoder, page *Page) error {
 			}
 
 		default:
-			// Skip unknown fields
-			var tmp interface{}
-			err = decoder.Decode(&tmp)
-			if err != nil && err != io.EOF {
-				return fmt.Errorf("failed to skip wrapper field %q: %w", key, err)
+			// Non-results key inside "d": this is either a single-entity property
+			// (e.g. {"d":{"PriceUnitQty":"5.000"}}) or a single entity response
+			// (e.g. {"d":{"CompanyCode":"CO11","Currency":"COP1"}}).
+			// Decode the value and accumulate into a single map entry so that
+			// callers can treat it as page.Value[0][key].
+			var val interface{}
+			if err = decoder.Decode(&val); err != nil && err != io.EOF {
+				return fmt.Errorf("failed to decode wrapper field %q: %w", key, err)
 			}
+			// Ensure the page has at least one Value entry to hold inline fields.
+			if len(page.Value) == 0 {
+				page.Value = append(page.Value, make(map[string]interface{}))
+			}
+			page.Value[0][key] = val
 		}
 	}
 

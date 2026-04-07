@@ -3,6 +3,7 @@ package sap
 
 import (
 	"context"
+	"crypto/tls"
 	"fmt"
 	"net/url"
 	"time"
@@ -38,6 +39,11 @@ func NewSAPClient(opts ...SAPOption) (*traverse.Client, error) {
 	relayOpts := []relay.Option{
 		relay.WithBaseURL(cfg.baseURL),
 		relay.WithTimeout(30 * time.Second),
+	}
+
+	// Apply custom TLS config when provided (e.g. InsecureSkipVerify for DEV/QAS).
+	if cfg.tlsConfig != nil {
+		relayOpts = append(relayOpts, relay.WithTLSConfig(cfg.tlsConfig))
 	}
 
 	// Add SAP language header
@@ -148,6 +154,7 @@ type sapConfig struct {
 	oauth2Scopes  []string
 	oauth2Token   string
 	csrfToken     string
+	tlsConfig     *tls.Config // optional custom TLS config (e.g. InsecureSkipVerify for DEV/QAS)
 }
 
 // WithSAPBaseURL configures the SAP system URL components.
@@ -248,6 +255,30 @@ func WithSAPMaxPageSize(n int) SAPOption {
 func WithSAPODataVersion(v traverse.ODataVersion) SAPOption {
 	return func(cfg *sapConfig) error {
 		cfg.version = int(v)
+		return nil
+	}
+}
+
+// WithSAPTLSConfig sets a custom [crypto/tls.Config] for the underlying HTTP transport.
+//
+// Use this option when the SAP system presents a self-signed or internal CA
+// certificate that is not trusted by the default system trust store — a common
+// situation in DEV and QAS environments.
+//
+//	// DEV / QAS only — never use InsecureSkipVerify in production.
+//	client, err := sap.NewSAPClient(
+//	    sap.WithSAPBaseURL("https://s4h-dev.example.com:44300", "100", ""),
+//	    sap.WithSAPBasicAuth("user", "pass"),
+//	    sap.WithSAPTLSConfig(&tls.Config{InsecureSkipVerify: true}), // #nosec G402
+//	)
+//
+// ⛔ Never pass InsecureSkipVerify: true to a production environment.
+func WithSAPTLSConfig(cfg *tls.Config) SAPOption {
+	return func(c *sapConfig) error {
+		if cfg == nil {
+			return fmt.Errorf("sap: WithSAPTLSConfig: tls.Config must not be nil")
+		}
+		c.tlsConfig = cfg
 		return nil
 	}
 }

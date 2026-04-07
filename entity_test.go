@@ -3,6 +3,8 @@ package traverse
 import (
 	"context"
 	"encoding/json"
+	"net/http"
+	"net/http/httptest"
 	"testing"
 	"time"
 )
@@ -260,5 +262,43 @@ func BenchmarkRawMessageToStruct(b *testing.B) {
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
 		_, _ = rawMessageToStruct[Item](rawJSON)
+	}
+}
+
+// TestFetchPropertyAs verifies that FetchPropertyAs retrieves a single scalar
+// property from an OData entity using the /EntitySet(Key)/PropertyName path.
+func TestFetchPropertyAs(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		// OData v2 single property response
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = w.Write([]byte(`{"d":{"PriceUnitQty":"5.000"}}`))
+	}))
+	defer srv.Close()
+
+	client, err := New(WithBaseURL(srv.URL), WithODataVersion(ODataV2))
+	if err != nil {
+		t.Fatalf("New: %v", err)
+	}
+
+	qb := client.From("ProductList(Product='3001008',Plant='1010',ValuationType='')")
+	price, err := FetchPropertyAs[string](qb, context.Background(), "PriceUnitQty")
+	if err != nil {
+		t.Fatalf("FetchPropertyAs: %v", err)
+	}
+	if price != "5.000" {
+		t.Errorf("unexpected price: got %q, want %q", price, "5.000")
+	}
+}
+
+// TestFetchPropertyAs_EmptyName verifies that an empty property name returns an error.
+func TestFetchPropertyAs_EmptyName(t *testing.T) {
+	client, err := New(WithBaseURL("http://localhost"), WithODataVersion(ODataV2))
+	if err != nil {
+		t.Fatalf("New: %v", err)
+	}
+	qb := client.From("ProductList(Product='X',Plant='Y',ValuationType='')")
+	_, err = FetchPropertyAs[string](qb, context.Background(), "")
+	if err == nil {
+		t.Error("expected error for empty property name, got nil")
 	}
 }
