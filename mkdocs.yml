@@ -67,6 +67,7 @@ markdown_extensions:
 
 nav:
   - Home: index.md
+  - Philosophy: philosophy.md
   - Getting Started:
     - Installation: installation.md
     - Quick Start: quickstart.md
