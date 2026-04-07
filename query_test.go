@@ -356,6 +356,44 @@ func TestSelectFieldsMultiple(t *testing.T) {
 	}
 }
 
+// TestBuildURL_EntitySetWithExistingQueryString verifies that buildURL correctly
+// appends OData parameters with "&" (not "?") when the entitySet path already
+// contains a query string. This scenario occurs when SAP-specific parameters
+// like "sap-language=ES" are embedded in the entity set path.
+func TestBuildURL_EntitySetWithExistingQueryString(t *testing.T) {
+	top := 5
+	skip := 10
+	qb := &QueryBuilder{
+		client:    &Client{},
+		entitySet: "ProductList?sap-language=ES",
+		params:    make(map[string]string),
+		top:       &top,
+		skip:      &skip,
+		urlDirty:  true,
+	}
+
+	url := qb.buildURL()
+
+	// Must not produce a double "?" (e.g. "...?sap-language=ES?$top=5")
+	questionMarks := strings.Count(url, "?")
+	if questionMarks != 1 {
+		t.Errorf("URL must contain exactly one '?', got %d: %q", questionMarks, url)
+	}
+
+	// sap-language param must be preserved
+	if !strings.Contains(url, "sap-language=ES") {
+		t.Errorf("URL must preserve sap-language param: %q", url)
+	}
+
+	// OData params must be appended with "&"
+	if !strings.Contains(url, "&$top=5") {
+		t.Errorf("URL must append $top with '&': %q", url)
+	}
+	if !strings.Contains(url, "&$skip=10") {
+		t.Errorf("URL must append $skip with '&': %q", url)
+	}
+}
+
 // TestValidateFilterValid tests filter validation with valid filters
 func TestValidateFilterValid(t *testing.T) {
 	tests := []string{

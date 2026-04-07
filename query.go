@@ -1916,8 +1916,10 @@ func (q *QueryBuilder) buildURL() string {
 
 	buf.WriteString(q.entitySet)
 
-	// Track if we need to add the first parameter
-	hasParams := false
+	// Track if we need to add the first parameter.
+	// If the entity set path already contains a query string (e.g. "?sap-language=ES")
+	// we must use "&" for any subsequent parameters, not "?".
+	hasParams := strings.Contains(q.entitySet, "?")
 
 	if len(q.selectFields) > 0 {
 		if !hasParams {
