@@ -104,11 +104,91 @@ func main() {
 
 ---
 
+## CSDL JSON Support
+
+Traverse can parse both EDMX/XML and CSDL JSON (the OData v4.01 JSON format used by Microsoft Graph). The client auto-detects the format by `Content-Type` when fetching `$metadata`:
+
+```go
+// Auto-detected - no code change needed when the service returns JSON metadata
+client := traverse.NewClient(rc, "")
+meta, err := client.Metadata(ctx)
+```
+
+For direct parsing:
+
+```go
+import "github.com/jhonsferg/traverse"
+
+// From bytes
+meta, err := traverse.ParseCSDLJSON(data)
+
+// From a reader (e.g. http.Response.Body)
+meta, err := traverse.ParseCSDLJSONReader(resp.Body)
+```
+
+---
+
+## OpenAPI 3.1 Export
+
+Convert OData metadata to an OpenAPI 3.1 document:
+
+```go
+import (
+    "encoding/json"
+    "github.com/jhonsferg/traverse"
+    "github.com/jhonsferg/traverse/ext/openapi"
+)
+
+meta, _ := client.Metadata(ctx)
+doc, err := openapi.Export(meta,
+    openapi.WithTitle("My OData API"),
+    openapi.WithVersion("1.0.0"),
+    openapi.WithServerURL("https://api.example.com/odata/v4/"),
+)
+
+out, _ := json.MarshalIndent(doc, "", "  ")
+fmt.Println(string(out))
+```
+
+```bash
+go get github.com/jhonsferg/traverse/ext/openapi
+```
+
+---
+
+## OData Vocabularies
+
+Properties carry parsed Core and Validation vocabulary annotations:
+
+```go
+meta, _ := client.Metadata(ctx)
+for _, et := range meta.EntityTypes {
+    for _, prop := range et.Properties {
+        core := traverse.ParseCoreVocabulary(prop.Annotations)
+        val  := traverse.ParseValidationVocabulary(prop.Annotations)
+
+        fmt.Printf("%s: %s", prop.Name, core.Description)
+        if val.Pattern != "" {
+            fmt.Printf(" (pattern: %s)", val.Pattern)
+        }
+        if val.Required {
+            fmt.Print(" [required]")
+        }
+        fmt.Println()
+    }
+}
+```
+
+Available types: `CoreVocabulary` (Description, LongDescription, Immutable, Computed, Permissions, …) and `ValidationVocabulary` (Minimum, Maximum, Pattern, AllowedValues, Required).
+
+---
+
 ## Extensions
 
 | Module | Import path | Description |
 |--------|-------------|-------------|
-| `ext/sap` | `github.com/jhonsferg/traverse/ext/sap` | SAP Gateway CSRF & session handling |
+| `ext/sap` | `github.com/jhonsferg/traverse/ext/sap` | SAP Gateway CSRF, session handling, and Fiori UI annotations |
+| `ext/openapi` | `github.com/jhonsferg/traverse/ext/openapi` | OpenAPI 3.1 export from OData metadata |
 | `ext/oauth2` | `github.com/jhonsferg/traverse/ext/oauth2` | OAuth2 token provider |
 | `ext/prometheus` | `github.com/jhonsferg/traverse/ext/prometheus` | Prometheus metrics |
 | `ext/tracing` | `github.com/jhonsferg/traverse/ext/tracing` | OpenTelemetry tracing |
@@ -116,6 +196,23 @@ func main() {
 | `ext/cache` | `github.com/jhonsferg/traverse/ext/cache` | Response caching |
 
 > Extension documentation: **[jhonsferg.github.io/traverse/extensions](https://jhonsferg.github.io/traverse/extensions/index/)**
+
+### SAP Fiori UI Annotations
+
+`ext/sap` includes support for SAP UI annotations parsed from EDMX attributes (`sap:label`, `sap:sortable`, `sap:filterable`, etc.):
+
+```go
+import "github.com/jhonsferg/traverse/ext/sap"
+
+ann := sap.ParseSAPUIAnnotation(property.RawAttributes)
+fmt.Printf("Label: %s, Filterable: %v\n", ann.Label, ann.Filterable)
+
+// Get all annotated properties from an entity type
+props := sap.AnnotatedProperties(entityType, meta)
+for _, p := range props {
+    fmt.Printf("%s → label=%s sortable=%v\n", p.Property.Name, p.Annotation.Label, p.Annotation.Sortable)
+}
+```
 
 ---
 
