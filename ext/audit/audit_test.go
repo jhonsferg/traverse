@@ -5,6 +5,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"testing"
+	"time"
 
 	"github.com/jhonsferg/relay"
 
@@ -229,7 +230,14 @@ func TestContext_UserID_and_RequestID_propagate(t *testing.T) {
 }
 
 func TestDuration_is_non_zero(t *testing.T) {
-	srv := newTestServer(http.StatusOK)
+	// Use a server with a deliberate delay so the measured duration is non-zero
+	// even on Windows, where the default clock resolution is ~15 ms.
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		time.Sleep(20 * time.Millisecond)
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusOK)
+		_, _ = w.Write([]byte(`{"value":[]}`))
+	}))
 	defer srv.Close()
 
 	log := audit.NewInMemoryAuditLog()
