@@ -5,6 +5,7 @@ import (
 	"fmt"
 
 	gql "github.com/graphql-go/graphql"
+
 	"github.com/jhonsferg/traverse"
 )
 
