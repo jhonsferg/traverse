@@ -15,6 +15,11 @@ traverse extensions add optional capabilities that are not part of the core ODat
 | [Webhooks](webhooks.md) | `ext/webhooks` | OData v4 webhook subscription lifecycle and dispatch |
 | [GraphQL Bridge](graphql.md) | `ext/graphql` | Translate OData queries to GraphQL automatically |
 | [Microsoft Graph](graph.md) | `ext/graph` | Microsoft Graph API helpers |
+| [Azure Event Grid](azure.md) | `ext/azure` | Publish OData entity change events to Azure Event Grid |
+| [Offline Store](offline.md) | `ext/offline` | Persistent local JSON cache for offline query support |
+| [Dataverse](dataverse.md) | `ext/dataverse` | Microsoft Dataverse OData adapter (Power Platform / Dynamics 365) |
+| [OpenAPI Export](openapi.md) | `ext/openapi` | Convert OData `*Metadata` to an OpenAPI 3.1 document |
+| [Audit Trail](audit.md) | `ext/audit` | Record every OData request/response for compliance |
 
 ## Installing extensions
 

@@ -133,5 +133,8 @@ func main() {
 - [OData Primer](odata-primer.md) - OData concepts every Go developer needs to know
 - [Guides](guides/query-builder.md) - Deep dives into every feature
 - [Code Generation](codegen/index.md) - Generate typed clients from `$metadata`
-- [Extensions](extensions/index.md) - SAP, OAuth2, Prometheus, OpenTelemetry, Cache, GraphQL
+- [Extensions](extensions/index.md) - SAP, OAuth2, Prometheus, OpenTelemetry, Cache, GraphQL, Azure Event Grid, Offline Store, Dataverse, OpenAPI Export, Audit Trail
+- [CSDL JSON](guides/csdl-json.md) - Parse OData metadata from JSON endpoints
+- [Vocabularies](guides/vocabulary.md) - Core and Validation vocabulary annotations
+- [traverse-tui](guides/tui-cli.md) - Interactive terminal OData query builder
 - [Reference](reference/client.md) - Full API reference
