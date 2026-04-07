@@ -20,7 +20,7 @@ func OfflineMiddleware(store *Store) func(http.RoundTripper) http.RoundTripper {
 
 			resp, err := next.RoundTrip(req)
 			if err != nil {
-				// Network error — try the cache.
+				// Network error  -  try the cache.
 				cached, cacheErr := store.Get(path)
 				if cacheErr != nil {
 					// Cache miss: return original network error.

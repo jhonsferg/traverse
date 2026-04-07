@@ -504,10 +504,10 @@ func (f *FunctionImportBuilder) Invoke(ctx context.Context, result any) error {
 // InvokeCollection calls the function import and decodes a collection response.
 //
 // It handles the following OData collection envelope formats:
-//   - {"d":{"results":[...]}} — OData v2 collection
-//   - {"results":[...]}       — flat results array
-//   - {"value":[...]}         — OData v4 collection
-//   - [...]                   — bare JSON array
+//   - {"d":{"results":[...]}}  -  OData v2 collection
+//   - {"results":[...]}        -  flat results array
+//   - {"value":[...]}          -  OData v4 collection
+//   - [...]                    -  bare JSON array
 //
 // results must be a pointer to a slice, or nil to discard.
 //

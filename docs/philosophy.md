@@ -2,11 +2,11 @@
 
 ## Why *traverse*?
 
-The verb *to traverse* means to walk through something large, complex, or extended — one step at a time, without needing to hold the whole thing in memory at once. In computer science, *tree traversal* and *graph traversal* describe exactly that: visiting every node of a structure incrementally, following pointers from one element to the next, rather than materialising the entire structure before you begin.
+The verb *to traverse* means to walk through something large, complex, or extended  -  one step at a time, without needing to hold the whole thing in memory at once. In computer science, *tree traversal* and *graph traversal* describe exactly that: visiting every node of a structure incrementally, following pointers from one element to the next, rather than materialising the entire structure before you begin.
 
 That is the problem this library was built to solve.
 
-When real production workloads against SAP S/4HANA were profiled, the pattern was the same across every team that had attempted it before: existing Go OData clients would request a collection, accumulate the full response in memory, and either exhaust the heap or hit a timeout before returning a single record to the caller. A service with one million materials became effectively unreachable — not because the network was slow or SAP was down, but because the client's model was wrong.
+When real production workloads against SAP S/4HANA were profiled, the pattern was the same across every team that had attempted it before: existing Go OData clients would request a collection, accumulate the full response in memory, and either exhaust the heap or hit a timeout before returning a single record to the caller. A service with one million materials became effectively unreachable  -  not because the network was slow or SAP was down, but because the client's model was wrong.
 
 ```
 # other clients
@@ -31,7 +31,7 @@ In a traversal, you do not wait until you have everything before you start worki
 ```go
 for result := range client.From("MaterialSet").Stream(ctx) {
     if result.Err != nil {
-        // handle error and continue — no data is lost
+        // handle error and continue  -  no data is lost
         continue
     }
     process(result.Value) // available immediately, not after page N is done
@@ -46,13 +46,13 @@ A careful traversal does not tear up the ground beneath it. When you traverse a 
 
 Traverse is deliberately gentle on the services it talks to:
 
-- **Rate limiting and circuit breaking** are inherited from [relay](https://github.com/jhonsferg/relay), the HTTP transport layer beneath traverse. If SAP is under load, traverse backs off — it does not retry in a tight loop.
+- **Rate limiting and circuit breaking** are inherited from [relay](https://github.com/jhonsferg/relay), the HTTP transport layer beneath traverse. If SAP is under load, traverse backs off  -  it does not retry in a tight loop.
 - **Pagination follows the server's rhythm.** Traverse reads `@odata.nextLink` and `$skiptoken` and follows them. It does not inject artificial `$top`/`$skip` values that the server might not honour efficiently.
-- **CSRF tokens are managed transparently.** SAP OData v2 write operations require a valid `X-CSRF-Token`. Traverse (via `ext/sap`) fetches and caches the token, invalidates it on 403, and retries — without the caller ever touching the handshake.
+- **CSRF tokens are managed transparently.** SAP OData v2 write operations require a valid `X-CSRF-Token`. Traverse (via `ext/sap`) fetches and caches the token, invalidates it on 403, and retries  -  without the caller ever touching the handshake.
 
 ### The map is not the territory
 
-A tree traversal algorithm does not require the full tree in memory — only the current node, a reference to its children, and a stack or queue to track where to go next. The algorithm is O(1) in working memory regardless of the tree's depth or breadth.
+A tree traversal algorithm does not require the full tree in memory  -  only the current node, a reference to its children, and a stack or queue to track where to go next. The algorithm is O(1) in working memory regardless of the tree's depth or breadth.
 
 Traverse applies the same principle to remote data:
 
@@ -81,10 +81,10 @@ During the design phase, several names were evaluated:
 | `odata-go` | Descriptive but generic; no character; hard to distinguish in search results |
 | `sapient` | Wordplay on SAP + *sapient* (wise), but implies SAP-only when OData is protocol-agnostic |
 | `flow` | Captures streaming but too generic; namespace collisions in the Go ecosystem |
-| `cursor` | Technically precise — a database cursor is exactly this — but connotes SQL over HTTP/OData |
+| `cursor` | Technically precise  -  a database cursor is exactly this  -  but connotes SQL over HTTP/OData |
 | `scroll` | Evokes incremental retrieval well, but slightly informal for a production library |
 
-*traverse* was chosen because it is an active verb, has no known collisions in the Go OData library space, and because the metaphor is honest — it does not promise more than the library delivers.
+*traverse* was chosen because it is an active verb, has no known collisions in the Go OData library space, and because the metaphor is honest  -  it does not promise more than the library delivers.
 
 ---
 
@@ -92,4 +92,4 @@ During the design phase, several names were evaluated:
 
 The name *traverse* is not a backronym. It is not a brand constructed after the fact. It is the most accurate English verb for what the library does with a million records: it walks through them, one at a time, without ever needing to hold the whole collection in memory.
 
-That constraint — *memory proportional to a page, not to the dataset* — is the founding invariant of the library. Everything else follows from it.
+That constraint  -  *memory proportional to a page, not to the dataset*  -  is the founding invariant of the library. Everything else follows from it.

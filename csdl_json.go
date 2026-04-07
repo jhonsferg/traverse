@@ -80,7 +80,7 @@ func parseCSDLMap(raw map[string]json.RawMessage) (*Metadata, error) {
 
 		var obj map[string]json.RawMessage
 		if err := json.Unmarshal(val, &obj); err != nil {
-			// Not an object — skip.
+			// Not an object  -  skip.
 			continue
 		}
 
@@ -144,7 +144,7 @@ func parseCSDLSchema(namespace string, obj map[string]json.RawMessage, md *Metad
 			md.Functions = append(md.Functions, fi)
 
 		default:
-			// Unknown or absent $Kind — silently skip for forward compatibility.
+			// Unknown or absent $Kind  -  silently skip for forward compatibility.
 		}
 	}
 }

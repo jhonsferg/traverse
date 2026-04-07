@@ -1,4 +1,4 @@
-# traverse-tui — Interactive CLI
+# traverse-tui  -  Interactive CLI
 
 `traverse-tui` is an interactive terminal application for building and executing OData queries against any OData v4 service, without writing code.
 

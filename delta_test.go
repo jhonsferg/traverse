@@ -355,7 +355,7 @@ func TestDeltaSync_extractDeltaToken_NoToken(t *testing.T) {
 	server := testutil.NewMockServer()
 	defer server.Close()
 
-	// DeltaLink without $deltatoken parameter — extractDeltaToken returns ""
+	// DeltaLink without $deltatoken parameter  -  extractDeltaToken returns ""
 	server.Enqueue(testutil.MockResponse{
 		Status: 200,
 		Body:   `{"value":[{"ID":1}],"@odata.deltaLink":"` + server.URL() + `/Products?$skiptoken=noDeltaToken"}`,
@@ -458,7 +458,7 @@ func TestDeltaSyncAs_Full_Error(t *testing.T) {
 
 	ch, _, callErr := ds.Full(ctx)
 	if callErr != nil {
-		return // error returned immediately — fine
+		return // error returned immediately  -  fine
 	}
 
 	var gotErr error

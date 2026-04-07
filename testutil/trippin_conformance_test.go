@@ -40,7 +40,7 @@ func TestTripPinGetPeople(t *testing.T) {
 	if len(results) == 0 {
 		t.Fatal("expected at least 1 person, got 0")
 	}
-	// Verify basic decode — each record should have a UserName field
+	// Verify basic decode  -  each record should have a UserName field
 	for i, r := range results {
 		if _, ok := r["UserName"]; !ok {
 			t.Errorf("result[%d] missing UserName field", i)
