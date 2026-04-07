@@ -1398,6 +1398,16 @@ type EntitySetInfo struct {
 	Name string
 	// EntityTypeName is the fully qualified name of the entity type.
 	EntityTypeName string
+	// NavigationBindings contains navigation property binding targets for this entity set.
+	NavigationBindings []NavigationBinding
+}
+
+// NavigationBinding maps a navigation property path to its target entity set.
+type NavigationBinding struct {
+	// Path is the navigation property name or path.
+	Path string
+	// Target is the name of the target entity set.
+	Target string
 }
 
 // EntityType represents an OData entity type definition.
@@ -1405,6 +1415,10 @@ type EntitySetInfo struct {
 type EntityType struct {
 	// Name is the name of the entity type.
 	Name string
+	// Abstract indicates whether this entity type is abstract (cannot be instantiated directly).
+	Abstract bool
+	// BaseType is the fully qualified name of the parent entity type (e.g. "Namespace.ParentType").
+	BaseType string
 	// Key is the list of properties that form the primary key.
 	Key []PropertyRef
 	// Properties is the list of all properties defined for this entity type.

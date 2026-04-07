@@ -2,6 +2,8 @@ package graphql
 
 import (
 	"context"
+	"net/http"
+	"net/http/httptest"
 	"testing"
 
 	gql "github.com/graphql-go/graphql"
@@ -214,5 +216,153 @@ func TestExecuteQuery(t *testing.T) {
 	// GraphQL always returns a result, may have errors but shouldn't panic
 	if result == nil {
 		t.Fatal("Expected non-nil result")
+	}
+}
+
+// --- Translate / ToODataParams tests ---
+
+func TestTranslate_SimpleFields(t *testing.T) {
+	q, err := Translate(`{ customers { id name } }`)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if q.EntitySet != "customers" {
+		t.Errorf("EntitySet: got %q, want %q", q.EntitySet, "customers")
+	}
+	if len(q.Fields) != 2 || q.Fields[0] != "id" || q.Fields[1] != "name" {
+		t.Errorf("Fields: got %v, want [id name]", q.Fields)
+	}
+}
+
+func TestTranslate_WithFilter(t *testing.T) {
+	q, err := Translate(`{ orders(filter: "Status eq 'Open'") { id } }`)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if q.Filter != "Status eq 'Open'" {
+		t.Errorf("Filter: got %q, want %q", q.Filter, "Status eq 'Open'")
+	}
+	if q.EntitySet != "orders" {
+		t.Errorf("EntitySet: got %q, want %q", q.EntitySet, "orders")
+	}
+}
+
+func TestTranslate_WithTopSkip(t *testing.T) {
+	q, err := Translate(`{ products(top: 5, skip: 10) { name } }`)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if q.Top != 5 {
+		t.Errorf("Top: got %d, want 5", q.Top)
+	}
+	if q.Skip != 10 {
+		t.Errorf("Skip: got %d, want 10", q.Skip)
+	}
+}
+
+func TestTranslate_NestedExpand(t *testing.T) {
+	q, err := Translate(`{ orders { id customer { name email } } }`)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if len(q.Expand) != 1 || q.Expand[0] != "customer" {
+		t.Errorf("Expand: got %v, want [customer]", q.Expand)
+	}
+	subFields := q.ExpandFields["customer"]
+	if len(subFields) != 2 || subFields[0] != "name" || subFields[1] != "email" {
+		t.Errorf("ExpandFields[customer]: got %v, want [name email]", subFields)
+	}
+
+	params := q.ToODataParams()
+	expand, ok := params["$expand"]
+	if !ok {
+		t.Fatal("$expand missing from OData params")
+	}
+	if expand != "customer($select=name,email)" {
+		t.Errorf("$expand: got %q, want %q", expand, "customer($select=name,email)")
+	}
+}
+
+func TestToODataParams_Select(t *testing.T) {
+	q, err := Translate(`{ customers { id name country } }`)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	params := q.ToODataParams()
+	sel, ok := params["$select"]
+	if !ok {
+		t.Fatal("$select missing from OData params")
+	}
+	if sel != "id,name,country" {
+		t.Errorf("$select: got %q, want %q", sel, "id,name,country")
+	}
+}
+
+func TestToODataParams_Filter(t *testing.T) {
+	q, err := Translate(`{ orders(filter: "Status eq 'Open'") { id } }`)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	params := q.ToODataParams()
+	filter, ok := params["$filter"]
+	if !ok {
+		t.Fatal("$filter missing from OData params")
+	}
+	if filter != "Status eq 'Open'" {
+		t.Errorf("$filter: got %q, want %q", filter, "Status eq 'Open'")
+	}
+}
+
+func TestTranslate_InvalidQuery(t *testing.T) {
+	cases := []string{
+		"",
+		"{}",
+		"not a query",
+		"{ }",
+	}
+	for _, c := range cases {
+		_, err := Translate(c)
+		if err == nil {
+			t.Errorf("Translate(%q): expected error, got nil", c)
+		}
+	}
+}
+
+func TestTranslate_WithOrderBy(t *testing.T) {
+	q, err := Translate(`{ products(orderBy: "Name asc") { name price } }`)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if q.OrderBy != "Name asc" {
+		t.Errorf("OrderBy: got %q, want %q", q.OrderBy, "Name asc")
+	}
+	params := q.ToODataParams()
+	if params["$orderby"] != "Name asc" {
+		t.Errorf("$orderby: got %q, want %q", params["$orderby"], "Name asc")
+	}
+}
+
+func TestExecutor_Execute(t *testing.T) {
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = w.Write([]byte(`{"value":[]}`))
+	}))
+	defer ts.Close()
+
+	exec := NewExecutor(ts.URL, ts.Client())
+	body, err := exec.Execute(context.Background(), `{ orders { id status } }`)
+	if err != nil {
+		t.Fatalf("Execute: unexpected error: %v", err)
+	}
+	if string(body) != `{"value":[]}` {
+		t.Errorf("body: got %q, want %q", string(body), `{"value":[]}`)
+	}
+}
+
+func TestExecutor_Execute_InvalidQuery(t *testing.T) {
+	exec := NewExecutor("http://localhost", nil)
+	_, err := exec.Execute(context.Background(), "")
+	if err == nil {
+		t.Fatal("expected error for empty query")
 	}
 }
