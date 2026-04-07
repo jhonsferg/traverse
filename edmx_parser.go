@@ -105,6 +105,21 @@ func ParseEDMX(reader io.Reader) (*Metadata, error) {
 						Multiplicity string   `xml:"Multiplicity,attr"`
 					} `xml:"End"`
 				} `xml:"Association"`
+				// Annotations holds external OData annotation groups (v4 style).
+				// Each group targets a schema element (e.g. "Namespace.EntityType/Property").
+				Annotations []struct {
+					XMLName    xml.Name `xml:"Annotations"`
+					Target     string   `xml:"Target,attr"`
+					Annotation []struct {
+						XMLName xml.Name `xml:"Annotation"`
+						Term    string   `xml:"Term,attr"`
+						String  string   `xml:"String,attr"`
+						Bool    string   `xml:"Bool,attr"`
+						Decimal string   `xml:"Decimal,attr"`
+						Int     string   `xml:"Int,attr"`
+						Float   string   `xml:"Float,attr"`
+					} `xml:"Annotation"`
+				} `xml:"Annotations"`
 			} `xml:"Schema"`
 		} `xml:"DataServices"`
 	}
@@ -229,6 +244,10 @@ func ParseEDMX(reader io.Reader) (*Metadata, error) {
 		}
 	}
 
+	// Apply OData Core/Validation vocabulary annotations from <Annotations Target="..."> elements.
+	// Target format: "Namespace.EntityTypeName/PropertyName" or "Namespace.EntityTypeName".
+	applyEDMXVocabularyAnnotations(metadata, schema.Namespace, schema.Annotations)
+
 	return metadata, nil
 }
 
@@ -253,4 +272,102 @@ func derefBool(s *string) bool {
 		return false
 	}
 	return *s == "true"
+}
+
+// applyEDMXVocabularyAnnotations populates Core and Validation vocabulary fields on
+// properties by processing <Annotations Target="..."> groups found in the schema.
+func applyEDMXVocabularyAnnotations(metadata *Metadata, namespace string, rawGroups interface{}) {
+	// Build a property-keyed annotation map.
+	// key: "EntityTypeName/PropertyName" → flat map of term → value.
+	annotMap := make(map[string]map[string]string)
+
+	switch groups := rawGroups.(type) {
+	case []struct {
+		XMLName    xml.Name `xml:"Annotations"`
+		Target     string   `xml:"Target,attr"`
+		Annotation []struct {
+			XMLName xml.Name `xml:"Annotation"`
+			Term    string   `xml:"Term,attr"`
+			String  string   `xml:"String,attr"`
+			Bool    string   `xml:"Bool,attr"`
+			Decimal string   `xml:"Decimal,attr"`
+			Int     string   `xml:"Int,attr"`
+			Float   string   `xml:"Float,attr"`
+		} `xml:"Annotation"`
+	}:
+		for _, grp := range groups {
+			// Strip namespace prefix from target so we get "EntityTypeName/PropertyName".
+			target := grp.Target
+			prefix := namespace + "."
+			if len(target) > len(prefix) && target[:len(prefix)] == prefix {
+				target = target[len(prefix):]
+			}
+			for _, ann := range grp.Annotation {
+				if ann.Term == "" {
+					continue
+				}
+				// Pick the first non-empty value attribute.
+				val := ann.String
+				if val == "" {
+					val = ann.Bool
+				}
+				if val == "" {
+					val = ann.Decimal
+				}
+				if val == "" {
+					val = ann.Int
+				}
+				if val == "" {
+					val = ann.Float
+				}
+				if _, ok := annotMap[target]; !ok {
+					annotMap[target] = make(map[string]string)
+				}
+				annotMap[target][ann.Term] = val
+			}
+		}
+	}
+
+	// Apply to each entity type / property.
+	for etIdx := range metadata.EntityTypes {
+		et := &metadata.EntityTypes[etIdx]
+		for propIdx := range et.Properties {
+			prop := &et.Properties[propIdx]
+			key := et.Name + "/" + prop.Name
+			if annots, ok := annotMap[key]; ok {
+				if core := ParseCoreVocabulary(annots); hasAnyCoreField(core) {
+					c := core
+					prop.Core = &c
+				}
+				if val := ParseValidationVocabulary(annots); hasAnyValidationField(val) {
+					v := val
+					prop.Validation = &v
+				}
+			}
+		}
+		// Also handle entity-level annotations (no "/" in target).
+		if annots, ok := annotMap[et.Name]; ok {
+			for propIdx := range et.Properties {
+				prop := &et.Properties[propIdx]
+				if prop.Core == nil {
+					if core := ParseCoreVocabulary(annots); hasAnyCoreField(core) {
+						c := core
+						prop.Core = &c
+					}
+				}
+			}
+		}
+	}
+}
+
+// hasAnyCoreField reports whether any field in v is non-zero.
+func hasAnyCoreField(v CoreVocabulary) bool {
+	return v.Description != "" || v.LongDescription != "" || v.IsLanguageDependent ||
+		v.Immutable || v.Computed || len(v.Permissions) > 0 || v.Example != ""
+}
+
+// hasAnyValidationField reports whether any field in v is non-zero.
+func hasAnyValidationField(v ValidationVocabulary) bool {
+	return v.Minimum != nil || v.Maximum != nil || v.Pattern != "" ||
+		len(v.AllowedValues) > 0 || v.Required
 }

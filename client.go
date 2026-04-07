@@ -1423,6 +1423,10 @@ type Property struct {
 	Scale *int
 	// SAP contains SAP-specific annotations for this property.
 	SAP SAPAnnotations
+	// Core contains OData Core vocabulary annotations when present in metadata.
+	Core *CoreVocabulary
+	// Validation contains OData Validation vocabulary annotations when present in metadata.
+	Validation *ValidationVocabulary
 }
 
 // NavigationProperty represents a navigation property in an OData entity type.
