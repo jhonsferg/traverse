@@ -1,33 +1,35 @@
 go 1.24.0
 
 use (
-	.
-	./ext/audit
-	./ext/cache
-	./ext/cache/memory
-	./ext/cache/redis
-	./ext/cache/stale
-	./ext/graphql
-	./ext/oauth2
-	./ext/openapi
-	./ext/prometheus
-	./ext/sap
-	./ext/tracing
-	./ext/webhooks
+.
+./ext/audit
+./ext/cache
+./ext/cache/memory
+./ext/cache/redis
+./ext/cache/stale
+./ext/graphql
+./ext/oauth2
+./ext/offline
+./ext/openapi
+./ext/prometheus
+./ext/sap
+./ext/tracing
+./ext/webhooks
 )
 
 replace (
-	github.com/jhonsferg/traverse v0.1.0 => .
-	github.com/jhonsferg/traverse/ext/audit v0.1.0 => ./ext/audit
-	github.com/jhonsferg/traverse/ext/cache v0.1.0 => ./ext/cache
-	github.com/jhonsferg/traverse/ext/cache/memory v0.1.0 => ./ext/cache/memory
-	github.com/jhonsferg/traverse/ext/cache/redis v0.1.0 => ./ext/cache/redis
-	github.com/jhonsferg/traverse/ext/cache/stale v0.1.0 => ./ext/cache/stale
-	github.com/jhonsferg/traverse/ext/graphql v0.1.0 => ./ext/graphql
-	github.com/jhonsferg/traverse/ext/oauth2 v0.1.0 => ./ext/oauth2
-	github.com/jhonsferg/traverse/ext/openapi v0.1.0 => ./ext/openapi
-	github.com/jhonsferg/traverse/ext/prometheus v0.1.0 => ./ext/prometheus
-	github.com/jhonsferg/traverse/ext/sap v0.1.0 => ./ext/sap
-	github.com/jhonsferg/traverse/ext/tracing v0.1.0 => ./ext/tracing
-	github.com/jhonsferg/traverse/ext/webhooks v0.1.0 => ./ext/webhooks
+github.com/jhonsferg/traverse v0.1.0 => .
+github.com/jhonsferg/traverse/ext/audit v0.1.0 => ./ext/audit
+github.com/jhonsferg/traverse/ext/cache v0.1.0 => ./ext/cache
+github.com/jhonsferg/traverse/ext/cache/memory v0.1.0 => ./ext/cache/memory
+github.com/jhonsferg/traverse/ext/cache/redis v0.1.0 => ./ext/cache/redis
+github.com/jhonsferg/traverse/ext/cache/stale v0.1.0 => ./ext/cache/stale
+github.com/jhonsferg/traverse/ext/graphql v0.1.0 => ./ext/graphql
+github.com/jhonsferg/traverse/ext/oauth2 v0.1.0 => ./ext/oauth2
+github.com/jhonsferg/traverse/ext/offline v0.1.0 => ./ext/offline
+github.com/jhonsferg/traverse/ext/openapi v0.1.0 => ./ext/openapi
+github.com/jhonsferg/traverse/ext/prometheus v0.1.0 => ./ext/prometheus
+github.com/jhonsferg/traverse/ext/sap v0.1.0 => ./ext/sap
+github.com/jhonsferg/traverse/ext/tracing v0.1.0 => ./ext/tracing
+github.com/jhonsferg/traverse/ext/webhooks v0.1.0 => ./ext/webhooks
 )
