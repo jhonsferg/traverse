@@ -8,6 +8,7 @@ package main
 
 import (
 	"bufio"
+	"context"
 	"flag"
 	"fmt"
 	"net/http"
@@ -135,17 +136,17 @@ func handleCommand(s *session, line string) bool {
 
 	case "top":
 		n := 0
-		fmt.Sscan(arg, &n)
-		if n > 0 {
+		if _, err := fmt.Sscan(arg, &n); err == nil && n > 0 {
 			s.top = n
 			fmt.Printf("Top: %d\n", n)
 		}
 
 	case "skip":
 		n := 0
-		fmt.Sscan(arg, &n)
-		s.skip = n
-		fmt.Printf("Skip: %d\n", n)
+		if _, err := fmt.Sscan(arg, &n); err == nil {
+			s.skip = n
+			fmt.Printf("Skip: %d\n", n)
+		}
 
 	case "reset", "clear":
 		s.filters = nil
@@ -208,7 +209,7 @@ func runQuery(s *session) {
 
 	fmt.Printf("GET %s\n", url)
 
-	req, err := http.NewRequest(http.MethodGet, url, nil)
+	req, err := http.NewRequestWithContext(context.Background(), http.MethodGet, url, nil)
 	if err != nil {
 		fmt.Printf("Error: %v\n", err)
 		return
@@ -220,7 +221,7 @@ func runQuery(s *session) {
 		fmt.Printf("Request failed: %v\n", err)
 		return
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	fmt.Printf("Status: %s\n", resp.Status)
 

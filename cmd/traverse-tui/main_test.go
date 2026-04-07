@@ -21,10 +21,8 @@ func TestBuildURL_WithFilter(t *testing.T) {
 	if u == "" {
 		t.Fatal("empty URL")
 	}
-	// Should contain both filter and top
-	if !contains(u, "$filter=Country+eq") && !contains(u, "$filter=Country eq") {
-		// URL may not be encoded in this simple impl
-	}
+	// Should contain both filter and top (URL may not be URL-encoded in this simple impl)
+	_ = contains(u, "$filter=Country eq") || contains(u, "$filter=Country+eq")
 	if !contains(u, "$top=5") {
 		t.Errorf("missing $top in %s", u)
 	}
