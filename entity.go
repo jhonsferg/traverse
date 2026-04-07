@@ -306,3 +306,61 @@ func StreamAs[T any](qb *QueryBuilder, ctx context.Context, bufferSize ...int) <
 
 	return out
 }
+
+// FetchPropertyAs retrieves a single scalar or object property from an OData entity
+// using the standard OData property path pattern:
+//
+//	GET /EntitySet(Key)/PropertyName
+//
+// This is the idiomatic way to fetch one field from a known entity without
+// downloading the full record. Useful for large entities where only a single
+// field (e.g. a price, a flag, or a blob link) is needed.
+//
+// The qb parameter must already point to the full entity including its key,
+// e.g. built via:
+//
+//	qb := client.From("/sap/opu/odata/sap/UI_PRODUCTLIST/ProductList(Product='3001008',Plant='1010',ValuationType='')")
+//	price, err := traverse.FetchPropertyAs[string](qb, ctx, "PriceUnitQty")
+//
+// Returns the zero value of T and an error if the property is not found or
+// cannot be decoded.
+func FetchPropertyAs[T any](qb *QueryBuilder, ctx context.Context, property string) (T, error) {
+	var zero T
+
+	if property == "" {
+		return zero, fmt.Errorf("traverse: FetchPropertyAs: property name must not be empty")
+	}
+
+	// Build the property path by appending /PropertyName to the current entity set.
+	propQB := qb.client.From(qb.entitySet + "/" + property)
+
+	page, err := propQB.Page(ctx)
+	if err != nil {
+		return zero, fmt.Errorf("traverse: FetchPropertyAs(%q): %w", property, err)
+	}
+
+	// OData v2 property response: {"d": {"PropertyName": value}}
+	// After parsing through our Page decoder, Value[0] holds map{"PropertyName": value}.
+	if len(page.Value) > 0 {
+		if v, ok := page.Value[0][property]; ok {
+			b, err := json.Marshal(v)
+			if err != nil {
+				return zero, fmt.Errorf("traverse: FetchPropertyAs(%q): marshal: %w", property, err)
+			}
+			if err := json.Unmarshal(b, &zero); err != nil {
+				return zero, fmt.Errorf("traverse: FetchPropertyAs(%q): unmarshal to %T: %w", property, zero, err)
+			}
+			return zero, nil
+		}
+	}
+
+	// Fallback: try RawValue for the single-value case ("d":{"value":...})
+	if len(page.RawValue) > 0 {
+		if err := json.Unmarshal(page.RawValue[0], &zero); err != nil {
+			return zero, fmt.Errorf("traverse: FetchPropertyAs(%q): unmarshal raw: %w", property, err)
+		}
+		return zero, nil
+	}
+
+	return zero, fmt.Errorf("traverse: FetchPropertyAs(%q): property not found in response", property)
+}
