@@ -45,7 +45,19 @@
          <lastmod>2026-04-07</lastmod>
     </url>
     <url>
+         <loc>https://jhonsferg.github.io/traverse/extensions/audit/</loc>
+         <lastmod>2026-04-07</lastmod>
+    </url>
+    <url>
+         <loc>https://jhonsferg.github.io/traverse/extensions/azure/</loc>
+         <lastmod>2026-04-07</lastmod>
+    </url>
+    <url>
          <loc>https://jhonsferg.github.io/traverse/extensions/cache/</loc>
+         <lastmod>2026-04-07</lastmod>
+    </url>
+    <url>
+         <loc>https://jhonsferg.github.io/traverse/extensions/dataverse/</loc>
          <lastmod>2026-04-07</lastmod>
     </url>
     <url>
@@ -58,6 +70,14 @@
     </url>
     <url>
          <loc>https://jhonsferg.github.io/traverse/extensions/oauth2/</loc>
+         <lastmod>2026-04-07</lastmod>
+    </url>
+    <url>
+         <loc>https://jhonsferg.github.io/traverse/extensions/offline/</loc>
+         <lastmod>2026-04-07</lastmod>
+    </url>
+    <url>
+         <loc>https://jhonsferg.github.io/traverse/extensions/openapi/</loc>
          <lastmod>2026-04-07</lastmod>
     </url>
     <url>
@@ -98,6 +118,10 @@
     </url>
     <url>
          <loc>https://jhonsferg.github.io/traverse/guides/crud/</loc>
+         <lastmod>2026-04-07</lastmod>
+    </url>
+    <url>
+         <loc>https://jhonsferg.github.io/traverse/guides/csdl-json/</loc>
          <lastmod>2026-04-07</lastmod>
     </url>
     <url>
@@ -146,6 +170,14 @@
     </url>
     <url>
          <loc>https://jhonsferg.github.io/traverse/guides/streaming/</loc>
+         <lastmod>2026-04-07</lastmod>
+    </url>
+    <url>
+         <loc>https://jhonsferg.github.io/traverse/guides/tui-cli/</loc>
+         <lastmod>2026-04-07</lastmod>
+    </url>
+    <url>
+         <loc>https://jhonsferg.github.io/traverse/guides/vocabulary/</loc>
          <lastmod>2026-04-07</lastmod>
     </url>
     <url>
