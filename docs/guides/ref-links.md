@@ -17,7 +17,10 @@ In OData, relationships between entities are represented as links. For example, 
 Creates a reference link from the current entity to a target entity:
 
 ```go
-client := traverse.NewClient(relayClient, "https://api.example.com/odata/")
+client, err := traverse.New(traverse.WithBaseURL("https://api.example.com/odata/"))
+if err != nil {
+    log.Fatal(err)
+}
 
 type Order struct {
     ID         int    `json:"OrderID"`

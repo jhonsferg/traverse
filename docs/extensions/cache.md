@@ -13,16 +13,13 @@ go get github.com/jhonsferg/traverse/ext/cache@latest
 ```go
 import (
     "github.com/jhonsferg/traverse"
-    "github.com/jhonsferg/traverse/ext/cache"
+    "github.com/jhonsferg/traverse/ext/cache/memory"
 )
 
-client := traverse.New(traverse.Config{
-    BaseURL:   "https://api.example.com/odata/",
-    Extension: cache.Extension(cache.Memory(cache.MemoryConfig{
-        MaxEntries: 1000,
-        TTL:        5 * time.Minute,
-    })),
-})
+client, err := traverse.New(
+    traverse.WithBaseURL("https://api.example.com/odata/"),
+    traverse.WithMetadataCache(memory.New(5 * time.Minute)),
+)
 ```
 
 ## Redis cache

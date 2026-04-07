@@ -45,7 +45,6 @@ import (
     "fmt"
     "log"
 
-    "github.com/jhonsferg/relay"
     "github.com/jhonsferg/traverse"
 )
 
@@ -56,8 +55,12 @@ type Product struct {
 }
 
 func main() {
-    rc := relay.NewClient(relay.WithBaseURL("https://services.odata.org/V4/Northwind/Northwind.svc/"))
-    client := traverse.NewClient(rc, "")
+    client, err := traverse.New(
+        traverse.WithBaseURL("https://services.odata.org/V4/Northwind/Northwind.svc/"),
+    )
+    if err != nil {
+        log.Fatal(err)
+    }
 
     products := traverse.From[Product](client, "Products")
 
@@ -110,7 +113,7 @@ Traverse can parse both EDMX/XML and CSDL JSON (the OData v4.01 JSON format used
 
 ```go
 // Auto-detected - no code change needed when the service returns JSON metadata
-client := traverse.NewClient(rc, "")
+client, _ := traverse.New(traverse.WithBaseURL("https://api.example.com/odata/v4/"))
 meta, err := client.Metadata(ctx)
 ```
 
@@ -192,8 +195,13 @@ Available types: `CoreVocabulary` (Description, LongDescription, Immutable, Comp
 | `ext/oauth2` | `github.com/jhonsferg/traverse/ext/oauth2` | OAuth2 token provider |
 | `ext/prometheus` | `github.com/jhonsferg/traverse/ext/prometheus` | Prometheus metrics |
 | `ext/tracing` | `github.com/jhonsferg/traverse/ext/tracing` | OpenTelemetry tracing |
-| `ext/graphql` | `github.com/jhonsferg/traverse/ext/graphql` | GraphQL bridge |
-| `ext/cache` | `github.com/jhonsferg/traverse/ext/cache` | Response caching |
+| `ext/graphql` | `github.com/jhonsferg/traverse/ext/graphql` | GraphQL-to-OData bridge |
+| `ext/cache` | `github.com/jhonsferg/traverse/ext/cache` | HTTP response and metadata caching |
+| `ext/offline` | `github.com/jhonsferg/traverse/ext/offline` | Persistent offline store with JSON cache |
+| `ext/dataverse` | `github.com/jhonsferg/traverse/ext/dataverse` | Microsoft Dataverse adapter |
+| `ext/azure` | `github.com/jhonsferg/traverse/ext/azure` | Azure Event Grid change events |
+| `ext/webhooks` | `github.com/jhonsferg/traverse/ext/webhooks` | OData webhook subscriptions |
+| `ext/audit` | `github.com/jhonsferg/traverse/ext/audit` | Audit trail middleware |
 
 > Extension documentation: **[jhonsferg.github.io/traverse/extensions](https://jhonsferg.github.io/traverse/extensions/index/)**
 
@@ -219,7 +227,8 @@ for _, p := range props {
 ## Microsoft Graph
 
 ```go
-gc := traverse.NewGraphClient(traverse.GraphConfig{
+rc := relay.New(relay.WithBearerToken(token))
+gc := traverse.NewGraphClient(rc, traverse.GraphConfig{
     AccessToken: token,
 })
 
