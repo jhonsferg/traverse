@@ -23,7 +23,7 @@
 
 ## Overview
 
-Traverse is a Go library for consuming OData v2 and v4 services. It handles all protocol details - pagination, CSRF tokens, ETag concurrency control, delta sync, batch requests, async long-running operations, actions, functions, and schema validation - so you can focus on the data.
+Traverse is a Go library for consuming OData v2 and v4 services. It handles all protocol details — pagination, CSRF tokens, ETag concurrency control, delta sync, batch requests, async long-running operations, actions, functions, and schema validation — so you can focus on the data.
 
 Built on [relay](https://github.com/jhonsferg/relay) for HTTP transport. Well-suited for SAP environments (ABAP Gateway / OData v2, S/4HANA / OData v4), Microsoft Graph, and any standards-compliant OData service.
 
@@ -32,6 +32,31 @@ go get github.com/jhonsferg/traverse
 ```
 
 Requires Go 1.24 or later.
+
+---
+
+## Why *traverse*?
+
+The verb *to traverse* means to walk through something large, complex, or extended — one step at a time, without needing to hold the whole thing in memory. In computer science, *tree traversal* and *graph traversal* describe exactly that: visiting every node of a structure incrementally rather than materialising it all at once.
+
+That is the problem this library solves:
+
+```
+other clients:  GET /MaterialSet → load 1 000 000 records into RAM → out of memory
+traverse:       GET /MaterialSet → visit each record one by one   → constant memory
+```
+
+The difference is not *what* you fetch — it is *how* you move through it. Traverse treats a remote OData collection the way a graph traversal treats a tree: as a path to walk, not a payload to download.
+
+Three principles follow naturally from the name:
+
+**The path matters more than the destination.** You do not wait to have all the data before you start working. Each record is actionable the moment it arrives — that is exactly the `for result := range client.From("MaterialSet").Stream(ctx)` pattern at the core of the library.
+
+**Respect for the terrain.** A careful traversal does not tear up the ground beneath it. Traverse is deliberately gentle on the services it talks to: rate limiting and circuit breaking are inherited from relay, page size follows the server's own `nextLink` rhythm, and CSRF tokens are managed transparently without extra round-trips.
+
+**The map is not the territory.** A tree traversal does not require the full tree in memory — only the current node and a pointer to the next. Traverse does the same with OData: you can walk a million SAP materials without keeping a million structs alive simultaneously.
+
+The name also has an intentional honesty to it: it does not promise to be an OData library or a SAP library. It promises to help you *move through* large, remote datasets. Today that means OData. Tomorrow it could mean any cursor-based protocol — the name stays valid.
 
 ---
 
