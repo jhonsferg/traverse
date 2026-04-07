@@ -14,7 +14,10 @@ Both can be **bound** (attached to a specific entity or collection) or **unbound
 Unbound actions are called at the service root level:
 
 ```go
-client := traverse.NewClient(relayClient, "https://api.example.com/odata/")
+client, err := traverse.New(traverse.WithBaseURL("https://api.example.com/odata/"))
+if err != nil {
+    log.Fatal(err)
+}
 
 // Simple action with no parameters
 err := traverse.NewActionBuilder(client, "SendAllNotifications").

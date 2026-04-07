@@ -10,9 +10,12 @@ import (
     "myapp/gen/northwind"
 )
 
-base := traverse.New(traverse.Config{
-    BaseURL: "https://services.odata.org/V4/Northwind/Northwind.svc/",
-})
+base, err := traverse.New(
+    traverse.WithBaseURL("https://services.odata.org/V4/Northwind/Northwind.svc/"),
+)
+if err != nil {
+    log.Fatal(err)
+}
 
 client := northwind.NewClient(base)
 ```

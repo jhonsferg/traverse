@@ -25,7 +25,10 @@ schema := traverse.NewEntitySchema(
 ## Attaching a Schema to a QueryBuilder
 
 ```go
-client := traverse.NewClient(relayClient, "https://api.example.com/odata/")
+client, err := traverse.New(traverse.WithBaseURL("https://api.example.com/odata/"))
+if err != nil {
+    log.Fatal(err)
+}
 
 products := traverse.From[Product](client, "Products").
     WithSchema(schema)

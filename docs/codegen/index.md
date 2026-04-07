@@ -35,11 +35,15 @@ This creates `gen/client.go`, `gen/entities.go`, and `gen/queries.go`.
 ```go
 import "myapp/gen/northwind"
 
-client := northwind.NewClient(traverse.New(traverse.Config{
-    BaseURL: "https://services.odata.org/V4/Northwind/Northwind.svc/",
-}))
+base, err := traverse.New(
+    traverse.WithBaseURL("https://services.odata.org/V4/Northwind/Northwind.svc/"),
+)
+if err != nil {
+    log.Fatal(err)
+}
+northwindClient := northwind.NewClient(base)
 
-products, err := client.Products().
+products, err := northwindClient.Products().
     Filter(northwind.Product.Price.Gt(100)).
     Select(northwind.Product.Name, northwind.Product.Price).
     Top(10).
