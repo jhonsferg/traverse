@@ -10,6 +10,7 @@ import (
 	"net/http"
 
 	gql "github.com/graphql-go/graphql"
+
 	"github.com/jhonsferg/traverse"
 )
 

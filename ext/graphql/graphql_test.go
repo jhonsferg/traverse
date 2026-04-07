@@ -7,6 +7,7 @@ import (
 	"testing"
 
 	gql "github.com/graphql-go/graphql"
+
 	"github.com/jhonsferg/traverse"
 )
 
@@ -272,7 +273,6 @@ func TestTranslate_NestedExpand(t *testing.T) {
 	if len(subFields) != 2 || subFields[0] != "name" || subFields[1] != "email" {
 		t.Errorf("ExpandFields[customer]: got %v, want [name email]", subFields)
 	}
-
 	params := q.ToODataParams()
 	expand, ok := params["$expand"]
 	if !ok {
