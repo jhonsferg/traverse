@@ -184,8 +184,32 @@ type clientConfig struct {
 	afterExecute []func(*QueryBuilder) error
 }
 
+// applyAuthOpts converts basicAuth/bearerToken config into relay.Option entries
+// so they are actually sent as HTTP headers on every request.
+func applyAuthOpts(cfg *clientConfig) {
+	if cfg.basicAuthUser != "" {
+		user, pass := cfg.basicAuthUser, cfg.basicAuthPass
+		cfg.relayOpts = append(cfg.relayOpts, relay.WithOnBeforeRequest(
+			func(_ context.Context, req *relay.Request) error {
+				req.WithBasicAuth(user, pass)
+				return nil
+			},
+		))
+	} else if cfg.bearerToken != "" {
+		token := cfg.bearerToken
+		cfg.relayOpts = append(cfg.relayOpts, relay.WithOnBeforeRequest(
+			func(_ context.Context, req *relay.Request) error {
+				req.WithBearerToken(token)
+				return nil
+			},
+		))
+	}
+}
+
 // New creates a new [Client] with the provided options.
-// At minimum, [WithBaseURL] must be provided.
+// At minimum, [WithBaseURL] must be provided unless a pre-configured relay
+// client is passed via [WithRelayClient], in which case the base URL is
+// inherited from the relay client automatically.
 // Returns an error if required options are missing or invalid.
 //
 // Example:
@@ -217,18 +241,32 @@ func New(opts ...Option) (*Client, error) {
 		}
 	}
 
-	// Validate required fields
-	if cfg.baseURL == "" {
-		return nil, fmt.Errorf("traverse: BaseURL is required")
+	// Auto-inherit base URL from the relay client when WithRelayClient was
+	// used but WithBaseURL was not explicitly provided.
+	if cfg.baseURL == "" && cfg.httpClient != nil {
+		cfg.baseURL = cfg.httpClient.BaseURL()
 	}
 
-	// Create relay client if not provided
+	// Validate required fields
+	if cfg.baseURL == "" {
+		return nil, fmt.Errorf("traverse: BaseURL is required (use WithBaseURL or ensure the relay client was configured with relay.WithBaseURL)")
+	}
+
+	// Create relay client if not provided externally.
 	if cfg.httpClient == nil {
 		cfg.relayOpts = append(cfg.relayOpts,
 			relay.WithTimeout(30*time.Second),
 			relay.WithBaseURL(cfg.baseURL),
 		)
+		applyAuthOpts(cfg)
 		cfg.httpClient = relay.New(cfg.relayOpts...)
+	} else if len(cfg.relayOpts) > 0 || cfg.basicAuthUser != "" || cfg.bearerToken != "" {
+		// An external relay client was provided AND traverse-level options that
+		// map to relay options were also set (e.g. WithHeader, WithTimeout,
+		// WithBeforeRequest). Apply them to the existing relay client so they
+		// are not silently dropped.
+		applyAuthOpts(cfg)
+		cfg.httpClient = cfg.httpClient.With(cfg.relayOpts...)
 	}
 
 	c := &Client{
@@ -1127,19 +1165,29 @@ func WithAPIKey(header, value string) Option {
 // custom transport, proxies, etc.) before passing the client to Traverse.
 // If not provided, Traverse creates a default relay.Client.
 //
+// When a relay client is provided, [WithBaseURL] on traverse is optional: the base URL
+// is automatically inherited from the relay client's own [relay.WithBaseURL] option.
+// This means you do NOT need to repeat the base URL in both clients.
+//
+// Any traverse-level options that map to relay behaviour (e.g. [WithHeader], [WithTimeout],
+// [WithBeforeRequest]) are applied on top of the provided relay client via [relay.Client.With],
+// so they are not silently dropped.
+//
 // This is useful for:
 //   - Configuring connection pooling for large-scale operations
 //   - Setting up proxy or TLS configuration
 //   - Using a relay client shared across multiple services
 //
-// Example:
+// Example - base URL inherited automatically:
 //
 //	httpClient := relay.New(
 //		relay.WithTimeout(60 * time.Second),
-//		relay.WithBaseURL("https://sap.example.com/sap/opu/odata/sap/Products"),
+//		relay.WithBaseURL("https://sap.example.com/sap/opu/odata/sap"),
 //	)
+//	// No traverse.WithBaseURL needed - inherited from httpClient
 //	client, _ := traverse.New(
 //		traverse.WithRelayClient(httpClient),
+//		traverse.WithODataVersion(traverse.ODataV2),
 //	)
 func WithRelayClient(rc *relay.Client) Option {
 	return func(cfg *clientConfig) error {
