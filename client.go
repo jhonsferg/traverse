@@ -471,6 +471,11 @@ func (c *Client) PageSize() int {
 //		processRecord(result.Value)
 //	}
 func (c *Client) From(entitySet string) *QueryBuilder {
+	// Strip leading slashes so that From("/Products") and From("Products")
+	// behave identically. A leading slash in the entity set name causes
+	// buildURL to emit "//Products", which produces a double-slash URL
+	// (e.g. https://host//Products) that servers such as SAP reject with 401.
+	entitySet = strings.TrimLeft(entitySet, "/")
 	return &QueryBuilder{
 		client:             c,
 		entitySet:          entitySet,
