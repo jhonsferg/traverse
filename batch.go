@@ -996,3 +996,223 @@ func (b *BatchRequest) release() {
 		}
 	}
 }
+
+// jsonBatchRequest is the OData 4.01 JSON batch request envelope.
+//
+// Per OData 4.01 spec section 18.2, a JSON batch request is a single JSON
+// document with a "requests" array, each item being a JSON batch request object.
+type jsonBatchRequest struct {
+	Requests []jsonBatchItem `json:"requests"`
+}
+
+// jsonBatchItem represents a single request within a JSON batch envelope.
+type jsonBatchItem struct {
+	ID             string            `json:"id"`
+	Method         string            `json:"method"`
+	URL            string            `json:"url"`
+	Headers        map[string]string `json:"headers,omitempty"`
+	Body           json.RawMessage   `json:"body,omitempty"`
+	AtomicityGroup string            `json:"atomicityGroup,omitempty"`
+	DependsOn      []string          `json:"dependsOn,omitempty"`
+}
+
+// jsonBatchResponse is the OData 4.01 JSON batch response envelope.
+type jsonBatchResponse struct {
+	Responses []jsonBatchResponseItem `json:"responses"`
+}
+
+// jsonBatchResponseItem is a single response item in a JSON batch response.
+type jsonBatchResponseItem struct {
+	ID      string            `json:"id"`
+	Status  int               `json:"status"`
+	Headers map[string]string `json:"headers,omitempty"`
+	Body    json.RawMessage   `json:"body,omitempty"`
+}
+
+// ExecuteJSON sends the batch request using the OData 4.01 JSON batch format.
+//
+// ExecuteJSON is an alternative to [BatchRequest.Execute] that uses JSON encoding
+// instead of multipart/mixed. The OData 4.01 JSON batch format is more compact,
+// easier to debug, and supported by modern OData services.
+//
+// OData 4.01 spec reference: section 18 (Batch Requests and Responses).
+//
+// Operations within changesets are grouped using the "atomicityGroup" property.
+// All operations in a changeset must succeed or all will be rolled back.
+//
+// Example:
+//
+//	resp, err := client.Batch().
+//	    Get("Products", 1).
+//	    Get("Products", 2).
+//	    ExecuteJSON(ctx)
+//	if err != nil {
+//	    log.Fatal(err)
+//	}
+//	for _, result := range resp.Results {
+//	    fmt.Println(result.StatusCode, string(result.Body))
+//	}
+func (b *BatchRequest) ExecuteJSON(ctx context.Context) (*BatchResponse, error) {
+	if b.currentCS != nil {
+		b.EndChangeset()
+	}
+
+	reqBody, err := b.buildJSONBatchBody()
+	if err != nil {
+		return nil, fmt.Errorf("traverse: json batch build failed: %w", err)
+	}
+
+	req := b.client.http.Post("/$batch")
+	req = req.WithContext(ctx)
+	req = req.WithHeader("Content-Type", "application/json")
+	req = req.WithHeader("OData-MaxVersion", "4.01")
+	req = req.WithBody(reqBody)
+
+	resp, err := b.client.http.Execute(req)
+	if err != nil {
+		return nil, fmt.Errorf("traverse: json batch execute failed: %w", err)
+	}
+
+	raw := resp.Body()
+
+	var envelope jsonBatchResponse
+	if err := json.Unmarshal(raw, &envelope); err != nil {
+		return nil, fmt.Errorf("traverse: json batch parse response failed: %w", err)
+	}
+
+	results := make([]BatchResult, len(envelope.Responses))
+	for i, item := range envelope.Responses {
+		results[i] = BatchResult{
+			StatusCode: item.Status,
+			Headers:    item.Headers,
+			Body:       item.Body,
+		}
+		if item.Status >= 400 {
+			results[i].Err = fmt.Errorf("traverse: batch operation %s failed with status %d", item.ID, item.Status)
+		}
+	}
+
+	b.release()
+	return &BatchResponse{Results: results}, nil
+}
+
+// ExecuteJSONStream sends the batch using JSON format and streams results via a channel.
+//
+// ExecuteJSONStream is the streaming variant of [BatchRequest.ExecuteJSON].
+// It reads the entire JSON response but emits results to the channel one by one
+// to allow concurrent processing.
+//
+// Example:
+//
+//	for result := range batch.ExecuteJSONStream(ctx) {
+//	    if result.Err != nil {
+//	        log.Println("Operation failed:", result.Err)
+//	        continue
+//	    }
+//	    fmt.Println(result.StatusCode, string(result.Body))
+//	}
+func (b *BatchRequest) ExecuteJSONStream(ctx context.Context) <-chan BatchResult {
+	out := make(chan BatchResult, 8)
+
+	go func() {
+		defer close(out)
+
+		if b.currentCS != nil {
+			b.EndChangeset()
+		}
+
+		reqBody, err := b.buildJSONBatchBody()
+		if err != nil {
+			out <- BatchResult{Err: fmt.Errorf("traverse: json batch build failed: %w", err)}
+			return
+		}
+
+		req := b.client.http.Post("/$batch")
+		req = req.WithContext(ctx)
+		req = req.WithHeader("Content-Type", "application/json")
+		req = req.WithHeader("OData-MaxVersion", "4.01")
+		req = req.WithBody(reqBody)
+
+		resp, err := b.client.http.Execute(req)
+		if err != nil {
+			out <- BatchResult{Err: fmt.Errorf("traverse: json batch execute failed: %w", err)}
+			return
+		}
+
+		raw := resp.Body()
+
+		var envelope jsonBatchResponse
+		if err := json.Unmarshal(raw, &envelope); err != nil {
+			out <- BatchResult{Err: fmt.Errorf("traverse: json batch parse failed: %w", err)}
+			return
+		}
+
+		for _, item := range envelope.Responses {
+			result := BatchResult{
+				StatusCode: item.Status,
+				Headers:    item.Headers,
+				Body:       item.Body,
+			}
+			if item.Status >= 400 {
+				result.Err = fmt.Errorf("traverse: batch operation %s failed with status %d", item.ID, item.Status)
+			}
+			select {
+			case out <- result:
+			case <-ctx.Done():
+				out <- BatchResult{Err: ctx.Err()}
+				return
+			}
+		}
+	}()
+
+	return out
+}
+
+// buildJSONBatchBody constructs the OData 4.01 JSON batch request body.
+//
+// buildJSONBatchBody serializes all batch operations and changesets into a single
+// JSON document per OData 4.01 spec section 18.2. Operations within changesets
+// are assigned the same "atomicityGroup" identifier to signal atomicity.
+func (b *BatchRequest) buildJSONBatchBody() ([]byte, error) {
+	items := make([]jsonBatchItem, 0, len(b.ops)+10)
+	counter := 0
+
+	// Standalone operations (not in a changeset)
+	for _, op := range b.ops {
+		counter++
+		item := jsonBatchItem{
+			ID:     strconv.Itoa(counter),
+			Method: op.Method,
+			URL:    op.URL,
+		}
+		if len(op.Headers) > 0 {
+			item.Headers = op.Headers
+		}
+		if len(op.Body) > 0 {
+			item.Body = op.Body
+		}
+		items = append(items, item)
+	}
+
+	// Changeset operations - each changeset becomes an atomicityGroup
+	for _, cs := range b.changesets {
+		for _, op := range cs.ops {
+			counter++
+			item := jsonBatchItem{
+				ID:             strconv.Itoa(counter),
+				Method:         op.Method,
+				URL:            op.URL,
+				AtomicityGroup: cs.id,
+			}
+			if len(op.Headers) > 0 {
+				item.Headers = op.Headers
+			}
+			if len(op.Body) > 0 {
+				item.Body = op.Body
+			}
+			items = append(items, item)
+		}
+	}
+
+	return json.Marshal(jsonBatchRequest{Requests: items})
+}
