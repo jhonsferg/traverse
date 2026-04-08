@@ -38,7 +38,6 @@
 package traverse
 
 import (
-	"bytes"
 	"context"
 	"encoding/json"
 	"fmt"
@@ -1007,14 +1006,11 @@ func (c *Client) invalidateEntitySetCache(entitySet string) {
 func encodeKey(key interface{}) (string, error) {
 	switch v := key.(type) {
 	case string:
-		// String keys need single quotes and escaping
-		// Optimized: use buffer to avoid intermediate "'" + v + "'" allocation
-		var buf bytes.Buffer
-		buf.WriteRune('\'')
-		buf.WriteString(v)
-		buf.WriteRune('\'')
-		escaped := url.QueryEscape(buf.String())
-		return escaped, nil
+		// OData string literals are wrapped in single quotes.
+		// Embedded single quotes must be escaped by doubling them ('').
+		// The entire literal is then URL-encoded for safe URL embedding.
+		escaped := strings.ReplaceAll(v, "'", "''")
+		return url.QueryEscape("'" + escaped + "'"), nil
 	case int, int32, int64, float32, float64:
 		return fmt.Sprint(v), nil
 	default:

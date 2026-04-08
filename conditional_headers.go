@@ -1,6 +1,16 @@
 package traverse
 
-import "time"
+import (
+	"strings"
+	"time"
+)
+
+// sanitizeHeaderValue strips CRLF characters that could allow HTTP response splitting.
+func sanitizeHeaderValue(v string) string {
+	v = strings.ReplaceAll(v, "\r", "")
+	v = strings.ReplaceAll(v, "\n", "")
+	return v
+}
 
 // IfMatch sets the If-Match conditional request header on the query.
 // The server will only process the request if the entity's current ETag matches.
@@ -12,7 +22,7 @@ import "time"
 //	    IfMatch(`W/"abc123"`).
 //	    Page(ctx)
 func (q *QueryBuilder) IfMatch(etag string) *QueryBuilder {
-	q.conditionalHeaders["If-Match"] = etag
+	q.conditionalHeaders["If-Match"] = sanitizeHeaderValue(etag)
 	return q
 }
 
@@ -24,7 +34,7 @@ func (q *QueryBuilder) IfMatch(etag string) *QueryBuilder {
 //	    IfNoneMatch(`"xyz789"`).
 //	    Page(ctx)
 func (q *QueryBuilder) IfNoneMatch(etag string) *QueryBuilder {
-	q.conditionalHeaders["If-None-Match"] = etag
+	q.conditionalHeaders["If-None-Match"] = sanitizeHeaderValue(etag)
 	return q
 }
 
