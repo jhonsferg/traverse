@@ -139,7 +139,6 @@ const batchMaxResponseCount = 10_000
 
 // batchMaxPartBodySize is the maximum number of bytes read per batch response part.
 const batchMaxPartBodySize = 10 * 1024 * 1024 // 10 MB
-//
 // BatchResponse contains the results of all operations in a batch request,
 // with one [BatchResult] entry per operation in the same order as submitted.
 type BatchResponse struct {
