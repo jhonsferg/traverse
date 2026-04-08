@@ -471,14 +471,19 @@ func (c *Client) PageSize() int {
 //		processRecord(result.Value)
 //	}
 func (c *Client) From(entitySet string) *QueryBuilder {
+	// Strip leading slashes so that From("/Products") and From("Products")
+	// behave identically. A leading slash in the entity set name causes
+	// buildURL to emit "//Products", which produces a double-slash URL
+	// (e.g. https://host//Products) that servers such as SAP reject with 401.
+	entitySet = strings.TrimLeft(entitySet, "/")
+	// selectFields, expandProps, params, and conditionalHeaders are intentionally
+	// left nil here (zero-alloc construction). Each field is lazily initialised
+	// on first write: append(nil, ...) is valid for slices, and the map setters
+	// guard with a nil check before the first write.
 	return &QueryBuilder{
-		client:             c,
-		entitySet:          entitySet,
-		selectFields:       make([]string, 0, 20),
-		expandProps:        make([]string, 0, 10),
-		params:             make(map[string]string),
-		urlDirty:           true,
-		conditionalHeaders: make(map[string]string),
+		client:    c,
+		entitySet: entitySet,
+		urlDirty:  true,
 	}
 }
 

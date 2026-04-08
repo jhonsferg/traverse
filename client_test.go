@@ -38,6 +38,23 @@ func TestClientFrom(t *testing.T) {
 	}
 }
 
+// TestFrom_StripLeadingSlash verifies that From("/Products") and From("Products")
+// are equivalent. A leading slash in the entity-set name would cause buildURL to
+// emit "//Products", which servers such as SAP reject with 401 instead of 404.
+func TestFrom_StripLeadingSlash(t *testing.T) {
+	t.Parallel()
+
+	c, _ := New(WithBaseURL("http://localhost/odata"))
+
+	cases := []string{"/Products", "//Products", "Products"}
+	for _, input := range cases {
+		qb := c.From(input)
+		if qb.entitySet != "Products" {
+			t.Errorf("From(%q): entitySet = %q, want %q", input, qb.entitySet, "Products")
+		}
+	}
+}
+
 func TestClientWithOptions(t *testing.T) {
 	c, _ := New(
 		WithBaseURL("http://localhost:8080/odata"),

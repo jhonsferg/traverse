@@ -34,20 +34,29 @@ type CSRFMiddleware struct {
 
 // NewCSRFMiddleware creates a new CSRF token middleware.
 // The relay.Client is used for all HTTP operations.
-// BaseURL is the OData service root URL (used for metadata fetch).
-func NewCSRFMiddleware(client *relay.Client, baseURL string) *CSRFMiddleware {
+// fetchEndpoint is the URL (absolute or relay-relative) used to fetch the CSRF
+// token via GET + "X-CSRF-Token: Fetch". Pass the OData service root URL or a
+// specific path known to return the token. If empty, "/$metadata" is used as a
+// safe default that works on all OData services.
+func NewCSRFMiddleware(client *relay.Client, fetchEndpoint string) *CSRFMiddleware {
 	return &CSRFMiddleware{
 		client:  client,
-		baseURL: baseURL,
+		baseURL: fetchEndpoint,
 	}
 }
 
 // Fetch obtains a new CSRF token from the server.
 // Sends a GET request with X-CSRF-Token: Fetch header and extracts the token from response.
 // SAP returns the token in the X-CSRF-Token response header.
+// The request is sent to the endpoint provided to NewCSRFMiddleware; if none
+// was given the relative path "/$metadata" is used as a safe default available
+// on every OData service.
 func (c *CSRFMiddleware) Fetch(ctx context.Context) error {
-	// Use $metadata endpoint (available on all OData services)
-	req := c.client.Get("/$metadata")
+	endpoint := c.baseURL
+	if endpoint == "" {
+		endpoint = "/$metadata"
+	}
+	req := c.client.Get(endpoint)
 	req = req.WithHeader("X-CSRF-Token", "Fetch")
 	req = req.WithContext(ctx)
 
