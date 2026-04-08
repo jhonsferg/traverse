@@ -81,6 +81,8 @@ func (q *QueryBuilder) CreateDeepWithPrefer(ctx context.Context, entity any, pre
 	req = req.WithJSON(entity)
 	req = req.WithHeader("Content-Type", "application/json;odata.metadata=minimal")
 	if prefer != "" {
+		// Strip CR/LF from the Prefer value to prevent HTTP header injection.
+		prefer = strings.NewReplacer("\r", "", "\n", "").Replace(prefer)
 		req = req.WithHeader("Prefer", prefer)
 	}
 	req = req.WithContext(ctx)

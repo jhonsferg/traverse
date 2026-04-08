@@ -368,8 +368,13 @@ func (q *QueryBuilder) fetchPageStreamed(ctx context.Context, pageURL string) (*
 
 	// Check response status
 	if stream.StatusCode != 200 {
-		// Try to parse error response
 		body, _ := io.ReadAll(stream.Body)
+		// Truncate to avoid leaking large sensitive server error responses into
+		// log lines and error tracking systems.
+		const maxErrBody = 512
+		if len(body) > maxErrBody {
+			body = body[:maxErrBody]
+		}
 		return nil, fmt.Errorf("HTTP %d: %s", stream.StatusCode, string(body))
 	}
 
