@@ -22,6 +22,9 @@ func sanitizeHeaderValue(v string) string {
 //	    IfMatch(`W/"abc123"`).
 //	    Page(ctx)
 func (q *QueryBuilder) IfMatch(etag string) *QueryBuilder {
+	if q.conditionalHeaders == nil {
+		q.conditionalHeaders = make(map[string]string, 2)
+	}
 	q.conditionalHeaders["If-Match"] = sanitizeHeaderValue(etag)
 	return q
 }
@@ -34,6 +37,9 @@ func (q *QueryBuilder) IfMatch(etag string) *QueryBuilder {
 //	    IfNoneMatch(`"xyz789"`).
 //	    Page(ctx)
 func (q *QueryBuilder) IfNoneMatch(etag string) *QueryBuilder {
+	if q.conditionalHeaders == nil {
+		q.conditionalHeaders = make(map[string]string, 2)
+	}
 	q.conditionalHeaders["If-None-Match"] = sanitizeHeaderValue(etag)
 	return q
 }
@@ -47,6 +53,9 @@ func (q *QueryBuilder) IfNoneMatch(etag string) *QueryBuilder {
 //	    IfModifiedSince(since).
 //	    Page(ctx)
 func (q *QueryBuilder) IfModifiedSince(t time.Time) *QueryBuilder {
+	if q.conditionalHeaders == nil {
+		q.conditionalHeaders = make(map[string]string, 2)
+	}
 	q.conditionalHeaders["If-Modified-Since"] = t.UTC().Format(time.RFC1123)
 	return q
 }
@@ -60,6 +69,9 @@ func (q *QueryBuilder) IfModifiedSince(t time.Time) *QueryBuilder {
 //	    IfUnmodifiedSince(checkpoint).
 //	    Page(ctx)
 func (q *QueryBuilder) IfUnmodifiedSince(t time.Time) *QueryBuilder {
+	if q.conditionalHeaders == nil {
+		q.conditionalHeaders = make(map[string]string, 2)
+	}
 	q.conditionalHeaders["If-Unmodified-Since"] = t.UTC().Format(time.RFC1123)
 	return q
 }
