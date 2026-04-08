@@ -547,6 +547,14 @@ func applyEDMXVocabularyAnnotations(metadata *Metadata, namespace string, rawGro
 					v := val
 					prop.Validation = &v
 				}
+				if meas := ParseMeasuresVocabulary(annots); hasAnyMeasuresField(meas) {
+					m := meas
+					prop.Measures = &m
+				}
+				if ana := ParseAnalyticsVocabulary(annots); hasAnyAnalyticsField(ana) {
+					a := ana
+					prop.Analytics = &a
+				}
 			}
 		}
 		// Also handle entity-level annotations (no "/" in target).
@@ -574,4 +582,17 @@ func hasAnyCoreField(v CoreVocabulary) bool {
 func hasAnyValidationField(v ValidationVocabulary) bool {
 	return v.Minimum != nil || v.Maximum != nil || v.Pattern != "" ||
 		len(v.AllowedValues) > 0 || v.Required
+}
+
+// hasAnyMeasuresField reports whether any field in v is non-zero.
+func hasAnyMeasuresField(v MeasuresVocabulary) bool {
+	return v.ISOCurrency != "" || v.Scale != nil || v.Unit != "" ||
+		v.SIPrefix != "" || v.DurationGranularity != ""
+}
+
+// hasAnyAnalyticsField reports whether any field in v is non-zero.
+func hasAnyAnalyticsField(v AnalyticsVocabulary) bool {
+	return v.AggregationMethod != "" || v.IsDimension || v.IsMeasure ||
+		v.RollupLevels != 0 || len(v.ReferencedProperties) > 0 ||
+		len(v.GroupableProperties) > 0 || len(v.AggregatableProperties) > 0
 }
