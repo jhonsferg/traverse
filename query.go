@@ -11,6 +11,8 @@ import (
 	"strings"
 	"sync"
 	"time"
+
+	"github.com/jhonsferg/relay"
 )
 
 // validOpsSet contains all valid OData comparison and logical operators.
@@ -252,6 +254,12 @@ type QueryBuilder struct {
 	// The value controls how many pages may be fetched ahead (clamped to 1-3).
 	// A value of -1 explicitly disables prefetching even if a previous call set it.
 	prefetchPages int
+
+	// schemaVersion, when non-empty, sets the OData-SchemaVersion request header.
+	schemaVersion string
+
+	// preferHeader accumulates OData Prefer header values for this query.
+	preferHeader string
 }
 
 // Select limits the returned properties to only the specified fields.
@@ -991,6 +999,81 @@ func (q *QueryBuilder) Key(key any) *QueryBuilder {
 	return q
 }
 
+// AsType appends a type cast segment to the entity set path, restricting results
+// to entities of the specified derived type.
+//
+// AsType implements OData v4.0 spec section 4.3 (type cast segments) and is used
+// to query polymorphic entity sets returning only instances of a derived type.
+//
+// The typeName should be the fully-qualified OData type name, e.g. "Model.Manager".
+// The resulting URL path becomes /EntitySet/Namespace.DerivedType.
+//
+// Example:
+//
+//	// GET /Employees/Model.Manager?$select=Name,Budget
+//	managers, err := client.From("Employees").AsType("Model.Manager").
+//	    Select("Name", "Budget").Collect(ctx)
+func (q *QueryBuilder) AsType(typeName string) *QueryBuilder {
+	q.entitySet = q.entitySet + "/" + typeName
+	q.urlDirty = true
+	return q
+}
+
+// IsOf returns an OData filter expression string that tests whether entities or
+// a property value are of the given type (isof() function).
+//
+// IsOf implements the OData v4.0 type system function defined in spec section 5.1.1.6.3.
+// Two forms are supported:
+//   - isof(TypeName) - tests whether the entity itself is of the given type
+//   - isof(propertyPath, TypeName) - tests whether a property is of the given type
+//
+// The result can be used directly in [QueryBuilder.Filter].
+//
+// Example:
+//
+//	// $filter=isof(Model.Manager)
+//	client.From("Employees").Filter(traverse.IsOf("Model.Manager")).Collect(ctx)
+//
+//	// $filter=isof(Address, Model.CnAddress)
+//	client.From("People").Filter(traverse.IsOf("Address", "Model.CnAddress")).Collect(ctx)
+func IsOf(args ...string) string {
+	switch len(args) {
+	case 1:
+		return "isof(" + args[0] + ")"
+	case 2:
+		return "isof(" + args[0] + "," + args[1] + ")"
+	default:
+		return ""
+	}
+}
+
+// Cast returns an OData filter expression string that casts a value to the given
+// type (cast() function).
+//
+// Cast implements the OData v4.0 type system function defined in spec section 5.1.1.6.3.
+// Two forms are supported:
+//   - cast(TypeName) - casts the entity itself to the given type
+//   - cast(expression, TypeName) - casts an expression to the given type
+//
+// The result can be used in filter expressions, typically with a comparison operator.
+//
+// Example:
+//
+//	// $filter=cast(Budget,Edm.Decimal) gt 1000
+//	client.From("Projects").
+//	    Filter(traverse.Cast("Budget", "Edm.Decimal") + " gt 1000").
+//	    Collect(ctx)
+func Cast(args ...string) string {
+	switch len(args) {
+	case 1:
+		return "cast(" + args[0] + ")"
+	case 2:
+		return "cast(" + args[0] + "," + args[1] + ")"
+	default:
+		return ""
+	}
+}
+
 // BulkDelete deletes all entities in the entity set that match the current filter.
 //
 // BulkDelete sends a DELETE request against the collection URL with any $filter
@@ -1011,9 +1094,7 @@ func (q *QueryBuilder) BulkDelete(ctx context.Context) error {
 		req = req.WithQueryParam("$filter", q.filterExpr)
 	}
 
-	for k, v := range q.conditionalHeaders {
-		req = req.WithHeader(k, v)
-	}
+	req = q.applyQueryHeaders(req)
 
 	resp, execErr := q.client.http.Execute(req)
 	if execErr != nil {
@@ -1030,6 +1111,59 @@ func (q *QueryBuilder) BulkDelete(ctx context.Context) error {
 		return fmt.Errorf("traverse: BulkDelete conflict: %w", ErrConcurrencyConflict)
 	default:
 		return fmt.Errorf("traverse: BulkDelete returned status %d", resp.StatusCode)
+	}
+}
+
+// BulkUpdate updates all entities in the entity set that match the current filter
+// by applying the provided partial update data.
+//
+// BulkUpdate sends a PATCH request against the collection URL with any $filter
+// already set on the QueryBuilder (OData v4.01 section 11.4.13 - collection PATCH).
+//
+// The data parameter can be any JSON-serializable value: a map, a typed struct,
+// or a pointer to a struct. Only the fields present in data are updated on each
+// matching entity; other fields are left unchanged.
+//
+// BulkUpdate returns [ErrEntityNotFound] when no entities match the filter,
+// and [ErrConcurrencyConflict] on a 409 or 412 response.
+//
+// Example:
+//
+//	// Archive all discontinued products
+//	err := client.From("Products").
+//	    Filter("Category eq 'Discontinued'").
+//	    BulkUpdate(ctx, map[string]any{"Status": "Archived"})
+//
+//	// Typed struct patch
+//	err := client.From("Orders").
+//	    Filter("Status eq 'Draft'").
+//	    BulkUpdate(ctx, OrderPatch{Status: "Confirmed"})
+func (q *QueryBuilder) BulkUpdate(ctx context.Context, data interface{}) error {
+	path := "/" + q.entitySet
+
+	req := q.client.http.Patch(path).WithContext(ctx).WithJSON(data)
+
+	if q.filterExpr != "" {
+		req = req.WithQueryParam("$filter", q.filterExpr)
+	}
+
+	req = q.applyQueryHeaders(req)
+
+	resp, execErr := q.client.http.Execute(req)
+	if execErr != nil {
+		return fmt.Errorf("traverse: BulkUpdate failed: %w", execErr)
+	}
+
+	switch resp.StatusCode {
+	case http.StatusOK, http.StatusNoContent:
+		q.client.invalidateEntitySetCache(q.entitySet)
+		return nil
+	case http.StatusNotFound:
+		return fmt.Errorf("traverse: BulkUpdate: %w", ErrEntityNotFound)
+	case http.StatusConflict, http.StatusPreconditionFailed:
+		return fmt.Errorf("traverse: BulkUpdate conflict: %w", ErrConcurrencyConflict)
+	default:
+		return fmt.Errorf("traverse: BulkUpdate returned status %d", resp.StatusCode)
 	}
 }
 
@@ -1101,6 +1235,88 @@ func (q *QueryBuilder) WithCache(ttl time.Duration) *QueryBuilder {
 func (q *QueryBuilder) NoCache() *QueryBuilder {
 	q.noCacheFlag = true
 	return q
+}
+
+// Prefer header constants for OData Prefer request header values.
+// See OData v4.0 spec section 8.2.8.
+const (
+	// PreferHandlingStrict instructs the server to fail if it encounters unknown
+	// query options (handling=strict).
+	PreferHandlingStrict = "handling=strict"
+	// PreferHandlingLenient instructs the server to silently ignore unknown
+	// query options (handling=lenient).
+	PreferHandlingLenient = "handling=lenient"
+	// PreferReturnRepresentation instructs the server to return the full entity
+	// in the response body after a create or update operation (return=representation).
+	PreferReturnRepresentation = "return=representation"
+	// PreferReturnMinimal instructs the server to return 204 No Content after a
+	// create or update operation instead of the full entity (return=minimal).
+	PreferReturnMinimal = "return=minimal"
+	// PreferTrackChanges requests that the server include a deltaLink in the
+	// response, enabling incremental sync on the next request.
+	PreferTrackChanges = "odata.track-changes"
+	// PreferRespondAsync requests that the server process the request asynchronously
+	// and return a 202 Accepted with a status monitor URL.
+	PreferRespondAsync = "respond-async"
+)
+
+// WithPrefer adds an OData Prefer header value to this query.
+//
+// WithPrefer can be called multiple times; values are comma-joined into a single
+// Prefer header, as specified in RFC 7240. Use the Prefer* constants for the
+// standard OData preference values.
+//
+// This implements OData v4.0 spec section 8.2.8.
+//
+// Examples:
+//
+//	// Strict query option handling
+//	client.From("Products").WithPrefer(traverse.PreferHandlingStrict).Collect(ctx)
+//
+//	// Request delta tracking
+//	client.From("Orders").WithPrefer(traverse.PreferTrackChanges).Page(ctx)
+//
+//	// Combine multiple preferences
+//	client.From("Products").
+//	    WithPrefer(traverse.PreferHandlingLenient).
+//	    WithPrefer(traverse.PreferReturnRepresentation).
+//	    Collect(ctx)
+func (q *QueryBuilder) WithPrefer(pref string) *QueryBuilder {
+	if q.preferHeader == "" {
+		q.preferHeader = pref
+	} else {
+		q.preferHeader = q.preferHeader + ", " + pref
+	}
+	return q
+}
+
+// WithSchemaVersion sets the OData-SchemaVersion request header for this query only.
+//
+// This overrides any schema version set at the client level for this specific query.
+// See [traverse.WithSchemaVersion] for the client-level option.
+//
+// Example:
+//
+//	client.From("Products").WithSchemaVersion("1.5").Collect(ctx)
+func (q *QueryBuilder) WithSchemaVersion(version string) *QueryBuilder {
+	q.schemaVersion = version
+	return q
+}
+
+// applyQueryHeaders applies all per-query HTTP headers (conditional headers,
+// Prefer header, and OData-SchemaVersion) to a relay request.
+// This centralises header injection so every request method gets the same headers.
+func (q *QueryBuilder) applyQueryHeaders(req *relay.Request) *relay.Request {
+	for k, v := range q.conditionalHeaders {
+		req = req.WithHeader(k, v)
+	}
+	if q.preferHeader != "" {
+		req = req.WithHeader("Prefer", q.preferHeader)
+	}
+	if q.schemaVersion != "" {
+		req = req.WithHeader("OData-SchemaVersion", q.schemaVersion)
+	}
+	return req
 }
 
 // BoundFunction creates a builder for an OData function bound to this entity set.
@@ -1318,9 +1534,7 @@ func (q *QueryBuilder) FindByKey(ctx context.Context, key interface{}) (map[stri
 	url := fmt.Sprintf("%s(%s)", q.entitySet, keyStr)
 	req := q.client.http.Get(url)
 	req = req.WithContext(ctx)
-	for k, v := range q.conditionalHeaders {
-		req = req.WithHeader(k, v)
-	}
+	req = q.applyQueryHeaders(req)
 
 	resp, err := q.client.http.Execute(req)
 	if err != nil {
@@ -1389,9 +1603,7 @@ func (q *QueryBuilder) FindByCompositeKey(ctx context.Context, keys map[string]i
 	url := fmt.Sprintf("%s(%s)", q.entitySet, strings.Join(keyParts, ","))
 	req := q.client.http.Get(url)
 	req = req.WithContext(ctx)
-	for k, v := range q.conditionalHeaders {
-		req = req.WithHeader(k, v)
-	}
+	req = q.applyQueryHeaders(req)
 
 	resp, err := q.client.http.Execute(req)
 	if err != nil {
@@ -1498,9 +1710,7 @@ func (q *QueryBuilder) Count(ctx context.Context) (int64, error) {
 
 	req := q.client.http.Get(path)
 	req = req.WithContext(ctx)
-	for k, v := range q.conditionalHeaders {
-		req = req.WithHeader(k, v)
-	}
+	req = q.applyQueryHeaders(req)
 
 	resp, err := q.client.http.Execute(req)
 	if err != nil {
@@ -1601,9 +1811,7 @@ func (q *QueryBuilder) Page(ctx context.Context) (*Page, error) {
 
 	req := q.client.http.Get(rawURL)
 	req = req.WithContext(ctx)
-	for k, v := range q.conditionalHeaders {
-		req = req.WithHeader(k, v)
-	}
+	req = q.applyQueryHeaders(req)
 	if q.noCacheFlag {
 		req = req.WithHeader("Cache-Control", "no-cache")
 	}
@@ -1653,9 +1861,7 @@ func (q *QueryBuilder) fetchPageCached(ctx context.Context, rawURL string) (*Pag
 	// Build the HTTP request, applying any user-specified conditional headers.
 	req := q.client.http.Get(rawURL)
 	req = req.WithContext(ctx)
-	for k, v := range q.conditionalHeaders {
-		req = req.WithHeader(k, v)
-	}
+	req = q.applyQueryHeaders(req)
 
 	// Add conditional revalidation headers from the stale cached entry when the
 	// caller has not already supplied the same header explicitly.
@@ -1917,6 +2123,7 @@ func (q *QueryBuilder) buildURL() string {
 		bufferPool.Put(buf)
 	}()
 
+	buf.WriteString("/")
 	buf.WriteString(q.entitySet)
 
 	// Track if we need to add the first parameter.
@@ -2008,7 +2215,12 @@ func (q *QueryBuilder) buildURL() string {
 		} else {
 			buf.WriteString("&")
 		}
-		buf.WriteString("$count=true")
+		// OData v2 uses $inlinecount=allpages; OData v4 uses $count=true
+		if q.client != nil && q.client.version == ODataV2 {
+			buf.WriteString("$inlinecount=allpages")
+		} else {
+			buf.WriteString("$count=true")
+		}
 	}
 
 	if q.search != "" {
@@ -2900,6 +3112,8 @@ type expandConfig struct {
 	topCount *int
 	// skipCount is the number of related entities to skip
 	skipCount *int
+	// levels is the recursion depth for $levels. 0 means not set; -1 means max.
+	levels int
 }
 
 // WithExpandSelect specifies which fields to include from related entities.
@@ -2992,12 +3206,38 @@ func WithExpandSkip(n int) ExpandOption {
 	}
 }
 
+// LevelsMax is a sentinel value for [WithExpandLevels] that instructs the server
+// to expand recursively to the maximum supported depth ($levels=max).
+const LevelsMax = -1
+
+// WithExpandLevels sets the $levels query option on a nested expand, enabling
+// recursive expansion of a navigation property.
+//
+// Pass a positive integer for a fixed recursion depth, or [LevelsMax] to expand
+// to the maximum depth the server supports.
+//
+// This implements OData v4 spec section 11.2.5.2.1. Only OData v4 services
+// support $levels; the option is silently ignored on v2 services.
+//
+// Example:
+//
+//	// Expand recursively to maximum depth
+//	Expand("Children", WithExpandLevels(traverse.LevelsMax))
+//
+//	// Expand exactly 3 levels deep
+//	Expand("Children", WithExpandLevels(3))
+func WithExpandLevels(n int) ExpandOption {
+	return func(cfg *expandConfig) {
+		cfg.levels = n
+	}
+}
+
 // buildNestedExpand constructs an expand expression with nested query options.
 //
 // buildNestedExpand builds OData expand syntax with optional $select, $filter,
-// $orderby, $top, and $skip clauses applied to a related entity collection.
+// $orderby, $top, $skip, and $levels clauses applied to a related entity collection.
 //
-// Format: NavProp($select=Field1,Field2;$filter=expr;$orderby=field;$top=10;$skip=5)
+// Format: NavProp($select=Field1,Field2;$filter=expr;$orderby=field;$top=10;$skip=5;$levels=max)
 //
 // This is used internally by [QueryBuilder.Expand] with [ExpandOption] configurations
 // to build complex nested expand expressions. If no options are provided, returns
@@ -3009,7 +3249,8 @@ func buildNestedExpand(navProp string, cfg *expandConfig) string {
 
 	// Check if any options were specified
 	hasOptions := len(cfg.selectFields) > 0 || cfg.filterExpr != "" ||
-		cfg.orderByExpr != "" || cfg.topCount != nil || cfg.skipCount != nil
+		cfg.orderByExpr != "" || cfg.topCount != nil || cfg.skipCount != nil ||
+		cfg.levels != 0
 
 	if !hasOptions {
 		return navProp
@@ -3023,15 +3264,24 @@ func buildNestedExpand(navProp string, cfg *expandConfig) string {
 	}()
 
 	buf.WriteString(navProp)
-	buf.WriteString("($")
+	buf.WriteRune('(')
 
 	first := true
 
-	if len(cfg.selectFields) > 0 {
+	// nestedSep writes a semicolon separator between nested options. The
+	// semicolon is percent-encoded (%3B) so that Go's url.ParseQuery
+	// (and HTTP servers using it) do not misinterpret it as a key=value
+	// pair separator. OData servers that correctly implement URL decoding
+	// will see the literal semicolon after decoding.
+	nestedSep := func() {
 		if !first {
-			buf.WriteRune(';')
+			buf.WriteString("%3B")
 		}
-		buf.WriteString("select=")
+	}
+
+	if len(cfg.selectFields) > 0 {
+		nestedSep()
+		buf.WriteString("$select=")
 		for i, field := range cfg.selectFields {
 			if i > 0 {
 				buf.WriteRune(',')
@@ -3042,38 +3292,41 @@ func buildNestedExpand(navProp string, cfg *expandConfig) string {
 	}
 
 	if cfg.filterExpr != "" {
-		if !first {
-			buf.WriteRune(';')
-		}
-		buf.WriteString("filter=")
+		nestedSep()
+		buf.WriteString("$filter=")
 		buf.WriteString(url.QueryEscape(cfg.filterExpr))
 		first = false
 	}
 
 	if cfg.orderByExpr != "" {
-		if !first {
-			buf.WriteRune(';')
-		}
-		buf.WriteString("orderby=")
+		nestedSep()
+		buf.WriteString("$orderby=")
 		buf.WriteString(url.QueryEscape(cfg.orderByExpr))
 		first = false
 	}
 
 	if cfg.topCount != nil {
-		if !first {
-			buf.WriteRune(';')
-		}
-		buf.WriteString("top=")
+		nestedSep()
+		buf.WriteString("$top=")
 		buf.WriteString(strconv.Itoa(*cfg.topCount))
 		first = false
 	}
 
 	if cfg.skipCount != nil {
-		if !first {
-			buf.WriteRune(';')
-		}
-		buf.WriteString("skip=")
+		nestedSep()
+		buf.WriteString("$skip=")
 		buf.WriteString(strconv.Itoa(*cfg.skipCount))
+		first = false
+	}
+
+	if cfg.levels != 0 {
+		nestedSep()
+		buf.WriteString("$levels=")
+		if cfg.levels == LevelsMax {
+			buf.WriteString("max")
+		} else {
+			buf.WriteString(strconv.Itoa(cfg.levels))
+		}
 	}
 
 	buf.WriteRune(')')

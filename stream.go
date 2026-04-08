@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"strconv"
 	"sync"
 )
 
@@ -353,9 +354,7 @@ func (q *QueryBuilder) fetchPageStreamed(ctx context.Context, pageURL string) (*
 
 	req := q.client.http.Get(pageURL)
 	req = req.WithContext(ctx)
-	for k, v := range q.conditionalHeaders {
-		req = req.WithHeader(k, v)
-	}
+	req = q.applyQueryHeaders(req)
 	if q.noCacheFlag {
 		req = req.WithHeader("Cache-Control", "no-cache")
 	}
@@ -555,16 +554,20 @@ func parseODataV2Wrapper(decoder *json.Decoder, page *Page) error {
 			page.NextLink = nextLink
 
 		case "__count":
-			// OData v2 count format
+			// OData v2 count format -- value is a JSON string (e.g. "42") per spec.
 			var count interface{}
 			err = decoder.Decode(&count)
 			if err != nil {
 				return fmt.Errorf("failed to decode __count: %w", err)
 			}
-			// Convert to int64 if possible
-			if c, ok := count.(float64); ok {
+			switch c := count.(type) {
+			case float64:
 				cnt := int64(c)
 				page.Count = &cnt
+			case string:
+				if cnt, parseErr := strconv.ParseInt(c, 10, 64); parseErr == nil {
+					page.Count = &cnt
+				}
 			}
 
 		default:
