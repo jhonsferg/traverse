@@ -210,16 +210,6 @@ func parseCapabilityTerms(ann xmlAnnotation, cap *EntityCapabilities) {
 func extractNamesFromPV(collections interface{}) []string {
 	var result []string
 
-	// Handle the typed XML struct slice used by parseCapabilityTerms.
-	type xmlCollectionRecord struct {
-		XMLName        interface{}
-		PropertyValues []struct {
-			XMLName  interface{}
-			Property string
-			String   string
-		}
-	}
-
 	switch v := collections.(type) {
 	// Typed XML struct: []struct{XMLName...; Records[]struct{...}}
 	case []struct {
