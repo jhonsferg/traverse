@@ -16,7 +16,7 @@ import (
 // - Caches tokens with ~30-minute expiry
 // - Auto-injects tokens on write operations
 // - Handles 403 errors by refreshing the token
-// - Is thread-safe via sync.RWMutex
+// - Is thread-safe via sync.RWMutex + fetchMu to prevent thundering herd
 type CSRFMiddleware struct {
 	client  *relay.Client
 	baseURL string
@@ -24,6 +24,12 @@ type CSRFMiddleware struct {
 	mu        sync.RWMutex
 	token     string
 	expiresAt time.Time
+
+	// fetchMu serialises concurrent token fetch attempts (thundering herd
+	// prevention). After acquiring fetchMu, callers re-check validity under
+	// mu.RLock before actually calling Fetch so that only one network round-trip
+	// is made even when many goroutines simultaneously observe an expired token.
+	fetchMu sync.Mutex
 }
 
 // NewCSRFMiddleware creates a new CSRF token middleware.
@@ -73,25 +79,41 @@ func (c *CSRFMiddleware) Fetch(ctx context.Context) error {
 
 // GetToken returns the current token, fetching a new one if expired.
 // This is the main API for obtaining a token - it handles refresh logic.
+// Concurrent callers that simultaneously observe an expired token are
+// serialised by fetchMu so only one token fetch round-trip is made.
 func (c *CSRFMiddleware) GetToken(ctx context.Context) (string, error) {
+	// Fast path: valid token already cached.
 	c.mu.RLock()
-
-	// Check if we have a valid token
 	if c.token != "" && time.Now().Before(c.expiresAt) {
-		defer c.mu.RUnlock()
-		return c.token, nil
+		t := c.token
+		c.mu.RUnlock()
+		return t, nil
 	}
-
 	c.mu.RUnlock()
 
-	// Token missing or expired - fetch a new one
+	// Slow path: token missing or expired. Serialise fetch attempts so that
+	// only one goroutine makes the network call even under high concurrency
+	// (double-checked locking pattern).
+	c.fetchMu.Lock()
+	defer c.fetchMu.Unlock()
+
+	// Re-check under read lock: another goroutine may have fetched while we
+	// waited for fetchMu.
+	c.mu.RLock()
+	if c.token != "" && time.Now().Before(c.expiresAt) {
+		t := c.token
+		c.mu.RUnlock()
+		return t, nil
+	}
+	c.mu.RUnlock()
+
+	// Token still missing or expired - fetch a new one.
 	if err := c.Fetch(ctx); err != nil {
 		return "", err
 	}
 
 	c.mu.RLock()
 	defer c.mu.RUnlock()
-
 	return c.token, nil
 }
 
@@ -108,7 +130,10 @@ func (c *CSRFMiddleware) InvalidateToken() {
 // Inject injects the CSRF token into a request if needed.
 // Only injects for write operations (POST, PATCH, PUT, DELETE).
 // For GET requests, no token is needed.
-// This method can be used as a relay hook via WithOnBeforeRequest.
+//
+// Note: this method's signature (returns *relay.Request) does not match the
+// relay.WithOnBeforeRequest hook type. Use Hook() to obtain a ready-to-use
+// relay hook function instead.
 func (c *CSRFMiddleware) Inject(ctx context.Context, req *relay.Request) (*relay.Request, error) {
 	// Only inject for write operations
 	method := req.Method()
@@ -125,6 +150,26 @@ func (c *CSRFMiddleware) Inject(ctx context.Context, req *relay.Request) (*relay
 	// Inject token header
 	req = req.WithHeader("X-CSRF-Token", token)
 	return req, nil
+}
+
+// Hook returns a relay.WithOnBeforeRequest-compatible hook function that
+// injects the CSRF token into write requests. Use this when registering
+// the middleware with a relay client:
+//
+//	relay.WithOnBeforeRequest(csrfMiddleware.Hook())
+func (c *CSRFMiddleware) Hook() func(context.Context, *relay.Request) error {
+	return func(ctx context.Context, req *relay.Request) error {
+		method := req.Method()
+		if method != "POST" && method != "PATCH" && method != "PUT" && method != "DELETE" {
+			return nil
+		}
+		token, err := c.GetToken(ctx)
+		if err != nil {
+			return fmt.Errorf("traverse: failed to get csrf token: %w", err)
+		}
+		req.WithHeader("X-CSRF-Token", token)
+		return nil
+	}
 }
 
 // HandleResponse processes responses for CSRF-related errors.

@@ -183,7 +183,10 @@ func (c *Client) Batch() *BatchRequest {
 //
 //	batch.Get("Customers", 1)
 func (b *BatchRequest) Get(entitySet string, key interface{}) *BatchRequest {
-	keyStr, _ := encodeKey(key)
+	keyStr, err := encodeKey(key)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "warning: traverse batch.Get: invalid key (%T %v): %v\n", key, key, err)
+	}
 	var urlBuilder strings.Builder
 	urlBuilder.WriteString(entitySet)
 	urlBuilder.WriteString("(")
@@ -250,7 +253,10 @@ func (b *BatchRequest) Create(entitySet string, data interface{}) *BatchRequest 
 //
 //	batch.Update("Orders", 123, map[string]interface{}{"Total": 150.00})
 func (b *BatchRequest) Update(entitySet string, key interface{}, data interface{}) *BatchRequest {
-	keyStr, _ := encodeKey(key)
+	keyStr, err := encodeKey(key)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "warning: traverse batch.Update: invalid key (%T %v): %v\n", key, key, err)
+	}
 	var urlBuilder strings.Builder
 	urlBuilder.WriteString(entitySet)
 	urlBuilder.WriteString("(")
@@ -288,7 +294,10 @@ func (b *BatchRequest) Update(entitySet string, key interface{}, data interface{
 //
 //	batch.Delete("Orders", 123)
 func (b *BatchRequest) Delete(entitySet string, key interface{}) *BatchRequest {
-	keyStr, _ := encodeKey(key)
+	keyStr, err := encodeKey(key)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "warning: traverse batch.Delete: invalid key (%T %v): %v\n", key, key, err)
+	}
 	var urlBuilder strings.Builder
 	urlBuilder.WriteString(entitySet)
 	urlBuilder.WriteString("(")
