@@ -8,6 +8,8 @@ github.com/jhonsferg/relay v0.2.2-0.20260408011718-7718ac7fa271 h1:t1MWqKLKyIdyf
 github.com/jhonsferg/relay v0.2.2-0.20260408011718-7718ac7fa271/go.mod h1:jfzqTFp6JsDoM1SdWT7tKJ8We5QCUG+2zluZgFmqLgg=
 github.com/jhonsferg/relay v0.2.2 h1:yVi8QUXLAFY/fRw3fzezU8VwHTAGwoq8+qLJN8qIa5U=
 github.com/jhonsferg/relay v0.2.2/go.mod h1:jfzqTFp6JsDoM1SdWT7tKJ8We5QCUG+2zluZgFmqLgg=
+github.com/jhonsferg/relay v0.3.0 h1:bufhX+O5x2JmNuWcSM26KdfPRpdAXtCWk+MFAVVl7JE=
+github.com/jhonsferg/relay v0.3.0/go.mod h1:jfzqTFp6JsDoM1SdWT7tKJ8We5QCUG+2zluZgFmqLgg=
 github.com/klauspost/compress v1.18.5 h1:/h1gH5Ce+VWNLSWqPzOVn6XBO+vJbCNGvjoaGBFW2IE=
 github.com/klauspost/compress v1.18.5/go.mod h1:cwPg85FWrGar70rWktvGQj8/hthj3wpl0PGDogxkrSQ=
 github.com/pmezard/go-difflib v1.0.0 h1:4DBwDE0NGyQoBHbLQYPwSUPoCMWR5BEzIk/f1lZbAQM=

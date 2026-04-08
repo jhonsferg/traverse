@@ -301,3 +301,63 @@ func TestRelayClientIntegration(t *testing.T) {
 		t.Fatalf("Relay client not set correctly")
 	}
 }
+
+// TestWithRelayClient_InheritsBaseURL verifies that when a relay client is configured
+// with relay.WithBaseURL, traverse.New() does not require traverse.WithBaseURL to be
+// set separately - the base URL is inherited automatically.
+func TestWithRelayClient_InheritsBaseURL(t *testing.T) {
+	relayClient := relay.New(relay.WithBaseURL("https://sap.example.com/sap/opu/odata/sap"))
+
+	client, err := New(
+		WithRelayClient(relayClient),
+		// No traverse.WithBaseURL - should be inherited from relay client
+	)
+	if err != nil {
+		t.Fatalf("New() with WithRelayClient having base URL should not require traverse.WithBaseURL: %v", err)
+	}
+
+	// The base URL should be inherited (relay may normalise to add trailing slash)
+	got := client.baseURL
+	if got == "" {
+		t.Fatal("client.baseURL is empty - base URL was not inherited from relay client")
+	}
+}
+
+// TestWithRelayClient_RequiresBaseURLWhenRelayHasNone verifies that if neither
+// traverse.WithBaseURL nor relay.WithBaseURL is provided, New() returns an error.
+func TestWithRelayClient_RequiresBaseURLWhenRelayHasNone(t *testing.T) {
+	relayClient := relay.New() // no WithBaseURL
+
+	_, err := New(
+		WithRelayClient(relayClient),
+		// No traverse.WithBaseURL and relay has no base URL either
+	)
+	if err == nil {
+		t.Fatal("New() should return error when neither traverse nor relay has a base URL")
+	}
+}
+
+// TestWithRelayClient_TraverseOptionsApplied verifies that traverse-level options
+// that map to relay behaviour (e.g. WithHeader) are applied to the provided relay
+// client and not silently dropped.
+func TestWithRelayClient_TraverseOptionsApplied(t *testing.T) {
+	relayClient := relay.New(relay.WithBaseURL("https://sap.example.com"))
+
+	// WithHeader appends a relay.WithDefaultHeaders option to cfg.relayOpts.
+	// With the fix, this should be applied via relayClient.With(...).
+	client, err := New(
+		WithRelayClient(relayClient),
+		WithHeader("sap-client", "100"),
+	)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if client == nil {
+		t.Fatal("expected non-nil client")
+	}
+	// The relay client stored in the traverse client should be a new instance
+	// (rc.With returns a new client), not the original, since options were applied.
+	if client.http == relayClient {
+		t.Fatal("expected traverse to store a derived relay client (after .With()), not the original")
+	}
+}
