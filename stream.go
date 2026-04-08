@@ -5,9 +5,42 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"net/url"
 	"strconv"
 	"sync"
 )
+
+// maxPaginationIterations is the maximum number of pages traverse will follow
+// via server-provided nextLink values. This prevents infinite loops and limits
+// exposure to SSRF via unbounded server-controlled redirects.
+const maxPaginationIterations = 100_000
+
+// validateNextLink checks that the nextLink URL has the same host as the
+// client's configured baseURL, preventing SSRF attacks where a malicious OData
+// server returns a nextLink pointing to an arbitrary external host.
+// Relative nextLinks (no host) are allowed — they are resolved against the same service.
+func validateNextLink(nextLink, baseURL string) error {
+	if nextLink == "" {
+		return nil
+	}
+	nl, err := url.Parse(nextLink)
+	if err != nil {
+		return fmt.Errorf("traverse: invalid nextLink URL %q: %w", nextLink, err)
+	}
+	// Relative URLs have no host; they are inherently safe as they resolve
+	// against the client's base URL (same origin).
+	if nl.Host == "" {
+		return nil
+	}
+	base, err := url.Parse(baseURL)
+	if err != nil {
+		return fmt.Errorf("traverse: invalid base URL %q: %w", baseURL, err)
+	}
+	if nl.Host != base.Host {
+		return fmt.Errorf("traverse: nextLink host %q does not match service host %q", nl.Host, base.Host)
+	}
+	return nil
+}
 
 // mapPool is a global object pool for reusing map[string]interface{} allocations.
 //
@@ -219,6 +252,13 @@ func (q *QueryBuilder) doStreamPages(ctx context.Context, out chan<- Result[map[
 	nextLink := q.buildURL()
 
 	for nextLink != "" {
+		if pageNum > maxPaginationIterations {
+			out <- Result[map[string]interface{}]{
+				Err: fmt.Errorf("traverse: exceeded maximum pagination limit of %d pages", maxPaginationIterations),
+			}
+			return
+		}
+
 		select {
 		case <-ctx.Done():
 			out <- Result[map[string]interface{}]{
@@ -259,11 +299,13 @@ func (q *QueryBuilder) doStreamPages(ctx context.Context, out chan<- Result[map[
 		// Return all records from this page to pool
 		returnPageToPool(page, len(page.Value))
 
-		// Check for next page
+		// Validate and follow next page link
 		nextLink = page.NextLink
+		if err := validateNextLink(nextLink, q.client.baseURL); err != nil {
+			out <- Result[map[string]interface{}]{Err: err}
+			return
+		}
 		pageNum++
-
-		// If there's a next link, fetch it in the next iteration
 	}
 }
 
@@ -290,6 +332,13 @@ func (q *QueryBuilder) doStreamPagesRaw(ctx context.Context, out chan<- RawResul
 	nextLink := q.buildURL()
 
 	for nextLink != "" {
+		if pageNum > maxPaginationIterations {
+			out <- RawResult{
+				Err: fmt.Errorf("traverse: exceeded maximum pagination limit of %d pages", maxPaginationIterations),
+			}
+			return
+		}
+
 		select {
 		case <-ctx.Done():
 			out <- RawResult{
@@ -325,11 +374,13 @@ func (q *QueryBuilder) doStreamPagesRaw(ctx context.Context, out chan<- RawResul
 			}
 		}
 
-		// Check for next page
+		// Validate and follow next page link
 		nextLink = page.NextLink
+		if err := validateNextLink(nextLink, q.client.baseURL); err != nil {
+			out <- RawResult{Err: err}
+			return
+		}
 		pageNum++
-
-		// If there's a next link, fetch it in the next iteration
 	}
 }
 

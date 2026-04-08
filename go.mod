@@ -2,7 +2,7 @@ module github.com/jhonsferg/traverse
 
 go 1.24.0
 
-require github.com/jhonsferg/relay v0.3.0
+require github.com/jhonsferg/relay v0.3.1
 
 require (
 	github.com/andybalholm/brotli v1.2.1 // indirect

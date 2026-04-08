@@ -45,7 +45,8 @@ func ParseEDMX(reader io.Reader) (*Metadata, error) {
 	// which causes Go's xml decoder to expand sap:* attributes to full namespace URIs.
 	// By stripping the namespace declaration before parsing, we ensure sap:label etc.
 	// are matched as unprefixed namespace "sap" which the struct tags handle uniformly.
-	raw, err := io.ReadAll(reader)
+	// Limit metadata read to 100 MB to prevent OOM from maliciously large documents.
+	raw, err := io.ReadAll(io.LimitReader(reader, 100*1024*1024))
 	if err != nil {
 		return nil, fmt.Errorf("traverse: failed to read EDMX: %w", err)
 	}

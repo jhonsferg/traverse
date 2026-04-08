@@ -114,6 +114,10 @@ func (p *Paginator[T]) NextPage(ctx context.Context) ([]T, error) {
 	p.nextLink = page.NextLink
 	if p.nextLink == "" {
 		p.done = true
+	} else {
+		if err := validateNextLink(p.nextLink, p.query.client.baseURL); err != nil {
+			return nil, err
+		}
 	}
 
 	items, decErr := p.decodeRaw(page)

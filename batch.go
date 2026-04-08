@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"mime/multipart"
@@ -56,6 +57,9 @@ type BatchRequest struct {
 	changesets map[string]*changeset
 	// currentCS is the currently open changeset being built
 	currentCS *changeset
+	// buildErrs collects errors from builder methods (e.g. invalid key types)
+	// that cannot be returned directly due to method-chaining API.
+	buildErrs []error
 }
 
 // changeset represents a transaction group within a batch request.
@@ -129,7 +133,12 @@ func (op *BatchOperation) SetBody(data interface{}) error {
 	return nil
 }
 
-// BatchResponse represents the response from a batch operation.
+// batchMaxResponseCount is the maximum number of batch response parts traverse
+// will parse. This prevents OOM from server responses with unbounded part counts.
+const batchMaxResponseCount = 10_000
+
+// batchMaxPartBodySize is the maximum number of bytes read per batch response part.
+const batchMaxPartBodySize = 10 * 1024 * 1024 // 10 MB
 //
 // BatchResponse contains the results of all operations in a batch request,
 // with one [BatchResult] entry per operation in the same order as submitted.
@@ -185,6 +194,7 @@ func (c *Client) Batch() *BatchRequest {
 func (b *BatchRequest) Get(entitySet string, key interface{}) *BatchRequest {
 	keyStr, err := encodeKey(key)
 	if err != nil {
+		b.buildErrs = append(b.buildErrs, fmt.Errorf("traverse batch.Get: invalid key (%T %v): %w", key, key, err))
 		fmt.Fprintf(os.Stderr, "warning: traverse batch.Get: invalid key (%T %v): %v\n", key, key, err)
 	}
 	var urlBuilder strings.Builder
@@ -255,6 +265,7 @@ func (b *BatchRequest) Create(entitySet string, data interface{}) *BatchRequest 
 func (b *BatchRequest) Update(entitySet string, key interface{}, data interface{}) *BatchRequest {
 	keyStr, err := encodeKey(key)
 	if err != nil {
+		b.buildErrs = append(b.buildErrs, fmt.Errorf("traverse batch.Update: invalid key (%T %v): %w", key, key, err))
 		fmt.Fprintf(os.Stderr, "warning: traverse batch.Update: invalid key (%T %v): %v\n", key, key, err)
 	}
 	var urlBuilder strings.Builder
@@ -296,6 +307,7 @@ func (b *BatchRequest) Update(entitySet string, key interface{}, data interface{
 func (b *BatchRequest) Delete(entitySet string, key interface{}) *BatchRequest {
 	keyStr, err := encodeKey(key)
 	if err != nil {
+		b.buildErrs = append(b.buildErrs, fmt.Errorf("traverse batch.Delete: invalid key (%T %v): %w", key, key, err))
 		fmt.Fprintf(os.Stderr, "warning: traverse batch.Delete: invalid key (%T %v): %v\n", key, key, err)
 	}
 	var urlBuilder strings.Builder
@@ -398,6 +410,11 @@ func (b *BatchRequest) Execute(ctx context.Context) (*BatchResponse, error) {
 		b.EndChangeset()
 	}
 
+	// Surface any build-time errors (e.g. invalid key types in Get/Update/Delete).
+	if len(b.buildErrs) > 0 {
+		return nil, fmt.Errorf("traverse: batch has build errors: %w", errors.Join(b.buildErrs...))
+	}
+
 	// Build multipart/mixed request body
 	body, boundary, err := b.buildMultipartBody()
 	if err != nil {
@@ -461,6 +478,14 @@ func (b *BatchRequest) ExecuteStream(ctx context.Context) <-chan BatchResult {
 		// Ensure any open changeset is closed
 		if b.currentCS != nil {
 			b.EndChangeset()
+		}
+
+		// Surface any build-time errors.
+		if len(b.buildErrs) > 0 {
+			out <- BatchResult{
+				Err: fmt.Errorf("traverse: batch has build errors: %w", errors.Join(b.buildErrs...)),
+			}
+			return
 		}
 
 		// Build multipart/mixed request body
@@ -865,6 +890,10 @@ func (b *BatchRequest) parseMultipartResponse(resp *relay.Response) ([]BatchResu
 			}
 			results = append(results, result)
 		}
+
+		if len(results) > batchMaxResponseCount {
+			return nil, fmt.Errorf("traverse: batch response exceeds maximum of %d parts", batchMaxResponseCount)
+		}
 	}
 
 	return results, nil
@@ -918,8 +947,8 @@ func (b *BatchRequest) parseResponsePart(part *multipart.Part) (BatchResult, err
 		Headers: make(map[string]string),
 	}
 
-	// Read the part content
-	body, err := io.ReadAll(part)
+	// Read the part content, capped to batchMaxPartBodySize to prevent OOM.
+	body, err := io.ReadAll(io.LimitReader(part, batchMaxPartBodySize))
 	if err != nil {
 		return result, fmt.Errorf("traverse: error reading response part: %w", err)
 	}
