@@ -110,6 +110,25 @@ func parseCSDLSchema(namespace string, obj map[string]json.RawMessage, md *Metad
 			continue
 		}
 
+		// OData CSDL JSON allows Function/Action overloads as JSON arrays.
+		// Try array format first (OData spec 4.0 section 5.1.1.2).
+		if len(val) > 0 && val[0] == '[' {
+			var overloads []map[string]json.RawMessage
+			if err := json.Unmarshal(val, &overloads); err == nil {
+				for _, overload := range overloads {
+					switch csdlKind(overload) {
+					case "Function":
+						fi := parseCSDLFunction(name, overload)
+						md.Functions = append(md.Functions, fi)
+					case "Action":
+						ai := parseCSDLAction(name, overload)
+						md.Actions = append(md.Actions, ai)
+					}
+				}
+			}
+			continue
+		}
+
 		var child map[string]json.RawMessage
 		if err := json.Unmarshal(val, &child); err != nil {
 			continue
@@ -144,7 +163,7 @@ func parseCSDLSchema(namespace string, obj map[string]json.RawMessage, md *Metad
 			md.Functions = append(md.Functions, fi)
 
 		default:
-			// Unknown or absent $Kind  -  silently skip for forward compatibility.
+			// Unknown or absent $Kind - silently skip for forward compatibility.
 		}
 	}
 }

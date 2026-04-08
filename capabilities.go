@@ -209,8 +209,31 @@ func parseCapabilityTerms(ann xmlAnnotation, cap *EntityCapabilities) {
 
 func extractNamesFromPV(collections interface{}) []string {
 	var result []string
-	// Safely cast and extract names
+
 	switch v := collections.(type) {
+	// Typed XML struct: []struct{XMLName...; Records[]struct{...}}
+	case []struct {
+		XMLName xml.Name `xml:"Collection"`
+		Records []struct {
+			XMLName        xml.Name `xml:"Record"`
+			PropertyValues []struct {
+				XMLName  xml.Name `xml:"PropertyValue"`
+				Property string   `xml:"Property,attr"`
+				String   string   `xml:"String,attr"`
+			} `xml:"PropertyValue"`
+		} `xml:"Record"`
+	}:
+		for _, col := range v {
+			for _, rec := range col.Records {
+				for _, pv := range rec.PropertyValues {
+					if pv.Property == "Name" && pv.String != "" {
+						result = append(result, pv.String)
+					}
+				}
+			}
+		}
+
+	// Dynamic JSON/map variant (kept for backward compatibility).
 	case []interface{}:
 		for _, cItem := range v {
 			if cMap, ok := cItem.(map[string]interface{}); ok {

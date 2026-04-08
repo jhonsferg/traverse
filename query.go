@@ -1396,6 +1396,19 @@ func (q *QueryBuilder) Stream(ctx context.Context, bufferSize ...int) <-chan Res
 
 	out := make(chan Result[map[string]interface{}], buffer)
 
+	// Run beforeQuery hooks before any I/O.
+	if q.client != nil {
+		for _, hook := range q.client.beforeQuery {
+			if err := hook(q); err != nil {
+				streamPool.submit(func() {
+					out <- Result[map[string]interface{}]{Err: err}
+					close(out)
+				})
+				return out
+			}
+		}
+	}
+
 	streamPool.submit(func() {
 		defer close(out)
 		if q.prefetchPages > 0 {
