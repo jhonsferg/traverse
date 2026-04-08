@@ -2,7 +2,7 @@ module github.com/jhonsferg/traverse
 
 go 1.24.0
 
-require github.com/jhonsferg/relay v0.2.0
+require github.com/jhonsferg/relay v0.2.2-0.20260408011718-7718ac7fa271
 
 require (
 	github.com/andybalholm/brotli v1.2.1 // indirect
@@ -14,8 +14,6 @@ require (
 	github.com/jhonsferg/traverse/ext/cache/memory v0.1.0
 	golang.org/x/sync v0.19.0 // indirect
 )
-
-replace github.com/jhonsferg/relay => ../relay
 
 replace github.com/jhonsferg/traverse/ext/cache/memory => ./ext/cache/memory
 
