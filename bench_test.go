@@ -249,3 +249,31 @@ func BenchmarkQueryBuilderWithURLCache(b *testing.B) {
 		_ = qb.buildURL() // Should hit cache
 	}
 }
+
+// BenchmarkTypeCastSegment benchmarks AsType path construction (0 allocs expected after URL cache warm).
+func BenchmarkTypeCastSegment(b *testing.B) {
+	client, _ := New(WithBaseURL("http://localhost:8080/odata"))
+
+	b.ReportAllocs()
+	b.ResetTimer()
+
+	for i := 0; i < b.N; i++ {
+		qb := client.From("Employees").AsType("NS.Manager")
+		_ = qb.buildURL()
+		_ = qb.buildURL() // hit cache
+	}
+}
+
+// BenchmarkExpandLevels benchmarks Expand with WithExpandLevels (0 allocs for filter portion).
+func BenchmarkExpandLevels(b *testing.B) {
+	client, _ := New(WithBaseURL("http://localhost:8080/odata"))
+
+	b.ReportAllocs()
+	b.ResetTimer()
+
+	for i := 0; i < b.N; i++ {
+		qb := client.From("Categories").
+			Expand("Products", WithExpandLevels(3))
+		_ = qb.buildURL()
+	}
+}

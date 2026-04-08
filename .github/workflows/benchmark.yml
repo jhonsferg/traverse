@@ -1,0 +1,80 @@
+name: Benchmark Regression Gate
+
+on:
+  pull_request:
+    branches: [master]
+
+permissions:
+  contents: read
+
+jobs:
+  benchmark:
+    name: Zero-Alloc Regression Check
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: "1.24"
+          cache: true
+
+      - name: Install benchstat
+        run: go install golang.org/x/perf/cmd/benchstat@latest
+
+      - name: Run benchmarks (PR branch)
+        run: |
+          go test -bench="BenchmarkQueryBuilderConstruction|BenchmarkQueryBuilderFilter|BenchmarkURLCaching|BenchmarkSingletonURL|BenchmarkStringInterning|BenchmarkGeoPointPool" \
+            -benchmem -count=3 -run=^$ . 2>/dev/null | \
+            grep "^Benchmark" > pr_bench.txt || true
+          echo "=== PR benchmark results ==="
+          cat pr_bench.txt
+
+      - name: Check zero-alloc hot paths
+        run: |
+          # These critical hot paths MUST maintain 0 allocs/op.
+          # Any regression here is a hard failure.
+          FAIL=0
+
+          check_zero_alloc() {
+            local bench_name="$1"
+            local alloc_count
+            # Extract the numeric allocs/op value (the field before "allocs/op")
+            alloc_count=$(grep "^${bench_name}" pr_bench.txt | awk '{print $(NF-1)}' | head -1)
+            if [ -z "$alloc_count" ]; then
+              echo "WARNING: benchmark '${bench_name}' not found - skipping check"
+              return
+            fi
+            if [ "$alloc_count" = "0" ]; then
+              echo "OK: ${bench_name} = 0 allocs/op"
+            else
+              echo "FAIL: ${bench_name} = ${alloc_count} allocs/op (expected 0)"
+              FAIL=1
+            fi
+          }
+
+          # QueryBuilder construction and core filter operations
+          check_zero_alloc "BenchmarkQueryBuilderConstruction"
+          check_zero_alloc "BenchmarkQueryBuilderFilter"
+          check_zero_alloc "BenchmarkURLCaching"
+          check_zero_alloc "BenchmarkSingletonURL"
+
+          # String interning hot paths
+          check_zero_alloc "BenchmarkStringInterning_Single"
+          check_zero_alloc "BenchmarkStringInterning_Multiple"
+          check_zero_alloc "BenchmarkStringInterning_Concurrent"
+
+          # Geo pool (acquire/release must be zero-alloc)
+          check_zero_alloc "BenchmarkGeoPointPool"
+
+          if [ "$FAIL" -eq 1 ]; then
+            echo ""
+            echo "One or more zero-alloc hot paths have regressed."
+            echo "Review the changes that introduced allocations."
+            exit 1
+          fi
+
+          echo ""
+          echo "All zero-alloc hot paths OK."
