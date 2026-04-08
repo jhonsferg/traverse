@@ -2,8 +2,8 @@ github.com/andybalholm/brotli v1.2.1 h1:R+f5xP285VArJDRgowrfb9DqL18yVK0gKAW/F+eT
 github.com/andybalholm/brotli v1.2.1/go.mod h1:rzTDkvFWvIrjDXZHkuS16NPggd91W3kUSvPlQ1pLaKY=
 github.com/graphql-go/graphql v0.8.1 h1:p7/Ou/WpmulocJeEx7wjQy611rtXGQaAcXGqanuMMgc=
 github.com/graphql-go/graphql v0.8.1/go.mod h1:nKiHzRM0qopJEwCITUuIsxk9PlVlwIiiI8pnJEhordQ=
-github.com/jhonsferg/relay v0.2.0 h1:GN56emzYOlP/2TzHPgf/QOEAimM3psvFB+HtnBqdsO4=
-github.com/jhonsferg/relay v0.2.0/go.mod h1:jfzqTFp6JsDoM1SdWT7tKJ8We5QCUG+2zluZgFmqLgg=
+github.com/jhonsferg/relay v0.2.2-0.20260408011718-7718ac7fa271 h1:t1MWqKLKyIdyf9Tfhk+IisxxdC8GCIF04N0p7ljRmMU=
+github.com/jhonsferg/relay v0.2.2-0.20260408011718-7718ac7fa271/go.mod h1:jfzqTFp6JsDoM1SdWT7tKJ8We5QCUG+2zluZgFmqLgg=
 github.com/klauspost/compress v1.18.5 h1:/h1gH5Ce+VWNLSWqPzOVn6XBO+vJbCNGvjoaGBFW2IE=
 github.com/klauspost/compress v1.18.5/go.mod h1:cwPg85FWrGar70rWktvGQj8/hthj3wpl0PGDogxkrSQ=
 github.com/xyproto/randomstring v1.0.5 h1:YtlWPoRdgMu3NZtP45drfy1GKoojuR7hmRcnhZqKjWU=
