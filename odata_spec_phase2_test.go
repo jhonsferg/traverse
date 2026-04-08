@@ -18,7 +18,7 @@ func TestDeepUpdate_PatchWithKey(t *testing.T) {
 
 	server.Enqueue(testutil.MockResponse{
 		Status: 200,
-		Body: `{"OrderID":1,"Status":"Confirmed","Items":[{"ID":10,"Qty":5}]}`,
+		Body:   `{"OrderID":1,"Status":"Confirmed","Items":[{"ID":10,"Qty":5}]}`,
 	})
 
 	client, err := New(WithBaseURL(server.URL()))

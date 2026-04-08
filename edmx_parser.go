@@ -73,27 +73,27 @@ func ParseEDMX(reader io.Reader) (*Metadata, error) {
 						} `xml:"PropertyRef"`
 					} `xml:"Key"`
 					Properties []struct {
-						XMLName            xml.Name `xml:"Property"`
-						Name               string   `xml:"Name,attr"`
-						Type               string   `xml:"Type,attr"`
-						Nullable           *bool    `xml:"Nullable,attr"`
-						MaxLength          *string  `xml:"MaxLength,attr"`
-						Precision          *string  `xml:"Precision,attr"`
-						Scale              *string  `xml:"Scale,attr"`
-						SAPPID             *string  `xml:"sap parameter-type,attr"`
-						SAPLabel           *string  `xml:"sap label,attr"`
-						SAPSortable        *string  `xml:"sap sortable,attr"`
-						SAPFilterable      *string  `xml:"sap filterable,attr"`
-						SAPSearchable      *string  `xml:"sap searchable,attr"`
-						SAPRequiredFilter  *string  `xml:"sap required-in-filter,attr"`
-						SAPText            *string  `xml:"sap text,attr"`
-						SAPUnit            *string  `xml:"sap unit,attr"`
-						SAPValueList       *string  `xml:"sap value-list,attr"`
-						SAPDisplayFormat   *string  `xml:"sap display-format,attr"`
-						SAPFieldControl    *string  `xml:"sap field-control,attr"`
-						SAPSemantics       *string  `xml:"sap semantics,attr"`
-						SAPKey             *string  `xml:"sap key,attr"`
-						SAPUpdatablePath   *string  `xml:"sap updatable-path,attr"`
+						XMLName           xml.Name `xml:"Property"`
+						Name              string   `xml:"Name,attr"`
+						Type              string   `xml:"Type,attr"`
+						Nullable          *bool    `xml:"Nullable,attr"`
+						MaxLength         *string  `xml:"MaxLength,attr"`
+						Precision         *string  `xml:"Precision,attr"`
+						Scale             *string  `xml:"Scale,attr"`
+						SAPPID            *string  `xml:"sap parameter-type,attr"`
+						SAPLabel          *string  `xml:"sap label,attr"`
+						SAPSortable       *string  `xml:"sap sortable,attr"`
+						SAPFilterable     *string  `xml:"sap filterable,attr"`
+						SAPSearchable     *string  `xml:"sap searchable,attr"`
+						SAPRequiredFilter *string  `xml:"sap required-in-filter,attr"`
+						SAPText           *string  `xml:"sap text,attr"`
+						SAPUnit           *string  `xml:"sap unit,attr"`
+						SAPValueList      *string  `xml:"sap value-list,attr"`
+						SAPDisplayFormat  *string  `xml:"sap display-format,attr"`
+						SAPFieldControl   *string  `xml:"sap field-control,attr"`
+						SAPSemantics      *string  `xml:"sap semantics,attr"`
+						SAPKey            *string  `xml:"sap key,attr"`
+						SAPUpdatablePath  *string  `xml:"sap updatable-path,attr"`
 					} `xml:"Property"`
 					NavigationProperties []struct {
 						XMLName      xml.Name `xml:"NavigationProperty"`
@@ -108,26 +108,26 @@ func ParseEDMX(reader io.Reader) (*Metadata, error) {
 					Name       string   `xml:"Name,attr"`
 					BaseType   string   `xml:"BaseType,attr"`
 					Properties []struct {
-						XMLName            xml.Name `xml:"Property"`
-						Name               string   `xml:"Name,attr"`
-						Type               string   `xml:"Type,attr"`
-						Nullable           *bool    `xml:"Nullable,attr"`
-						MaxLength          *string  `xml:"MaxLength,attr"`
-						Precision          *string  `xml:"Precision,attr"`
-						Scale              *string  `xml:"Scale,attr"`
-						SAPLabel           *string  `xml:"sap label,attr"`
-						SAPSortable        *string  `xml:"sap sortable,attr"`
-						SAPFilterable      *string  `xml:"sap filterable,attr"`
-						SAPSearchable      *string  `xml:"sap searchable,attr"`
-						SAPRequiredFilter  *string  `xml:"sap required-in-filter,attr"`
-						SAPText            *string  `xml:"sap text,attr"`
-						SAPUnit            *string  `xml:"sap unit,attr"`
-						SAPValueList       *string  `xml:"sap value-list,attr"`
-						SAPDisplayFormat   *string  `xml:"sap display-format,attr"`
-						SAPFieldControl    *string  `xml:"sap field-control,attr"`
-						SAPSemantics       *string  `xml:"sap semantics,attr"`
-						SAPKey             *string  `xml:"sap key,attr"`
-						SAPUpdatablePath   *string  `xml:"sap updatable-path,attr"`
+						XMLName           xml.Name `xml:"Property"`
+						Name              string   `xml:"Name,attr"`
+						Type              string   `xml:"Type,attr"`
+						Nullable          *bool    `xml:"Nullable,attr"`
+						MaxLength         *string  `xml:"MaxLength,attr"`
+						Precision         *string  `xml:"Precision,attr"`
+						Scale             *string  `xml:"Scale,attr"`
+						SAPLabel          *string  `xml:"sap label,attr"`
+						SAPSortable       *string  `xml:"sap sortable,attr"`
+						SAPFilterable     *string  `xml:"sap filterable,attr"`
+						SAPSearchable     *string  `xml:"sap searchable,attr"`
+						SAPRequiredFilter *string  `xml:"sap required-in-filter,attr"`
+						SAPText           *string  `xml:"sap text,attr"`
+						SAPUnit           *string  `xml:"sap unit,attr"`
+						SAPValueList      *string  `xml:"sap value-list,attr"`
+						SAPDisplayFormat  *string  `xml:"sap display-format,attr"`
+						SAPFieldControl   *string  `xml:"sap field-control,attr"`
+						SAPSemantics      *string  `xml:"sap semantics,attr"`
+						SAPKey            *string  `xml:"sap key,attr"`
+						SAPUpdatablePath  *string  `xml:"sap updatable-path,attr"`
 					} `xml:"Property"`
 				} `xml:"ComplexType"`
 				EnumTypes []struct {
@@ -276,19 +276,19 @@ func ParseEDMX(reader io.Reader) (*Metadata, error) {
 				prop.SAPFieldControl != nil || prop.SAPSemantics != nil || prop.SAPKey != nil ||
 				prop.SAPUpdatablePath != nil {
 				p.SAP = SAPAnnotations{
-					Label:          derefStr(prop.SAPLabel),
-					Filterable:     derefBool(prop.SAPFilterable),
-					Sortable:       derefBool(prop.SAPSortable),
-					Searchable:     derefBool(prop.SAPSearchable),
-					Required:       derefBool(prop.SAPRequiredFilter),
-					Text:           derefStr(prop.SAPText),
-					Unit:           derefStr(prop.SAPUnit),
-					ValueList:      derefStr(prop.SAPValueList),
-					DisplayFormat:  derefStr(prop.SAPDisplayFormat),
-					FieldControl:   derefStr(prop.SAPFieldControl),
-					Semantics:      derefStr(prop.SAPSemantics),
-					IsKey:          derefStr(prop.SAPKey) == "true",
-					UpdatablePath:  derefStr(prop.SAPUpdatablePath),
+					Label:         derefStr(prop.SAPLabel),
+					Filterable:    derefBool(prop.SAPFilterable),
+					Sortable:      derefBool(prop.SAPSortable),
+					Searchable:    derefBool(prop.SAPSearchable),
+					Required:      derefBool(prop.SAPRequiredFilter),
+					Text:          derefStr(prop.SAPText),
+					Unit:          derefStr(prop.SAPUnit),
+					ValueList:     derefStr(prop.SAPValueList),
+					DisplayFormat: derefStr(prop.SAPDisplayFormat),
+					FieldControl:  derefStr(prop.SAPFieldControl),
+					Semantics:     derefStr(prop.SAPSemantics),
+					IsKey:         derefStr(prop.SAPKey) == "true",
+					UpdatablePath: derefStr(prop.SAPUpdatablePath),
 				}
 			}
 
