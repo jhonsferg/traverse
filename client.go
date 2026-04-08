@@ -946,7 +946,9 @@ func (c *Client) Delete(ctx context.Context, entitySet string, key interface{}) 
 // operations to ensure stale cached pages are not served.
 func (c *Client) invalidateEntitySetCache(entitySet string) {
 	if c.responseCache != nil {
-		c.responseCache.Invalidate(entitySet)
+		// Cache keys are built by buildURL() which always starts with "/",
+		// so invalidation must match the leading slash prefix.
+		c.responseCache.Invalidate("/" + entitySet)
 	}
 }
 
@@ -1201,6 +1203,29 @@ func WithHeader(key, value string) Option {
 	return func(cfg *clientConfig) error {
 		cfg.relayOpts = append(cfg.relayOpts,
 			relay.WithDefaultHeaders(map[string]string{key: value}),
+		)
+		return nil
+	}
+}
+
+// WithSchemaVersion sets the OData-SchemaVersion request header on all requests
+// made by this [Client].
+//
+// OData 4.01 (spec section 8.2.10) introduced this header to allow clients to
+// request a specific version of the service's metadata schema. Services that
+// evolve their schema over time can use this to serve different schema versions
+// to different clients simultaneously.
+//
+// Example:
+//
+//	client, _ := traverse.New(
+//	    traverse.WithBaseURL("https://api.example.com/odata/"),
+//	    traverse.WithSchemaVersion("2.0"),
+//	)
+func WithSchemaVersion(version string) Option {
+	return func(cfg *clientConfig) error {
+		cfg.relayOpts = append(cfg.relayOpts,
+			relay.WithDefaultHeaders(map[string]string{"OData-SchemaVersion": version}),
 		)
 		return nil
 	}

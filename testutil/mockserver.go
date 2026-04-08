@@ -128,7 +128,7 @@ func (s *MockServer) handle(w http.ResponseWriter, r *http.Request) {
 	body, _ := io.ReadAll(r.Body)
 	recorded := RecordedRequest{
 		Method:  r.Method,
-		Path:    r.URL.Path,
+		Path:    r.URL.EscapedPath(), // EscapedPath returns RawPath (percent-encoded) when available
 		Headers: r.Header.Clone(),
 		Body:    body,
 		Query:   r.URL.Query(),

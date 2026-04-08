@@ -15,6 +15,8 @@ require (
 	golang.org/x/sync v0.19.0 // indirect
 )
 
+replace github.com/jhonsferg/relay => ../relay
+
 replace github.com/jhonsferg/traverse/ext/cache/memory => ./ext/cache/memory
 
 replace github.com/jhonsferg/traverse/ext/cache => ./ext/cache
