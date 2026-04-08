@@ -1830,6 +1830,15 @@ func (q *QueryBuilder) Page(ctx context.Context) (*Page, error) {
 		Value: make([]map[string]interface{}, 0, q.client.pageSize),
 	}
 
+	// Route to Atom/XML parser when the server responds with XML.
+	contentType := resp.Header("Content-Type")
+	if IsAtomContentType(contentType) {
+		if err = ParseAtomFeed(resp.BodyReader(), page); err != nil {
+			return nil, fmt.Errorf("failed to parse OData response: %w", err)
+		}
+		return page, nil
+	}
+
 	decoder := json.NewDecoder(resp.BodyReader())
 
 	// Parse the JSON structure token-by-token
@@ -1899,10 +1908,20 @@ func (q *QueryBuilder) fetchPageCached(ctx context.Context, rawURL string) (*Pag
 	return q.parsePageFromBytes(body)
 }
 
-// parsePageFromBytes parses a cached or buffered JSON response body into a Page.
+// parsePageFromBytes parses a cached or buffered response body into a Page.
+// Atom/XML responses (detected by leading '<') are routed to ParseAtomFeed;
+// all other bytes are treated as JSON.
 func (q *QueryBuilder) parsePageFromBytes(body []byte) (*Page, error) {
 	page := &Page{
 		Value: make([]map[string]interface{}, 0, q.client.pageSize),
+	}
+	// Detect Atom/XML by the first non-space byte being '<'.
+	trimmed := bytes.TrimSpace(body)
+	if len(trimmed) > 0 && trimmed[0] == '<' {
+		if err := ParseAtomFeed(bytes.NewReader(body), page); err != nil {
+			return nil, fmt.Errorf("traverse: failed to parse cached Atom response: %w", err)
+		}
+		return page, nil
 	}
 	decoder := json.NewDecoder(bytes.NewReader(body))
 	if err := parseODataResponse(decoder, page, q.client.version); err != nil {

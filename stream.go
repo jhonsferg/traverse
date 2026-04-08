@@ -378,6 +378,16 @@ func (q *QueryBuilder) fetchPageStreamed(ctx context.Context, pageURL string) (*
 		Value: make([]map[string]interface{}, 0, q.client.pageSize),
 	}
 
+	// Route to Atom/XML parser when the server responds with XML.
+	// This handles FormatAtom requests and SAP services that default to Atom format.
+	if IsAtomContentType(stream.ContentType()) {
+		err = ParseAtomFeed(stream.Body, page)
+		if err != nil {
+			return nil, fmt.Errorf("failed to parse Atom/XML response: %w", err)
+		}
+		return page, nil
+	}
+
 	decoder := json.NewDecoder(stream.Body)
 
 	// Parse the JSON structure token-by-token

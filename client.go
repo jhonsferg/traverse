@@ -1481,6 +1481,10 @@ type Property struct {
 	Core *CoreVocabulary
 	// Validation contains OData Validation vocabulary annotations when present in metadata.
 	Validation *ValidationVocabulary
+	// Measures contains OData Measures vocabulary annotations (unit-of-measure, currency, scale).
+	Measures *MeasuresVocabulary
+	// Analytics contains OData Aggregation/Analytics vocabulary annotations (dimension, measure, aggregation).
+	Analytics *AnalyticsVocabulary
 }
 
 // NavigationProperty represents a navigation property in an OData entity type.
