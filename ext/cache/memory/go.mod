@@ -10,7 +10,7 @@ require (
 require (
 	github.com/andybalholm/brotli v1.2.1 // indirect
 	github.com/davecgh/go-spew v1.1.1 // indirect
-	github.com/jhonsferg/relay v0.2.2 // indirect
+	github.com/jhonsferg/relay v0.3.0 // indirect
 	github.com/klauspost/compress v1.18.5 // indirect
 	github.com/pmezard/go-difflib v1.0.0 // indirect
 	golang.org/x/net v0.50.0 // indirect
