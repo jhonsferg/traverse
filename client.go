@@ -1425,6 +1425,8 @@ type EntitySetInfo struct {
 	EntityTypeName string
 	// NavigationBindings contains navigation property binding targets for this entity set.
 	NavigationBindings []NavigationBinding
+	// SAP contains SAP-specific entity-set-level annotations (sap:creatable, sap:deletable, etc.).
+	SAP SAPAnnotations
 }
 
 // NavigationBinding maps a navigation property path to its target entity set.
@@ -1519,18 +1521,46 @@ type AssociationEnd struct {
 // SAPAnnotations contains SAP-specific annotations for properties and entity types.
 // These annotations provide hints about how SAP systems use the properties.
 type SAPAnnotations struct {
-	// Label is a human-readable label for the property.
+	// Label is a human-readable label for the property (sap:label).
 	Label string
-	// Filterable indicates if the property can be used in $filter clauses.
+	// Filterable indicates if the property can be used in $filter clauses (sap:filterable).
 	Filterable bool
-	// Sortable indicates if the property can be used in $orderby clauses.
+	// Sortable indicates if the property can be used in $orderby clauses (sap:sortable).
 	Sortable bool
-	// Searchable indicates if the property can be used in search operations.
+	// Searchable indicates if the property can be used in search operations (sap:searchable).
 	Searchable bool
-	// Required indicates if the property is required.
+	// Required indicates if the property is required in filter expressions (sap:required-in-filter).
 	Required bool
-	// Text refers to a property containing a descriptive text for this property.
+	// Text refers to a property containing a descriptive text for this property (sap:text).
 	Text string
+	// Unit refers to a property holding the unit of measure for this property (sap:unit).
+	Unit string
+	// ValueList describes how value help is provided: "standard" or "fixed-values" (sap:value-list).
+	ValueList string
+	// DisplayFormat specifies the display format, e.g. "UpperCase", "NonNegative", "Date" (sap:display-format).
+	DisplayFormat string
+	// FieldControl specifies the field-control property name or mode: Mandatory, Optional, ReadOnly (sap:field-control).
+	FieldControl string
+	// Semantics is the semantic type of the value, e.g. "email", "phone", "url" (sap:semantics).
+	Semantics string
+	// IsKey is true when sap:key="true" is present on the property.
+	IsKey bool
+	// UpdatablePath refers to a boolean property that controls whether this property is updatable (sap:updatable-path).
+	UpdatablePath string
+	// Creatable indicates if the entity set supports create operations (sap:creatable). Used on EntitySet level.
+	Creatable bool
+	// Updatable indicates if the entity set supports update operations (sap:updatable). Used on EntitySet level.
+	Updatable bool
+	// Deletable indicates if the entity set supports delete operations (sap:deletable). Used on EntitySet level.
+	Deletable bool
+	// Pageable indicates if the entity set supports server-side paging (sap:pageable). Used on EntitySet level.
+	Pageable bool
+	// Addressable indicates if individual entities are directly addressable by key (sap:addressable). Used on EntitySet level.
+	Addressable bool
+	// RequiresFilter indicates if $filter must be specified in queries (sap:requires-filter). Used on EntitySet level.
+	RequiresFilter bool
+	// ChangeTracking indicates if the entity set supports delta/change-tracking (sap:change-tracking). Used on EntitySet level.
+	ChangeTracking bool
 }
 
 // FunctionImportInfo represents a function import definition (OData v2).

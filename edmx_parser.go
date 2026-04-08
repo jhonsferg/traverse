@@ -1,6 +1,7 @@
 package traverse
 
 import (
+	"bytes"
 	"encoding/xml"
 	"fmt"
 	"io"
@@ -15,7 +16,11 @@ import (
 //
 // The EDMX (Entity Data Model XML) format is the standard way OData services
 // describe their data model. This parser supports both OData v2 and v4 metadata formats
-// with special handling for SAP annotations (sap:label, sap:sortable, sap:filterable).
+// with special handling for SAP annotations (sap:label, sap:sortable, sap:filterable,
+// sap:searchable, sap:required-in-filter, sap:text, sap:unit, sap:value-list,
+// sap:display-format, sap:field-control, sap:semantics, sap:key, sap:updatable-path,
+// and entity-set-level sap:creatable, sap:updatable, sap:deletable, sap:pageable,
+// sap:addressable, sap:requires-filter, sap:change-tracking).
 //
 // The parser extracts:
 //   - Entity types with their properties (name, type, nullable, length constraints)
@@ -35,6 +40,19 @@ import (
 //		fmt.Println("Entity:", et.Name, "Key:", et.Key)
 //	}
 func ParseEDMX(reader io.Reader) (*Metadata, error) {
+	// Read all bytes to allow SAP namespace normalization.
+	// SAP ABAP Gateway services may declare xmlns:sap="http://www.sap.com/Protocols/SAPData"
+	// which causes Go's xml decoder to expand sap:* attributes to full namespace URIs.
+	// By stripping the namespace declaration before parsing, we ensure sap:label etc.
+	// are matched as unprefixed namespace "sap" which the struct tags handle uniformly.
+	raw, err := io.ReadAll(reader)
+	if err != nil {
+		return nil, fmt.Errorf("traverse: failed to read EDMX: %w", err)
+	}
+	// Normalize SAP namespace declaration so Go xml treats "sap:" as a literal prefix.
+	raw = bytes.ReplaceAll(raw,
+		[]byte(`xmlns:sap="http://www.sap.com/Protocols/SAPData"`), []byte{})
+
 	var edmx struct {
 		XMLName      xml.Name `xml:"Edmx"`
 		Version      string   `xml:"Version,attr"`
@@ -55,17 +73,27 @@ func ParseEDMX(reader io.Reader) (*Metadata, error) {
 						} `xml:"PropertyRef"`
 					} `xml:"Key"`
 					Properties []struct {
-						XMLName       xml.Name `xml:"Property"`
-						Name          string   `xml:"Name,attr"`
-						Type          string   `xml:"Type,attr"`
-						Nullable      *bool    `xml:"Nullable,attr"`
-						MaxLength     *string  `xml:"MaxLength,attr"`
-						Precision     *string  `xml:"Precision,attr"`
-						Scale         *string  `xml:"Scale,attr"`
-						SAPPID        *string  `xml:"sap:parameter-type,attr"`
-						SAPLabel      *string  `xml:"sap:label,attr"`
-						SAPSortable   *string  `xml:"sap:sortable,attr"`
-						SAPFilterable *string  `xml:"sap:filterable,attr"`
+						XMLName            xml.Name `xml:"Property"`
+						Name               string   `xml:"Name,attr"`
+						Type               string   `xml:"Type,attr"`
+						Nullable           *bool    `xml:"Nullable,attr"`
+						MaxLength          *string  `xml:"MaxLength,attr"`
+						Precision          *string  `xml:"Precision,attr"`
+						Scale              *string  `xml:"Scale,attr"`
+						SAPPID             *string  `xml:"sap parameter-type,attr"`
+						SAPLabel           *string  `xml:"sap label,attr"`
+						SAPSortable        *string  `xml:"sap sortable,attr"`
+						SAPFilterable      *string  `xml:"sap filterable,attr"`
+						SAPSearchable      *string  `xml:"sap searchable,attr"`
+						SAPRequiredFilter  *string  `xml:"sap required-in-filter,attr"`
+						SAPText            *string  `xml:"sap text,attr"`
+						SAPUnit            *string  `xml:"sap unit,attr"`
+						SAPValueList       *string  `xml:"sap value-list,attr"`
+						SAPDisplayFormat   *string  `xml:"sap display-format,attr"`
+						SAPFieldControl    *string  `xml:"sap field-control,attr"`
+						SAPSemantics       *string  `xml:"sap semantics,attr"`
+						SAPKey             *string  `xml:"sap key,attr"`
+						SAPUpdatablePath   *string  `xml:"sap updatable-path,attr"`
 					} `xml:"Property"`
 					NavigationProperties []struct {
 						XMLName      xml.Name `xml:"NavigationProperty"`
@@ -80,16 +108,26 @@ func ParseEDMX(reader io.Reader) (*Metadata, error) {
 					Name       string   `xml:"Name,attr"`
 					BaseType   string   `xml:"BaseType,attr"`
 					Properties []struct {
-						XMLName       xml.Name `xml:"Property"`
-						Name          string   `xml:"Name,attr"`
-						Type          string   `xml:"Type,attr"`
-						Nullable      *bool    `xml:"Nullable,attr"`
-						MaxLength     *string  `xml:"MaxLength,attr"`
-						Precision     *string  `xml:"Precision,attr"`
-						Scale         *string  `xml:"Scale,attr"`
-						SAPLabel      *string  `xml:"sap:label,attr"`
-						SAPSortable   *string  `xml:"sap:sortable,attr"`
-						SAPFilterable *string  `xml:"sap:filterable,attr"`
+						XMLName            xml.Name `xml:"Property"`
+						Name               string   `xml:"Name,attr"`
+						Type               string   `xml:"Type,attr"`
+						Nullable           *bool    `xml:"Nullable,attr"`
+						MaxLength          *string  `xml:"MaxLength,attr"`
+						Precision          *string  `xml:"Precision,attr"`
+						Scale              *string  `xml:"Scale,attr"`
+						SAPLabel           *string  `xml:"sap label,attr"`
+						SAPSortable        *string  `xml:"sap sortable,attr"`
+						SAPFilterable      *string  `xml:"sap filterable,attr"`
+						SAPSearchable      *string  `xml:"sap searchable,attr"`
+						SAPRequiredFilter  *string  `xml:"sap required-in-filter,attr"`
+						SAPText            *string  `xml:"sap text,attr"`
+						SAPUnit            *string  `xml:"sap unit,attr"`
+						SAPValueList       *string  `xml:"sap value-list,attr"`
+						SAPDisplayFormat   *string  `xml:"sap display-format,attr"`
+						SAPFieldControl    *string  `xml:"sap field-control,attr"`
+						SAPSemantics       *string  `xml:"sap semantics,attr"`
+						SAPKey             *string  `xml:"sap key,attr"`
+						SAPUpdatablePath   *string  `xml:"sap updatable-path,attr"`
 					} `xml:"Property"`
 				} `xml:"ComplexType"`
 				EnumTypes []struct {
@@ -111,7 +149,14 @@ func ParseEDMX(reader io.Reader) (*Metadata, error) {
 						XMLName                    xml.Name `xml:"EntitySet"`
 						Name                       string   `xml:"Name,attr"`
 						EntityType                 string   `xml:"EntityType,attr"`
-						Sap                        string   `xml:"sap:label,attr"`
+						SAPLabel                   string   `xml:"sap label,attr"`
+						SAPCreatable               *string  `xml:"sap creatable,attr"`
+						SAPUpdatable               *string  `xml:"sap updatable,attr"`
+						SAPDeletable               *string  `xml:"sap deletable,attr"`
+						SAPPageable                *string  `xml:"sap pageable,attr"`
+						SAPAddressable             *string  `xml:"sap addressable,attr"`
+						SAPRequiresFilter          *string  `xml:"sap requires-filter,attr"`
+						SAPChangeTracking          *string  `xml:"sap change-tracking,attr"`
 						NavigationPropertyBindings []struct {
 							XMLName xml.Name `xml:"NavigationPropertyBinding"`
 							Path    string   `xml:"Path,attr"`
@@ -159,7 +204,7 @@ func ParseEDMX(reader io.Reader) (*Metadata, error) {
 		} `xml:"DataServices"`
 	}
 
-	decoder := xml.NewDecoder(reader)
+	decoder := xml.NewDecoder(bytes.NewReader(raw))
 	if err := decoder.Decode(&edmx); err != nil {
 		return nil, fmt.Errorf("failed to decode EDMX XML: %w", err)
 	}
@@ -224,12 +269,26 @@ func ParseEDMX(reader io.Reader) (*Metadata, error) {
 				}
 			}
 
-			// SAP annotations
-			if prop.SAPLabel != nil || prop.SAPPID != nil || prop.SAPSortable != nil || prop.SAPFilterable != nil {
+			// SAP annotations - all sap:* property-level attributes
+			if prop.SAPLabel != nil || prop.SAPPID != nil || prop.SAPSortable != nil || prop.SAPFilterable != nil ||
+				prop.SAPSearchable != nil || prop.SAPRequiredFilter != nil || prop.SAPText != nil ||
+				prop.SAPUnit != nil || prop.SAPValueList != nil || prop.SAPDisplayFormat != nil ||
+				prop.SAPFieldControl != nil || prop.SAPSemantics != nil || prop.SAPKey != nil ||
+				prop.SAPUpdatablePath != nil {
 				p.SAP = SAPAnnotations{
-					Label:      derefStr(prop.SAPLabel),
-					Filterable: derefBool(prop.SAPFilterable),
-					Sortable:   derefBool(prop.SAPSortable),
+					Label:          derefStr(prop.SAPLabel),
+					Filterable:     derefBool(prop.SAPFilterable),
+					Sortable:       derefBool(prop.SAPSortable),
+					Searchable:     derefBool(prop.SAPSearchable),
+					Required:       derefBool(prop.SAPRequiredFilter),
+					Text:           derefStr(prop.SAPText),
+					Unit:           derefStr(prop.SAPUnit),
+					ValueList:      derefStr(prop.SAPValueList),
+					DisplayFormat:  derefStr(prop.SAPDisplayFormat),
+					FieldControl:   derefStr(prop.SAPFieldControl),
+					Semantics:      derefStr(prop.SAPSemantics),
+					IsKey:          derefStr(prop.SAPKey) == "true",
+					UpdatablePath:  derefStr(prop.SAPUpdatablePath),
 				}
 			}
 
@@ -258,6 +317,21 @@ func ParseEDMX(reader io.Reader) (*Metadata, error) {
 					esInfo := EntitySetInfo{
 						Name:           es.Name,
 						EntityTypeName: typeName,
+					}
+					// Entity-set-level SAP annotations
+					if es.SAPCreatable != nil || es.SAPUpdatable != nil || es.SAPDeletable != nil ||
+						es.SAPPageable != nil || es.SAPAddressable != nil || es.SAPRequiresFilter != nil ||
+						es.SAPChangeTracking != nil || es.SAPLabel != "" {
+						esInfo.SAP = SAPAnnotations{
+							Label:          es.SAPLabel,
+							Creatable:      derefBoolStr(es.SAPCreatable, true),
+							Updatable:      derefBoolStr(es.SAPUpdatable, true),
+							Deletable:      derefBoolStr(es.SAPDeletable, true),
+							Pageable:       derefBoolStr(es.SAPPageable, true),
+							Addressable:    derefBoolStr(es.SAPAddressable, true),
+							RequiresFilter: derefBoolStr(es.SAPRequiresFilter, false),
+							ChangeTracking: derefBoolStr(es.SAPChangeTracking, false),
+						}
 					}
 					for _, nb := range es.NavigationPropertyBindings {
 						esInfo.NavigationBindings = append(esInfo.NavigationBindings, NavigationBinding{
@@ -301,11 +375,25 @@ func ParseEDMX(reader io.Reader) (*Metadata, error) {
 					p.Scale = &sc
 				}
 			}
-			if prop.SAPLabel != nil || prop.SAPSortable != nil || prop.SAPFilterable != nil {
+			if prop.SAPLabel != nil || prop.SAPSortable != nil || prop.SAPFilterable != nil ||
+				prop.SAPSearchable != nil || prop.SAPRequiredFilter != nil || prop.SAPText != nil ||
+				prop.SAPUnit != nil || prop.SAPValueList != nil || prop.SAPDisplayFormat != nil ||
+				prop.SAPFieldControl != nil || prop.SAPSemantics != nil || prop.SAPKey != nil ||
+				prop.SAPUpdatablePath != nil {
 				p.SAP = SAPAnnotations{
-					Label:      derefStr(prop.SAPLabel),
-					Filterable: derefBool(prop.SAPFilterable),
-					Sortable:   derefBool(prop.SAPSortable),
+					Label:         derefStr(prop.SAPLabel),
+					Filterable:    derefBool(prop.SAPFilterable),
+					Sortable:      derefBool(prop.SAPSortable),
+					Searchable:    derefBool(prop.SAPSearchable),
+					Required:      derefBool(prop.SAPRequiredFilter),
+					Text:          derefStr(prop.SAPText),
+					Unit:          derefStr(prop.SAPUnit),
+					ValueList:     derefStr(prop.SAPValueList),
+					DisplayFormat: derefStr(prop.SAPDisplayFormat),
+					FieldControl:  derefStr(prop.SAPFieldControl),
+					Semantics:     derefStr(prop.SAPSemantics),
+					IsKey:         derefStr(prop.SAPKey) == "true",
+					UpdatablePath: derefStr(prop.SAPUpdatablePath),
 				}
 			}
 			complexType.Properties = append(complexType.Properties, p)
@@ -374,6 +462,18 @@ func derefStr(s *string) string {
 func derefBool(s *string) bool {
 	if s == nil {
 		return false
+	}
+	return *s == "true"
+}
+
+// derefBoolStr dereferences a pointer to string and converts to boolean with a default.
+//
+// derefBoolStr returns defaultVal when the pointer is nil (attribute absent),
+// true when the string value is "true", and false otherwise.
+// SAP entity-set attributes like sap:creatable default to true when absent.
+func derefBoolStr(s *string, defaultVal bool) bool {
+	if s == nil {
+		return defaultVal
 	}
 	return *s == "true"
 }
