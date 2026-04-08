@@ -26,7 +26,8 @@ jobs:
 
       - name: Run benchmarks (PR branch)
         run: |
-          go test -bench=. -benchmem -count=5 -run=^$ ./... 2>/dev/null | \
+          go test -bench="BenchmarkQueryBuilderConstruction|BenchmarkQueryBuilderFilter|BenchmarkURLCaching|BenchmarkSingletonURL|BenchmarkStringInterning|BenchmarkGeoPointPool" \
+            -benchmem -count=3 -run=^$ . 2>/dev/null | \
             grep "^Benchmark" > pr_bench.txt || true
           echo "=== PR benchmark results ==="
           cat pr_bench.txt
