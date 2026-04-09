@@ -13,27 +13,28 @@ import (
 const maxLatencySamples = 10_000
 
 // Metrics holds all Prometheus metrics for traverse operations.
+// All fields are unexported; use the provided methods to read or record data.
 type Metrics struct {
-	// Query counters
-	QueryTotal   int64 // Total queries executed
-	QueryErrors  int64 // Total query errors
-	QuerySuccess int64 // Total successful queries
-	CreateTotal  int64 // Total create operations
-	CreateErrors int64 // Total create errors
-	UpdateTotal  int64 // Total update operations
-	UpdateErrors int64 // Total update errors
-	DeleteTotal  int64 // Total delete operations
-	DeleteErrors int64 // Total delete errors
+	// query counters
+	queryTotal   int64
+	queryErrors  int64
+	querySuccess int64
+	createTotal  int64
+	createErrors int64
+	updateTotal  int64
+	updateErrors int64
+	deleteTotal  int64
+	deleteErrors int64
 
-	// Latency tracking (capped at maxLatencySamples to prevent unbounded growth)
-	QueryLatencies  []time.Duration // Query latencies (for histogram)
-	CreateLatencies []time.Duration // Create latencies
-	UpdateLatencies []time.Duration // Update latencies
-	DeleteLatencies []time.Duration // Delete latencies
+	// latency tracking (capped at maxLatencySamples to prevent unbounded growth)
+	queryLatencies  []time.Duration
+	createLatencies []time.Duration
+	updateLatencies []time.Duration
+	deleteLatencies []time.Duration
 
-	// Cache metrics
-	CacheHits   int64 // Metadata cache hits
-	CacheMisses int64 // Metadata cache misses
+	// cache metrics
+	cacheHits   int64
+	cacheMisses int64
 
 	mu sync.RWMutex
 }
@@ -41,10 +42,10 @@ type Metrics struct {
 // New creates a new Metrics instance.
 func New() *Metrics {
 	return &Metrics{
-		QueryLatencies:  make([]time.Duration, 0),
-		CreateLatencies: make([]time.Duration, 0),
-		UpdateLatencies: make([]time.Duration, 0),
-		DeleteLatencies: make([]time.Duration, 0),
+		queryLatencies:  make([]time.Duration, 0),
+		createLatencies: make([]time.Duration, 0),
+		updateLatencies: make([]time.Duration, 0),
+		deleteLatencies: make([]time.Duration, 0),
 	}
 }
 
@@ -53,18 +54,18 @@ func (m *Metrics) RecordQuery(latency time.Duration, err error) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 
-	m.QueryTotal++
-	if len(m.QueryLatencies) >= maxLatencySamples {
+	m.queryTotal++
+	if len(m.queryLatencies) >= maxLatencySamples {
 		// Drop oldest half to bound memory usage while preserving recent samples.
-		copy(m.QueryLatencies, m.QueryLatencies[maxLatencySamples/2:])
-		m.QueryLatencies = m.QueryLatencies[:maxLatencySamples/2]
+		copy(m.queryLatencies, m.queryLatencies[maxLatencySamples/2:])
+		m.queryLatencies = m.queryLatencies[:maxLatencySamples/2]
 	}
-	m.QueryLatencies = append(m.QueryLatencies, latency)
+	m.queryLatencies = append(m.queryLatencies, latency)
 
 	if err != nil {
-		m.QueryErrors++
+		m.queryErrors++
 	} else {
-		m.QuerySuccess++
+		m.querySuccess++
 	}
 }
 
@@ -73,15 +74,15 @@ func (m *Metrics) RecordCreate(latency time.Duration, err error) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 
-	m.CreateTotal++
-	if len(m.CreateLatencies) >= maxLatencySamples {
-		copy(m.CreateLatencies, m.CreateLatencies[maxLatencySamples/2:])
-		m.CreateLatencies = m.CreateLatencies[:maxLatencySamples/2]
+	m.createTotal++
+	if len(m.createLatencies) >= maxLatencySamples {
+		copy(m.createLatencies, m.createLatencies[maxLatencySamples/2:])
+		m.createLatencies = m.createLatencies[:maxLatencySamples/2]
 	}
-	m.CreateLatencies = append(m.CreateLatencies, latency)
+	m.createLatencies = append(m.createLatencies, latency)
 
 	if err != nil {
-		m.CreateErrors++
+		m.createErrors++
 	}
 }
 
@@ -90,15 +91,15 @@ func (m *Metrics) RecordUpdate(latency time.Duration, err error) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 
-	m.UpdateTotal++
-	if len(m.UpdateLatencies) >= maxLatencySamples {
-		copy(m.UpdateLatencies, m.UpdateLatencies[maxLatencySamples/2:])
-		m.UpdateLatencies = m.UpdateLatencies[:maxLatencySamples/2]
+	m.updateTotal++
+	if len(m.updateLatencies) >= maxLatencySamples {
+		copy(m.updateLatencies, m.updateLatencies[maxLatencySamples/2:])
+		m.updateLatencies = m.updateLatencies[:maxLatencySamples/2]
 	}
-	m.UpdateLatencies = append(m.UpdateLatencies, latency)
+	m.updateLatencies = append(m.updateLatencies, latency)
 
 	if err != nil {
-		m.UpdateErrors++
+		m.updateErrors++
 	}
 }
 
@@ -107,15 +108,15 @@ func (m *Metrics) RecordDelete(latency time.Duration, err error) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 
-	m.DeleteTotal++
-	if len(m.DeleteLatencies) >= maxLatencySamples {
-		copy(m.DeleteLatencies, m.DeleteLatencies[maxLatencySamples/2:])
-		m.DeleteLatencies = m.DeleteLatencies[:maxLatencySamples/2]
+	m.deleteTotal++
+	if len(m.deleteLatencies) >= maxLatencySamples {
+		copy(m.deleteLatencies, m.deleteLatencies[maxLatencySamples/2:])
+		m.deleteLatencies = m.deleteLatencies[:maxLatencySamples/2]
 	}
-	m.DeleteLatencies = append(m.DeleteLatencies, latency)
+	m.deleteLatencies = append(m.deleteLatencies, latency)
 
 	if err != nil {
-		m.DeleteErrors++
+		m.deleteErrors++
 	}
 }
 
@@ -123,28 +124,28 @@ func (m *Metrics) RecordDelete(latency time.Duration, err error) {
 func (m *Metrics) RecordCacheHit() {
 	m.mu.Lock()
 	defer m.mu.Unlock()
-	m.CacheHits++
+	m.cacheHits++
 }
 
 // RecordCacheMiss increments cache miss counter.
 func (m *Metrics) RecordCacheMiss() {
 	m.mu.Lock()
 	defer m.mu.Unlock()
-	m.CacheMisses++
+	m.cacheMisses++
 }
 
 // GetQueryCount returns total query count.
 func (m *Metrics) GetQueryCount() int64 {
 	m.mu.RLock()
 	defer m.mu.RUnlock()
-	return m.QueryTotal
+	return m.queryTotal
 }
 
 // GetErrorCount returns total error count.
 func (m *Metrics) GetErrorCount() int64 {
 	m.mu.RLock()
 	defer m.mu.RUnlock()
-	return m.QueryErrors + m.CreateErrors + m.UpdateErrors + m.DeleteErrors
+	return m.queryErrors + m.createErrors + m.updateErrors + m.deleteErrors
 }
 
 // GetCacheHitRate returns cache hit rate (0-1).
@@ -152,11 +153,11 @@ func (m *Metrics) GetCacheHitRate() float64 {
 	m.mu.RLock()
 	defer m.mu.RUnlock()
 
-	total := m.CacheHits + m.CacheMisses
+	total := m.cacheHits + m.cacheMisses
 	if total == 0 {
 		return 0
 	}
-	return float64(m.CacheHits) / float64(total)
+	return float64(m.cacheHits) / float64(total)
 }
 
 // GetAverageQueryLatency returns average query latency.
@@ -164,15 +165,15 @@ func (m *Metrics) GetAverageQueryLatency() time.Duration {
 	m.mu.RLock()
 	defer m.mu.RUnlock()
 
-	if len(m.QueryLatencies) == 0 {
+	if len(m.queryLatencies) == 0 {
 		return 0
 	}
 
 	total := time.Duration(0)
-	for _, lat := range m.QueryLatencies {
+	for _, lat := range m.queryLatencies {
 		total += lat
 	}
-	return total / time.Duration(len(m.QueryLatencies))
+	return total / time.Duration(len(m.queryLatencies))
 }
 
 // GetStats returns a summary of all metrics.
@@ -182,24 +183,52 @@ func (m *Metrics) GetStats() map[string]interface{} {
 
 	stats := map[string]interface{}{
 		"queries": map[string]int64{
-			"total":   m.QueryTotal,
-			"success": m.QuerySuccess,
-			"errors":  m.QueryErrors,
+			"total":   m.queryTotal,
+			"success": m.querySuccess,
+			"errors":  m.queryErrors,
 		},
 		"operations": map[string]int64{
-			"create":        m.CreateTotal,
-			"create_errors": m.CreateErrors,
-			"update":        m.UpdateTotal,
-			"update_errors": m.UpdateErrors,
-			"delete":        m.DeleteTotal,
-			"delete_errors": m.DeleteErrors,
+			"create":        m.createTotal,
+			"create_errors": m.createErrors,
+			"update":        m.updateTotal,
+			"update_errors": m.updateErrors,
+			"delete":        m.deleteTotal,
+			"delete_errors": m.deleteErrors,
 		},
 		"cache": map[string]interface{}{
-			"hits":   m.CacheHits,
-			"misses": m.CacheMisses,
+			"hits":   m.cacheHits,
+			"misses": m.cacheMisses,
 		},
 	}
 	return stats
+}
+
+// GetQueryLatencyCount returns the number of query latency samples currently retained.
+func (m *Metrics) GetQueryLatencyCount() int {
+	m.mu.RLock()
+	defer m.mu.RUnlock()
+	return len(m.queryLatencies)
+}
+
+// GetCreateLatencyCount returns the number of create latency samples currently retained.
+func (m *Metrics) GetCreateLatencyCount() int {
+	m.mu.RLock()
+	defer m.mu.RUnlock()
+	return len(m.createLatencies)
+}
+
+// GetUpdateLatencyCount returns the number of update latency samples currently retained.
+func (m *Metrics) GetUpdateLatencyCount() int {
+	m.mu.RLock()
+	defer m.mu.RUnlock()
+	return len(m.updateLatencies)
+}
+
+// GetDeleteLatencyCount returns the number of delete latency samples currently retained.
+func (m *Metrics) GetDeleteLatencyCount() int {
+	m.mu.RLock()
+	defer m.mu.RUnlock()
+	return len(m.deleteLatencies)
 }
 
 // Reset clears all metrics.
@@ -207,19 +236,19 @@ func (m *Metrics) Reset() {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 
-	m.QueryTotal = 0
-	m.QueryErrors = 0
-	m.QuerySuccess = 0
-	m.CreateTotal = 0
-	m.CreateErrors = 0
-	m.UpdateTotal = 0
-	m.UpdateErrors = 0
-	m.DeleteTotal = 0
-	m.DeleteErrors = 0
-	m.CacheHits = 0
-	m.CacheMisses = 0
-	m.QueryLatencies = make([]time.Duration, 0)
-	m.CreateLatencies = make([]time.Duration, 0)
-	m.UpdateLatencies = make([]time.Duration, 0)
-	m.DeleteLatencies = make([]time.Duration, 0)
+	m.queryTotal = 0
+	m.queryErrors = 0
+	m.querySuccess = 0
+	m.createTotal = 0
+	m.createErrors = 0
+	m.updateTotal = 0
+	m.updateErrors = 0
+	m.deleteTotal = 0
+	m.deleteErrors = 0
+	m.cacheHits = 0
+	m.cacheMisses = 0
+	m.queryLatencies = make([]time.Duration, 0)
+	m.createLatencies = make([]time.Duration, 0)
+	m.updateLatencies = make([]time.Duration, 0)
+	m.deleteLatencies = make([]time.Duration, 0)
 }
