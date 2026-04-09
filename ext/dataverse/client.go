@@ -13,6 +13,10 @@ import (
 	"time"
 )
 
+// dataverseMaxErrorBodySize is the maximum number of bytes from a response body
+// included in error messages. Prevents log injection and OOM from huge error bodies.
+const dataverseMaxErrorBodySize = 512
+
 // Config holds Dataverse connection settings.
 type Config struct {
 	// OrgURL is the Dataverse organisation URL, e.g. https://myorg.api.crm.dynamics.com
@@ -153,7 +157,7 @@ func (c *Client) List(ctx context.Context, entitySet string, opts ...QueryOption
 		return nil, fmt.Errorf("dataverse: failed to read response: %w", err)
 	}
 	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
-		return nil, fmt.Errorf("dataverse: unexpected status %d: %s", resp.StatusCode, body)
+		return nil, fmt.Errorf("dataverse: unexpected status %d: %s", resp.StatusCode, truncateBody(body))
 	}
 	return body, nil
 }
@@ -187,7 +191,7 @@ func (c *Client) Get(ctx context.Context, entitySet, id string, opts ...QueryOpt
 		return nil, fmt.Errorf("dataverse: failed to read response: %w", err)
 	}
 	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
-		return nil, fmt.Errorf("dataverse: unexpected status %d: %s", resp.StatusCode, body)
+		return nil, fmt.Errorf("dataverse: unexpected status %d: %s", resp.StatusCode, truncateBody(body))
 	}
 	return body, nil
 }
@@ -218,7 +222,7 @@ func (c *Client) Create(ctx context.Context, entitySet string, body []byte) (str
 		return "", fmt.Errorf("dataverse: failed to read response: %w", err)
 	}
 	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
-		return "", fmt.Errorf("dataverse: unexpected status %d: %s", resp.StatusCode, respBody)
+		return "", fmt.Errorf("dataverse: unexpected status %d: %s", resp.StatusCode, truncateBody(respBody))
 	}
 
 	entityID := resp.Header.Get("OData-EntityId")
@@ -251,12 +255,19 @@ func (c *Client) Update(ctx context.Context, entitySet, id string, body []byte) 
 
 	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
 		b, _ := io.ReadAll(resp.Body)
-		return fmt.Errorf("dataverse: unexpected status %d: %s", resp.StatusCode, b)
+		return fmt.Errorf("dataverse: unexpected status %d: %s", resp.StatusCode, truncateBody(b))
 	}
 	return nil
 }
 
-// Delete deletes an entity.
+// truncateBody limits the body slice to dataverseMaxErrorBodySize bytes to
+// prevent large error payloads from causing log injection or OOM.
+func truncateBody(b []byte) []byte {
+	if len(b) > dataverseMaxErrorBodySize {
+		return b[:dataverseMaxErrorBodySize]
+	}
+	return b
+}
 func (c *Client) Delete(ctx context.Context, entitySet, id string) error {
 	u := fmt.Sprintf("%s%s(%s)", c.ServiceURL(), entitySet, id)
 
@@ -273,7 +284,7 @@ func (c *Client) Delete(ctx context.Context, entitySet, id string) error {
 
 	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
 		b, _ := io.ReadAll(resp.Body)
-		return fmt.Errorf("dataverse: unexpected status %d: %s", resp.StatusCode, b)
+		return fmt.Errorf("dataverse: unexpected status %d: %s", resp.StatusCode, truncateBody(b))
 	}
 	return nil
 }
