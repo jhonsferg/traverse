@@ -8,6 +8,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
+	"sync"
 
 	gql "github.com/graphql-go/graphql"
 
@@ -16,9 +17,11 @@ import (
 
 // GraphQLServer represents a GraphQL server that wraps an OData client.
 type GraphQLServer struct {
-	client *traverse.Client
-	schema *gql.Schema
-	logger interface{ Printf(string, ...interface{}) }
+	client     *traverse.Client
+	schema     *gql.Schema
+	schemaOnce sync.Once
+	schemaErr  error
+	logger     interface{ Printf(string, ...interface{}) }
 }
 
 // New creates a new GraphQL server with the given OData client.
@@ -72,12 +75,13 @@ func (s *GraphQLServer) Handler() http.Handler {
 
 // Execute executes a GraphQL query against the schema.
 func (s *GraphQLServer) Execute(ctx context.Context, query string, variables map[string]interface{}) *gql.Result {
-	// Lazy-load schema on first execution
-	if s.schema == nil {
-		if err := s.buildSchema(ctx); err != nil {
-			s.logger.Printf("Failed to build schema: %v", err)
-			return &gql.Result{}
-		}
+	// Lazy-load schema exactly once; safe for concurrent callers.
+	s.schemaOnce.Do(func() {
+		s.schemaErr = s.buildSchema(ctx)
+	})
+	if s.schemaErr != nil {
+		s.logger.Printf("Failed to build schema: %v", s.schemaErr)
+		return &gql.Result{}
 	}
 
 	params := gql.Params{
