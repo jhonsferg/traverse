@@ -4,14 +4,29 @@ package tracing
 
 import (
 	"context"
+	"crypto/rand"
+	"encoding/hex"
 	"fmt"
 	"sync"
 	"sync/atomic"
 	"time"
 )
 
-// Global counter to ensure unique span IDs
+// Global counter to ensure unique span IDs across goroutines.
 var spanCounter int64
+
+// maxCompletedSpans is the maximum number of completed spans retained for stats/retrieval.
+// Older spans are evicted when the limit is reached.
+const maxCompletedSpans = 1000
+
+// contextKey is an unexported type for context keys in this package,
+// preventing collisions with keys from other packages.
+type contextKey string
+
+const (
+	contextKeyTraceID contextKey = "trace_id"
+	contextKeySpanID  contextKey = "span_id"
+)
 
 // Tracer provides distributed tracing capabilities for OData operations.
 type Tracer struct {
@@ -23,8 +38,12 @@ type Tracer struct {
 	// Baggage (key-value pairs propagated with trace)
 	baggage map[string]string
 
-	// Spans tracking
+	// activeSpans holds spans that have been started but not yet ended.
 	activeSpans map[string]*Span
+
+	// completedSpans is a capped ring buffer of finished spans retained for
+	// stats and retrieval. Capped at maxCompletedSpans to prevent OOM.
+	completedSpans []*Span
 
 	// Configuration
 	serviceName string
@@ -58,12 +77,13 @@ type SpanEvent struct {
 // New creates a new Tracer instance.
 func New(serviceName string) *Tracer {
 	return &Tracer{
-		traceID:     generateTraceID(),
-		spanID:      generateSpanID(),
-		baggage:     make(map[string]string),
-		activeSpans: make(map[string]*Span),
-		serviceName: serviceName,
-		enabled:     true,
+		traceID:        generateTraceID(),
+		spanID:         generateSpanID(),
+		baggage:        make(map[string]string),
+		activeSpans:    make(map[string]*Span),
+		completedSpans: make([]*Span, 0, maxCompletedSpans),
+		serviceName:    serviceName,
+		enabled:        true,
 	}
 }
 
@@ -89,9 +109,9 @@ func (t *Tracer) StartSpan(ctx context.Context, spanName string) (context.Contex
 
 	t.activeSpans[span.SpanID] = span
 
-	// Create new context with trace information
-	newCtx := context.WithValue(ctx, "trace_id", t.traceID)
-	newCtx = context.WithValue(newCtx, "span_id", span.SpanID)
+	// Propagate trace context via unexported keys to avoid package collisions.
+	newCtx := context.WithValue(ctx, contextKeyTraceID, t.traceID)
+	newCtx = context.WithValue(newCtx, contextKeySpanID, span.SpanID)
 
 	return newCtx, span
 }
@@ -115,8 +135,14 @@ func (t *Tracer) EndSpan(span *Span, err error) {
 		span.Status = "success"
 	}
 
-	// Keep span for later retrieval
-	t.activeSpans[span.SpanID] = span
+	// Move from active to completed, capped at maxCompletedSpans.
+	delete(t.activeSpans, span.SpanID)
+	if len(t.completedSpans) >= maxCompletedSpans {
+		// Evict oldest half to amortise the cost of eviction.
+		copy(t.completedSpans, t.completedSpans[maxCompletedSpans/2:])
+		t.completedSpans = t.completedSpans[:maxCompletedSpans/2]
+	}
+	t.completedSpans = append(t.completedSpans, span)
 }
 
 // AddEvent adds an event to a span.
@@ -196,7 +222,7 @@ func (t *Tracer) GetSpanID() string {
 	return t.spanID
 }
 
-// GetActiveSpans returns all active spans.
+// GetActiveSpans returns all currently in-progress (not yet ended) spans.
 func (t *Tracer) GetActiveSpans() []*Span {
 	t.mu.RLock()
 	defer t.mu.RUnlock()
@@ -208,20 +234,29 @@ func (t *Tracer) GetActiveSpans() []*Span {
 	return spans
 }
 
-// GetSpan retrieves a specific span by ID.
+// GetSpan retrieves a specific span by ID from either active or completed spans.
 func (t *Tracer) GetSpan(spanID string) *Span {
 	t.mu.RLock()
 	defer t.mu.RUnlock()
 
-	return t.activeSpans[spanID]
+	if s, ok := t.activeSpans[spanID]; ok {
+		return s
+	}
+	for i := len(t.completedSpans) - 1; i >= 0; i-- {
+		if t.completedSpans[i].SpanID == spanID {
+			return t.completedSpans[i]
+		}
+	}
+	return nil
 }
 
-// ClearSpans removes all recorded spans.
+// ClearSpans removes all recorded spans (active and completed).
 func (t *Tracer) ClearSpans() {
 	t.mu.Lock()
 	defer t.mu.Unlock()
 
 	t.activeSpans = make(map[string]*Span)
+	t.completedSpans = t.completedSpans[:0]
 }
 
 // SetEnabled enables or disables tracing.
@@ -245,12 +280,12 @@ func (t *Tracer) GetStats() map[string]interface{} {
 	t.mu.RLock()
 	defer t.mu.RUnlock()
 
-	totalSpans := len(t.activeSpans)
+	totalSpans := len(t.completedSpans)
 	successCount := 0
 	errorCount := 0
 	totalDuration := time.Duration(0)
 
-	for _, span := range t.activeSpans {
+	for _, span := range t.completedSpans {
 		if span.Status == "success" {
 			successCount++
 		} else if span.Status == "error" {
@@ -278,14 +313,22 @@ func (t *Tracer) GetStats() map[string]interface{} {
 // Helper functions
 
 func generateTraceID() string {
-	// Generate a 16-byte (32-hex-char) trace ID
-	return fmt.Sprintf("%032d", time.Now().UnixNano()%100000000000000000)
+	var b [16]byte
+	if _, err := rand.Read(b[:]); err != nil {
+		// Fallback to counter-based ID when crypto/rand is unavailable.
+		counter := atomic.AddInt64(&spanCounter, 1)
+		return fmt.Sprintf("%016x%016x", time.Now().UnixNano(), counter)
+	}
+	return hex.EncodeToString(b[:])
 }
 
 func generateSpanID() string {
-	// Generate unique span ID using atomic counter + time for distributed uniqueness
-	counter := atomic.AddInt64(&spanCounter, 1)
-	return fmt.Sprintf("%016d", (time.Now().UnixNano()^counter)%10000000000000000)
+	var b [8]byte
+	if _, err := rand.Read(b[:]); err != nil {
+		counter := atomic.AddInt64(&spanCounter, 1)
+		return fmt.Sprintf("%016x", time.Now().UnixNano()^counter)
+	}
+	return hex.EncodeToString(b[:])
 }
 
 // ContextCarrier implements context propagation for distributed tracing.
@@ -299,12 +342,13 @@ type ContextCarrier struct {
 // Extract extracts trace context from a carrier.
 func Extract(carrier *ContextCarrier) *Tracer {
 	t := &Tracer{
-		traceID:      carrier.TraceID,
-		spanID:       carrier.SpanID,
-		parentSpanID: carrier.ParentSpanID,
-		baggage:      carrier.Baggage,
-		activeSpans:  make(map[string]*Span),
-		enabled:      true,
+		traceID:        carrier.TraceID,
+		spanID:         carrier.SpanID,
+		parentSpanID:   carrier.ParentSpanID,
+		baggage:        carrier.Baggage,
+		activeSpans:    make(map[string]*Span),
+		completedSpans: make([]*Span, 0, maxCompletedSpans),
+		enabled:        true,
 	}
 	if t.baggage == nil {
 		t.baggage = make(map[string]string)

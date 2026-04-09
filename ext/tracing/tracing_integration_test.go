@@ -98,8 +98,12 @@ func TestTracingIntegration_NestedSpans(t *testing.T) {
 	tracer.EndSpan(rootSpan, nil)
 
 	spans := tracer.GetActiveSpans()
-	if len(spans) != 3 {
-		t.Fatalf("Expected 3 spans in hierarchy")
+	if len(spans) != 0 {
+		t.Fatalf("Expected 0 active spans after all ended, got %d", len(spans))
+	}
+	stats := tracer.GetStats()
+	if stats["total_spans"].(int) != 3 {
+		t.Fatalf("Expected 3 spans in hierarchy, got %d", stats["total_spans"])
 	}
 
 	t.Logf("✅ Nested spans integration test passed")
@@ -124,8 +128,12 @@ func TestTracingIntegration_CacheWithTracing(t *testing.T) {
 	tracer.EndSpan(cacheMissSpan, nil)
 
 	spans := tracer.GetActiveSpans()
-	if len(spans) != 2 {
-		t.Fatalf("Expected 2 cache-related spans")
+	if len(spans) != 0 {
+		t.Fatalf("Expected 0 active cache spans after all ended, got %d", len(spans))
+	}
+	stats := tracer.GetStats()
+	if stats["total_spans"].(int) != 2 {
+		t.Fatalf("Expected 2 cache-related spans, got %d", stats["total_spans"])
 	}
 
 	t.Logf("✅ Cache with tracing integration test passed")
@@ -179,8 +187,12 @@ func TestTracingIntegration_CRUDOperations(t *testing.T) {
 	}
 
 	spans := tracer.GetActiveSpans()
-	if len(spans) != 4 {
-		t.Fatalf("Expected 4 CRUD operation spans")
+	if len(spans) != 0 {
+		t.Fatalf("Expected 0 active CRUD spans after all ended, got %d", len(spans))
+	}
+	stats := tracer.GetStats()
+	if stats["total_spans"].(int) != 4 {
+		t.Fatalf("Expected 4 CRUD operation spans, got %d", stats["total_spans"])
 	}
 
 	t.Logf("✅ CRUD operations tracing integration test passed")
@@ -262,9 +274,9 @@ func TestTracingIntegration_SamplingDecision(t *testing.T) {
 	tracer.EndSpan(span, nil)
 
 	if tracer.IsEnabled() {
-		spans := tracer.GetActiveSpans()
-		if len(spans) != 1 {
-			t.Fatalf("Expected 1 span when tracing enabled")
+		stats := tracer.GetStats()
+		if stats["total_spans"].(int) != 1 {
+			t.Fatalf("Expected 1 span in stats when tracing enabled, got %d", stats["total_spans"])
 		}
 	}
 
