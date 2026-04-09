@@ -49,6 +49,16 @@ func (q *QueryBuilder) doPrefetchPages(ctx context.Context, out chan<- Result[ma
 		nextLink := q.buildURL()
 
 		for nextLink != "" {
+			if pageNum > maxPaginationIterations {
+				select {
+				case pageCh <- prefetchedPage{
+					err: fmt.Errorf("traverse: exceeded maximum pagination limit of %d pages", maxPaginationIterations),
+				}:
+				case <-fetchCtx.Done():
+				}
+				return
+			}
+
 			select {
 			case <-fetchCtx.Done():
 				return
@@ -61,6 +71,16 @@ func (q *QueryBuilder) doPrefetchPages(ctx context.Context, out chan<- Result[ma
 				case pageCh <- prefetchedPage{
 					err: fmt.Errorf("traverse: failed to fetch page %d: %w", pageNum, err),
 				}:
+				case <-fetchCtx.Done():
+				}
+				return
+			}
+
+			// Validate the next page link before following it to prevent SSRF
+			// (a malicious server could return a nextLink pointing to an arbitrary host).
+			if err := validateNextLink(page.NextLink, q.client.baseURL); err != nil {
+				select {
+				case pageCh <- prefetchedPage{err: err}:
 				case <-fetchCtx.Done():
 				}
 				return
@@ -87,7 +107,11 @@ func (q *QueryBuilder) doPrefetchPages(ctx context.Context, out chan<- Result[ma
 			select {
 			case <-ctx.Done():
 				returnPageToPool(p.page, i)
-				out <- Result[map[string]interface{}]{Err: ctx.Err()}
+				// Non-blocking send: prevents goroutine leak when caller stopped reading.
+				select {
+				case out <- Result[map[string]interface{}]{Err: ctx.Err()}:
+				default:
+				}
 				return
 			case out <- Result[map[string]interface{}]{
 				Value: copyMapDeep(record),
@@ -102,6 +126,10 @@ func (q *QueryBuilder) doPrefetchPages(ctx context.Context, out chan<- Result[ma
 
 	// Propagate context cancellation that caused the prefetch goroutine to stop early.
 	if err := ctx.Err(); err != nil {
-		out <- Result[map[string]interface{}]{Err: err}
+		// Non-blocking: if the caller stopped reading, there is no point blocking.
+		select {
+		case out <- Result[map[string]interface{}]{Err: err}:
+		default:
+		}
 	}
 }
