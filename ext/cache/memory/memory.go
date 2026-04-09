@@ -32,21 +32,21 @@ func New(ttl time.Duration) *Cache {
 
 // Get retrieves cached metadata by key.
 // Returns nil and false if key is not found or has expired.
+//
+// Expired entries are not deleted here to avoid a TOCTOU race: between
+// releasing the read-lock and acquiring the write-lock a concurrent Set() may
+// have stored a fresh entry under the same key, which would then be silently
+// removed. Stale entries are reclaimed by [CleanupExpired].
 func (c *Cache) Get(key string) (*traverse.Metadata, bool) {
 	c.mu.RLock()
-	entry, exists := c.entries[key]
-	c.mu.RUnlock()
+	defer c.mu.RUnlock()
 
+	entry, exists := c.entries[key]
 	if !exists {
 		return nil, false
 	}
 
-	// Check expiration
 	if c.ttl > 0 && time.Now().After(entry.expiresAt) {
-		// Expired, remove it
-		c.mu.Lock()
-		delete(c.entries, key)
-		c.mu.Unlock()
 		return nil, false
 	}
 
