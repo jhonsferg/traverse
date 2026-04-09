@@ -186,3 +186,42 @@ func TestClientWithNoOpCacheDefault(t *testing.T) {
 		t.Fatalf("NoOpCache should not cache, but found entry: %v", cached)
 	}
 }
+
+// TestInMemoryResponseCache_GetMissReturnsNil verifies that Get returns
+// (nil, false) when the key has never been stored.
+func TestInMemoryResponseCache_GetMissReturnsNil(t *testing.T) {
+	c := NewInMemoryResponseCache().(*inMemoryResponseCache)
+	entry, ok := c.Get("missing")
+	if ok || entry != nil {
+		t.Errorf("Get(missing) = (%v, %v), want (nil, false)", entry, ok)
+	}
+}
+
+// TestInMemoryResponseCache_SetAndGet verifies a stored entry is retrievable.
+func TestInMemoryResponseCache_SetAndGet(t *testing.T) {
+	c := NewInMemoryResponseCache().(*inMemoryResponseCache)
+	want := &ResponseCacheEntry{Body: []byte(`{"value":[]}`), ETag: `"abc123"`}
+	c.Set("key1", want, 0)
+
+	got, ok := c.Get("key1")
+	if !ok {
+		t.Fatal("Get after Set returned false")
+	}
+	if string(got.Body) != string(want.Body) || got.ETag != want.ETag {
+		t.Errorf("Get returned %+v, want %+v", got, want)
+	}
+}
+
+// TestInMemoryResponseCache_CorruptedEntryReturnsNil verifies that the
+// comma-ok type assertion in Get handles a corrupted sync.Map entry gracefully
+// instead of panicking.
+func TestInMemoryResponseCache_CorruptedEntryReturnsNil(t *testing.T) {
+	c := NewInMemoryResponseCache().(*inMemoryResponseCache)
+	// Manually store a value of the wrong type to simulate corruption.
+	c.m.Store("bad-key", "not-a-*ResponseCacheEntry")
+
+	entry, ok := c.Get("bad-key")
+	if ok || entry != nil {
+		t.Errorf("Get with wrong type = (%v, %v), want (nil, false)", entry, ok)
+	}
+}

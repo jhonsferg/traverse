@@ -84,7 +84,11 @@ func (c *inMemoryResponseCache) Get(key string) (*ResponseCacheEntry, bool) {
 	if !ok {
 		return nil, false
 	}
-	return val.(*ResponseCacheEntry), true
+	entry, ok := val.(*ResponseCacheEntry)
+	if !ok {
+		return nil, false
+	}
+	return entry, true
 }
 
 // Set stores entry for key. When ttl > 0, entry.ExpiresAt is set to now+ttl.
