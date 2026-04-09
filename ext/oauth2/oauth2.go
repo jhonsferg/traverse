@@ -116,11 +116,11 @@ return nil
 
 // A fetch is already in progress — wait for it without holding the lock.
 if tm.inflight != nil {
-ch := tm.inflight.done
+inflight := tm.inflight
 tm.mu.Unlock()
 select {
-case <-ch:
-return nil
+case <-inflight.done:
+return inflight.err
 case <-ctx.Done():
 return ctx.Err()
 }
@@ -207,7 +207,22 @@ return nil, fmt.Errorf("oauth2: failed to read response: %w", err)
 }
 
 if resp.StatusCode != http.StatusOK {
-return nil, fmt.Errorf("oauth2: token endpoint returned status %d: %s", resp.StatusCode, string(body))
+// Try to extract a structured RFC 6749 error before falling back to a
+// status-only message. Never echo the raw body — it may contain
+// sensitive diagnostic data or partial credential information.
+var errResp struct {
+Error     string `json:"error"`
+ErrorDesc string `json:"error_description"`
+}
+if jsonErr := json.Unmarshal(body, &errResp); jsonErr == nil && errResp.Error != "" {
+if errResp.ErrorDesc != "" {
+return nil, fmt.Errorf("oauth2: token endpoint returned status %d: %s: %s",
+resp.StatusCode, errResp.Error, errResp.ErrorDesc)
+}
+return nil, fmt.Errorf("oauth2: token endpoint returned status %d: %s",
+resp.StatusCode, errResp.Error)
+}
+return nil, fmt.Errorf("oauth2: token endpoint returned status %d", resp.StatusCode)
 }
 
 var token Token
