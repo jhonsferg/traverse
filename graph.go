@@ -27,7 +27,7 @@ func (e *GraphError) Error() string {
 	return "traverse: unknown Graph error"
 }
 
-func NewGraphClient(relay *relay.Client, cfg GraphConfig) *Client {
+func NewGraphClient(relayClient *relay.Client, cfg GraphConfig) *Client {
 	version := cfg.Version
 	if version == "" {
 		version = "v1.0"
@@ -36,16 +36,29 @@ func NewGraphClient(relay *relay.Client, cfg GraphConfig) *Client {
 	baseURL := fmt.Sprintf("https://graph.microsoft.com/%s", version)
 
 	opts := []Option{
-		WithBaseURL(baseURL),
 		WithODataVersion(ODataV4),
-		WithHeader("Authorization", fmt.Sprintf("Bearer %s", cfg.AccessToken)),
 		WithODataErrors(),
+		WithHeader("Authorization", fmt.Sprintf("Bearer %s", cfg.AccessToken)),
 	}
+
+	// Inject the caller-provided relay client so its transport configuration
+	// (TLS, timeouts, circuit breakers, tracing hooks, etc.) is honoured.
+	// WithBaseURL must come after WithRelayClient so the Graph endpoint URL
+	// takes precedence over whatever base URL the relay client was built with.
+	if relayClient != nil {
+		opts = append(opts, WithRelayClient(relayClient))
+	}
+	opts = append(opts, WithBaseURL(baseURL))
 
 	if cfg.ConsistencyLevel != "" {
 		opts = append(opts, WithHeader("ConsistencyLevel", cfg.ConsistencyLevel))
 	}
 
-	client, _ := New(opts...)
+	client, err := New(opts...)
+	if err != nil {
+		// New() only fails on programmer errors (e.g. empty base URL). The options
+		// above are always valid, so this path should never be reached in practice.
+		panic(fmt.Sprintf("traverse: NewGraphClient: %v", err))
+	}
 	return client
 }
