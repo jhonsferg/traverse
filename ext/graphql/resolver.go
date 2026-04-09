@@ -5,6 +5,7 @@ import (
 	"fmt"
 
 	gql "github.com/graphql-go/graphql"
+	"github.com/graphql-go/graphql/language/ast"
 
 	"github.com/jhonsferg/traverse"
 )
@@ -182,13 +183,27 @@ func (mr *MutationResolver) ResolveDelete(p gql.ResolveParams) (interface{}, err
 	return true, nil
 }
 
-// getSelectedFields extracts the selected fields from a GraphQL resolve params.
+// getSelectedFields extracts the top-level field names requested by the
+// GraphQL client from the selection set of the first resolved field AST.
+// The names are used to build an OData $select clause so that the server
+// returns only the requested properties, reducing payload size.
+//
+// Only direct field selections are considered; fragments and inline fragments
+// are ignored because they may span multiple entity types and cannot be
+// reliably mapped to a flat $select list without schema introspection.
 func getSelectedFields(p gql.ResolveParams) []string {
-	fields := []string{}
-
-	// This is a simplified implementation. In a full implementation,
-	// we would walk the AST to get the actual selected fields.
-	// For now, return empty to select all fields.
-
+	if len(p.Info.FieldASTs) == 0 {
+		return nil
+	}
+	ss := p.Info.FieldASTs[0].SelectionSet
+	if ss == nil || len(ss.Selections) == 0 {
+		return nil
+	}
+	fields := make([]string, 0, len(ss.Selections))
+	for _, s := range ss.Selections {
+		if f, ok := s.(*ast.Field); ok && f.Name != nil {
+			fields = append(fields, f.Name.Value)
+		}
+	}
 	return fields
 }
