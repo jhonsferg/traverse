@@ -7,6 +7,11 @@ import (
 	"time"
 )
 
+// maxLatencySamples is the maximum number of latency samples retained per
+// operation type. Once the cap is reached the oldest half is discarded,
+// keeping memory usage bounded while preserving recent statistics.
+const maxLatencySamples = 10_000
+
 // Metrics holds all Prometheus metrics for traverse operations.
 type Metrics struct {
 	// Query counters
@@ -18,7 +23,7 @@ type Metrics struct {
 	UpdateTotal  int64 // Total update operations
 	DeleteTotal  int64 // Total delete operations
 
-	// Latency tracking
+	// Latency tracking (capped at maxLatencySamples to prevent unbounded growth)
 	QueryLatencies  []time.Duration // Query latencies (for histogram)
 	CreateLatencies []time.Duration // Create latencies
 
@@ -43,6 +48,11 @@ func (m *Metrics) RecordQuery(latency time.Duration, err error) {
 	defer m.mu.Unlock()
 
 	m.QueryTotal++
+	if len(m.QueryLatencies) >= maxLatencySamples {
+		// Drop oldest half to bound memory usage while preserving recent samples.
+		copy(m.QueryLatencies, m.QueryLatencies[maxLatencySamples/2:])
+		m.QueryLatencies = m.QueryLatencies[:maxLatencySamples/2]
+	}
 	m.QueryLatencies = append(m.QueryLatencies, latency)
 
 	if err != nil {
@@ -58,6 +68,10 @@ func (m *Metrics) RecordCreate(latency time.Duration, err error) {
 	defer m.mu.Unlock()
 
 	m.CreateTotal++
+	if len(m.CreateLatencies) >= maxLatencySamples {
+		copy(m.CreateLatencies, m.CreateLatencies[maxLatencySamples/2:])
+		m.CreateLatencies = m.CreateLatencies[:maxLatencySamples/2]
+	}
 	m.CreateLatencies = append(m.CreateLatencies, latency)
 
 	if err != nil {
