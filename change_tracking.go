@@ -134,32 +134,66 @@ func (t *TrackedEntity) MarshalJSON() ([]byte, error) {
 // SaveChanges saves the dirty fields to the OData service using a PATCH request.
 // If no fields are dirty, it is a no-op and returns nil.
 //
+// SaveChanges is safe to call concurrently: it atomically snapshots the dirty
+// fields and clears only those fields on success. Any Set calls that race with
+// the in-flight PATCH remain dirty and will be included in the next SaveChanges.
+//
 //	t := traverse.TrackEntity(entity)
 //	t.Set("Name", "New Name")
 //	err := t.SaveChanges(ctx, client, "Products", 42)
 func (t *TrackedEntity) SaveChanges(ctx context.Context, client *Client, entitySet string, key interface{}) error {
-	if !t.IsDirty() {
+	// Phase 1: atomically snapshot dirty fields and their pre-save originals.
+	// We optimistically advance original[field] to current[field] and remove
+	// the dirty flag so that concurrent Set() calls on other fields are not
+	// affected. On failure we restore the previous originals and re-dirty only
+	// the fields we attempted to save.
+	t.mu.Lock()
+	if len(t.dirty) == 0 {
+		t.mu.Unlock()
 		return nil
 	}
-	changes := t.Changes()
+	patch := make(map[string]interface{}, len(t.dirty))
+	prevOriginals := make(map[string]interface{}, len(t.dirty))
+	for field := range t.dirty {
+		patch[field] = t.current[field]
+		prevOriginals[field] = t.original[field]
+		t.original[field] = t.current[field]
+		delete(t.dirty, field)
+	}
+	t.mu.Unlock()
 
 	keyStr, err := encodeKey(key)
 	if err != nil {
+		t.restoreDirty(prevOriginals)
 		return fmt.Errorf("traverse: invalid key: %w", err)
 	}
 
 	path := fmt.Sprintf("/%s(%s)", entitySet, keyStr)
-	r := client.http.Patch(path)
-	r = r.WithJSON(changes)
-	r = r.WithContext(ctx)
+	r := client.http.Patch(path).WithJSON(patch).WithContext(ctx)
 
 	resp, execErr := client.http.Execute(r)
 	if execErr != nil {
+		t.restoreDirty(prevOriginals)
 		return fmt.Errorf("traverse: SaveChanges failed: %w", execErr)
 	}
 	if resp.StatusCode != 200 && resp.StatusCode != 204 {
+		t.restoreDirty(prevOriginals)
 		return fmt.Errorf("traverse: SaveChanges returned status %d", resp.StatusCode)
 	}
-	t.Reset()
 	return nil
+}
+
+// restoreDirty is called after a failed PATCH. It reinstates the pre-send
+// original values and re-marks each field as dirty so the next SaveChanges
+// retries with the correct values. Fields that were set again by a concurrent
+// Set() call between the snapshot and the failure are already in dirty and
+// keep their newer value; we only restore the original pointer without
+// overwriting the dirty flag.
+func (t *TrackedEntity) restoreDirty(prevOriginals map[string]interface{}) {
+	t.mu.Lock()
+	defer t.mu.Unlock()
+	for field, prev := range prevOriginals {
+		t.original[field] = prev
+		t.dirty[field] = true
+	}
 }
