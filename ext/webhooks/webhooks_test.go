@@ -595,3 +595,53 @@ func TestInvalidConfig(t *testing.T) {
 		t.Errorf("Expected error about missing CallbackURL, got: %v", err)
 	}
 }
+
+func TestOnRenewErrorCallback(t *testing.T) {
+	var server *httptest.Server
+	server = httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch r.Method {
+		case http.MethodPost:
+			w.Header().Set("Content-Type", "application/json")
+			json.NewEncoder(w).Encode(map[string]interface{}{ //nolint:errcheck
+				"id":                 "sub-callback-test",
+				"expirationDateTime": time.Now().Add(1 * time.Hour).Format(time.RFC3339),
+			})
+		case http.MethodPatch:
+			// Renewal always fails.
+			http.Error(w, `{"error":"service_unavailable"}`, http.StatusServiceUnavailable)
+		default:
+			http.Error(w, "not found", http.StatusNotFound)
+		}
+	}))
+	defer server.Close()
+
+	client, _ := traverse.New(
+		traverse.WithBaseURL(server.URL),
+		traverse.WithODataVersion(traverse.ODataV4),
+	)
+	defer client.Close() //nolint:errcheck
+
+	errCh := make(chan error, 5)
+	sub, err := Subscribe(context.Background(), client, Config{
+		EntitySet:          "Products",
+		CallbackURL:        "https://example.com/webhook",
+		Expiry:             500 * time.Millisecond,
+		RenewAutomatically: true,
+		OnRenewError: func(e error) {
+			errCh <- e
+		},
+	})
+	if err != nil {
+		t.Fatalf("Subscribe failed: %v", err)
+	}
+	defer sub.Delete(context.Background()) //nolint:errcheck
+
+	select {
+	case e := <-errCh:
+		if e == nil {
+			t.Error("OnRenewError called with nil error")
+		}
+	case <-time.After(5 * time.Second):
+		t.Error("OnRenewError was never called after renewal failure")
+	}
+}
