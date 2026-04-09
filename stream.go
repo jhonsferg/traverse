@@ -162,13 +162,17 @@ func newGoroutinePool(workers int) *goroutinePool {
 // submit sends a task function to the pool for execution by one of the worker
 // goroutines. If the pool is closed, the task is executed inline immediately.
 // Otherwise, submit blocks if the pool is at capacity until a worker becomes available.
+//
+// The select is atomic: it avoids the TOCTOU race where a separate check on
+// doneChan followed by a send to taskChan could panic if the pool was closed
+// between the two operations.
 func (p *goroutinePool) submit(task func()) {
 	select {
 	case <-p.doneChan:
-		// Pool is closed, run inline
+		// Pool is closed, run inline.
 		task()
-	default:
-		p.taskChan <- task
+	case p.taskChan <- task:
+		// Submitted to pool worker.
 	}
 }
 
@@ -261,8 +265,12 @@ func (q *QueryBuilder) doStreamPages(ctx context.Context, out chan<- Result[map[
 
 		select {
 		case <-ctx.Done():
-			out <- Result[map[string]interface{}]{
-				Err: ctx.Err(),
+			// Use a non-blocking send: the caller has cancelled the context,
+			// so they may have stopped reading. Blocking here would leak the
+			// pool worker goroutine if the output channel is full.
+			select {
+			case out <- Result[map[string]interface{}]{Err: ctx.Err()}:
+			default:
 			}
 			return
 		default:
@@ -283,8 +291,10 @@ func (q *QueryBuilder) doStreamPages(ctx context.Context, out chan<- Result[map[
 			case <-ctx.Done():
 				// Return remaining records to pool on context cancellation
 				returnPageToPool(page, i)
-				out <- Result[map[string]interface{}]{
-					Err: ctx.Err(),
+				// Non-blocking send: prevents goroutine leak when caller stopped reading.
+				select {
+				case out <- Result[map[string]interface{}]{Err: ctx.Err()}:
+				default:
 				}
 				return
 			case out <- Result[map[string]interface{}]{
@@ -341,8 +351,10 @@ func (q *QueryBuilder) doStreamPagesRaw(ctx context.Context, out chan<- RawResul
 
 		select {
 		case <-ctx.Done():
-			out <- RawResult{
-				Err: ctx.Err(),
+			// Non-blocking send: prevents goroutine leak when caller stopped reading.
+			select {
+			case out <- RawResult{Err: ctx.Err()}:
+			default:
 			}
 			return
 		default:
@@ -361,8 +373,10 @@ func (q *QueryBuilder) doStreamPagesRaw(ctx context.Context, out chan<- RawResul
 		for i, rawRecord := range page.RawValue {
 			select {
 			case <-ctx.Done():
-				out <- RawResult{
-					Err: ctx.Err(),
+				// Non-blocking send: prevents goroutine leak when caller stopped reading.
+				select {
+				case out <- RawResult{Err: ctx.Err()}:
+				default:
 				}
 				return
 			case out <- RawResult{
