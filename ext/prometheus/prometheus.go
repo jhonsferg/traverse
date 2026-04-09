@@ -21,11 +21,15 @@ type Metrics struct {
 	CreateTotal  int64 // Total create operations
 	CreateErrors int64 // Total create errors
 	UpdateTotal  int64 // Total update operations
+	UpdateErrors int64 // Total update errors
 	DeleteTotal  int64 // Total delete operations
+	DeleteErrors int64 // Total delete errors
 
 	// Latency tracking (capped at maxLatencySamples to prevent unbounded growth)
 	QueryLatencies  []time.Duration // Query latencies (for histogram)
 	CreateLatencies []time.Duration // Create latencies
+	UpdateLatencies []time.Duration // Update latencies
+	DeleteLatencies []time.Duration // Delete latencies
 
 	// Cache metrics
 	CacheHits   int64 // Metadata cache hits
@@ -39,6 +43,8 @@ func New() *Metrics {
 	return &Metrics{
 		QueryLatencies:  make([]time.Duration, 0),
 		CreateLatencies: make([]time.Duration, 0),
+		UpdateLatencies: make([]time.Duration, 0),
+		DeleteLatencies: make([]time.Duration, 0),
 	}
 }
 
@@ -85,8 +91,14 @@ func (m *Metrics) RecordUpdate(latency time.Duration, err error) {
 	defer m.mu.Unlock()
 
 	m.UpdateTotal++
+	if len(m.UpdateLatencies) >= maxLatencySamples {
+		copy(m.UpdateLatencies, m.UpdateLatencies[maxLatencySamples/2:])
+		m.UpdateLatencies = m.UpdateLatencies[:maxLatencySamples/2]
+	}
+	m.UpdateLatencies = append(m.UpdateLatencies, latency)
+
 	if err != nil {
-		// Track errors for updates
+		m.UpdateErrors++
 	}
 }
 
@@ -96,8 +108,14 @@ func (m *Metrics) RecordDelete(latency time.Duration, err error) {
 	defer m.mu.Unlock()
 
 	m.DeleteTotal++
+	if len(m.DeleteLatencies) >= maxLatencySamples {
+		copy(m.DeleteLatencies, m.DeleteLatencies[maxLatencySamples/2:])
+		m.DeleteLatencies = m.DeleteLatencies[:maxLatencySamples/2]
+	}
+	m.DeleteLatencies = append(m.DeleteLatencies, latency)
+
 	if err != nil {
-		// Track errors for deletes
+		m.DeleteErrors++
 	}
 }
 
@@ -126,7 +144,7 @@ func (m *Metrics) GetQueryCount() int64 {
 func (m *Metrics) GetErrorCount() int64 {
 	m.mu.RLock()
 	defer m.mu.RUnlock()
-	return m.QueryErrors + m.CreateErrors
+	return m.QueryErrors + m.CreateErrors + m.UpdateErrors + m.DeleteErrors
 }
 
 // GetCacheHitRate returns cache hit rate (0-1).
@@ -169,10 +187,12 @@ func (m *Metrics) GetStats() map[string]interface{} {
 			"errors":  m.QueryErrors,
 		},
 		"operations": map[string]int64{
-			"create": m.CreateTotal,
-			"update": m.UpdateTotal,
-			"delete": m.DeleteTotal,
-			"errors": m.CreateErrors,
+			"create":        m.CreateTotal,
+			"create_errors": m.CreateErrors,
+			"update":        m.UpdateTotal,
+			"update_errors": m.UpdateErrors,
+			"delete":        m.DeleteTotal,
+			"delete_errors": m.DeleteErrors,
 		},
 		"cache": map[string]interface{}{
 			"hits":   m.CacheHits,
@@ -193,9 +213,13 @@ func (m *Metrics) Reset() {
 	m.CreateTotal = 0
 	m.CreateErrors = 0
 	m.UpdateTotal = 0
+	m.UpdateErrors = 0
 	m.DeleteTotal = 0
+	m.DeleteErrors = 0
 	m.CacheHits = 0
 	m.CacheMisses = 0
 	m.QueryLatencies = make([]time.Duration, 0)
 	m.CreateLatencies = make([]time.Duration, 0)
+	m.UpdateLatencies = make([]time.Duration, 0)
+	m.DeleteLatencies = make([]time.Duration, 0)
 }
