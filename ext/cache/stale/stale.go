@@ -12,6 +12,9 @@ type Config struct {
 	TTL            time.Duration
 	StaleTTL       time.Duration
 	BackgroundSync bool
+	// OnError is called when a background refresh fails. It receives the cache
+	// key and the error returned by the refresh function. Optional.
+	OnError func(key string, err error)
 }
 
 // Cache provides stale-while-revalidate semantics for arbitrary data.
@@ -125,6 +128,9 @@ func (c *Cache) startBackgroundRefresh(key string, refreshFn func(ctx context.Co
 
 		if err == nil && c.onRefresh != nil {
 			c.onRefresh(key, data)
+		}
+		if err != nil && c.cfg.OnError != nil {
+			c.cfg.OnError(key, err)
 		}
 	}()
 }
