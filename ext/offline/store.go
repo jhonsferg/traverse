@@ -42,7 +42,7 @@ func (s *Store) Set(path string, data []byte) error {
 
 	hash := hashPath(path)
 	file := filepath.Join(s.dir, hash+".json")
-	if err := os.WriteFile(file, data, 0o600); err != nil {
+	if err := writeFileAtomic(file, data, 0o600); err != nil {
 		return fmt.Errorf("offline: write entry: %w", err)
 	}
 	return s.updateIndex(hash, path)
@@ -137,15 +137,27 @@ func (s *Store) readIndex() (map[string]string, error) {
 	return idx, nil
 }
 
-// writeIndex persists the index map to disk atomically.
+// writeIndex persists the index map to disk atomically using a temp-file rename.
 func (s *Store) writeIndex(idx map[string]string) error {
 	data, err := json.Marshal(idx)
 	if err != nil {
 		return fmt.Errorf("offline: marshal index: %w", err)
 	}
 	file := filepath.Join(s.dir, indexFile)
-	if err := os.WriteFile(file, data, 0o600); err != nil {
-		return fmt.Errorf("offline: write index: %w", err)
+	return writeFileAtomic(file, data, 0o600)
+}
+
+// writeFileAtomic writes data to path atomically by writing to a sibling temp
+// file first and then renaming it. On POSIX systems rename(2) is atomic within
+// the same filesystem, so readers never see a partially-written file.
+func writeFileAtomic(path string, data []byte, perm os.FileMode) error {
+	tmp := path + ".tmp"
+	if err := os.WriteFile(tmp, data, perm); err != nil {
+		return err
+	}
+	if err := os.Rename(tmp, path); err != nil {
+		_ = os.Remove(tmp)
+		return err
 	}
 	return nil
 }
