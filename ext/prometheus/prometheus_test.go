@@ -308,21 +308,21 @@ func TestMetrics_LatencyTracking(t *testing.T) {
 // TestMetrics_LatencyCap verifies that query latencies are capped at
 // maxLatencySamples to prevent unbounded memory growth.
 func TestMetrics_LatencyCap(t *testing.T) {
-m := New()
+	m := New()
 
-// Record more samples than the cap to trigger the rotation logic.
-for i := 0; i < maxLatencySamples+100; i++ {
-m.RecordQuery(time.Millisecond, nil)
-}
+	// Record more samples than the cap to trigger the rotation logic.
+	for i := 0; i < maxLatencySamples+100; i++ {
+		m.RecordQuery(time.Millisecond, nil)
+	}
 
-n := m.GetQueryLatencyCount()
+	n := m.GetQueryLatencyCount()
 
-if n > maxLatencySamples {
-t.Fatalf("query latencies grew beyond cap: got %d, want <= %d", n, maxLatencySamples)
-}
-if m.GetQueryCount() != int64(maxLatencySamples+100) {
-t.Fatalf("query total should reflect all calls, got %d", m.GetQueryCount())
-}
+	if n > maxLatencySamples {
+		t.Fatalf("query latencies grew beyond cap: got %d, want <= %d", n, maxLatencySamples)
+	}
+	if m.GetQueryCount() != int64(maxLatencySamples+100) {
+		t.Fatalf("query total should reflect all calls, got %d", m.GetQueryCount())
+	}
 
-t.Logf("✅ Latency cap test passed: %d samples retained after %d records", n, maxLatencySamples+100)
+	t.Logf("✅ Latency cap test passed: %d samples retained after %d records", n, maxLatencySamples+100)
 }
