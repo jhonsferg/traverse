@@ -7,6 +7,7 @@ import (
 	"crypto/rand"
 	"encoding/json"
 	"fmt"
+	"io"
 	"net/http"
 	"time"
 )
@@ -71,7 +72,11 @@ func (c *EventGridClient) Publish(ctx context.Context, events []EventGridEvent) 
 	if err != nil {
 		return fmt.Errorf("azure: failed to send events: %w", err)
 	}
-	defer resp.Body.Close() //nolint:errcheck
+	// Always drain and close so the underlying connection can be reused.
+	defer func() {
+		_, _ = io.Copy(io.Discard, io.LimitReader(resp.Body, 4096))
+		resp.Body.Close() //nolint:errcheck
+	}()
 
 	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
 		return fmt.Errorf("azure: event grid returned status %d", resp.StatusCode)
