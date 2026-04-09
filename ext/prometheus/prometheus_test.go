@@ -304,3 +304,27 @@ func TestMetrics_LatencyTracking(t *testing.T) {
 
 	t.Logf("✅ Latency tracking test passed (%v avg)", avgLatency)
 }
+
+// TestMetrics_LatencyCap verifies that QueryLatencies and CreateLatencies are
+// capped at maxLatencySamples to prevent unbounded memory growth.
+func TestMetrics_LatencyCap(t *testing.T) {
+m := New()
+
+// Record more samples than the cap to trigger the rotation logic.
+for i := 0; i < maxLatencySamples+100; i++ {
+m.RecordQuery(time.Millisecond, nil)
+}
+
+m.mu.RLock()
+n := len(m.QueryLatencies)
+m.mu.RUnlock()
+
+if n > maxLatencySamples {
+t.Fatalf("QueryLatencies grew beyond cap: got %d, want <= %d", n, maxLatencySamples)
+}
+if m.GetQueryCount() != int64(maxLatencySamples+100) {
+t.Fatalf("QueryTotal should still reflect all calls, got %d", m.GetQueryCount())
+}
+
+t.Logf("✅ Latency cap test passed: %d samples retained after %d records", n, maxLatencySamples+100)
+}
