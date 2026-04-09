@@ -92,7 +92,7 @@ func (q *QueryBuilder) UpdateDeepWithPrefer(ctx context.Context, entity any, pre
 	if err != nil {
 		return nil, fmt.Errorf("traverse: deep update failed: %w", err)
 	}
-	if resp.StatusCode != 200 && resp.StatusCode != 204 {
+	if resp.StatusCode < 200 || resp.StatusCode > 299 {
 		return resp, fmt.Errorf("traverse: deep update returned status %d", resp.StatusCode)
 	}
 	return resp, nil
