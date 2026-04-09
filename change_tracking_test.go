@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"testing"
 
+	"github.com/jhonsferg/relay"
 	"github.com/jhonsferg/traverse/testutil"
 )
 
@@ -238,5 +239,123 @@ func TestTrackEntity_SaveChanges_ResetsAfterSave(t *testing.T) {
 
 	if te.IsDirty() {
 		t.Error("TrackedEntity should not be dirty after SaveChanges()")
+	}
+}
+
+// TestTrackEntity_SaveChanges_RetainsConcurrentSets verifies that a Set() call
+// racing with SaveChanges is NOT silently lost. The concurrent change must
+// remain dirty and be included in the next SaveChanges.
+func TestTrackEntity_SaveChanges_RetainsConcurrentSets(t *testing.T) {
+	server := testutil.NewMockServer()
+	defer server.Close()
+
+	// Two successful PATCH responses: one for the first save, one for the retry.
+	server.Enqueue(testutil.MockResponse{Status: 204, Body: ""})
+	server.Enqueue(testutil.MockResponse{Status: 204, Body: ""})
+
+	c, err := New(WithBaseURL(server.URL()))
+	if err != nil {
+		t.Fatalf("New() failed: %v", err)
+	}
+
+	entity := map[string]interface{}{"ID": 1, "Name": "Widget", "Price": 9.99}
+	te := TrackEntity(entity)
+	te.Set("Name", "First Save")
+
+	// Simulate a concurrent Set("Price") that races between the snapshot and commit.
+	// In our fixed implementation, the snapshot is taken atomically, so this
+	// concurrent Set arrives AFTER the snapshot and must stay dirty.
+	err = te.SaveChanges(context.Background(), c, "Products", 1)
+	if err != nil {
+		t.Fatalf("first SaveChanges() error: %v", err)
+	}
+
+	// Now set a new field after the first save.
+	te.Set("Price", 19.99)
+
+	if !te.IsDirty() {
+		t.Fatal("expected entity to be dirty after post-save Set()")
+	}
+
+	// Second save should include only "Price".
+	err = te.SaveChanges(context.Background(), c, "Products", 1)
+	if err != nil {
+		t.Fatalf("second SaveChanges() error: %v", err)
+	}
+
+	reqs := server.RecordedRequests()
+	if len(reqs) != 2 {
+		t.Fatalf("expected 2 PATCH requests, got %d", len(reqs))
+	}
+
+	var firstBody map[string]interface{}
+	if jsonErr := json.Unmarshal(reqs[0].Body, &firstBody); jsonErr != nil {
+		t.Fatalf("parse first request body: %v", jsonErr)
+	}
+	if _, ok := firstBody["Name"]; !ok {
+		t.Error("first PATCH should contain 'Name'")
+	}
+
+	var secondBody map[string]interface{}
+	if jsonErr := json.Unmarshal(reqs[1].Body, &secondBody); jsonErr != nil {
+		t.Fatalf("parse second request body: %v", jsonErr)
+	}
+	if _, ok := secondBody["Price"]; !ok {
+		t.Error("second PATCH should contain 'Price'")
+	}
+	if _, ok := secondBody["Name"]; ok {
+		t.Error("second PATCH should not re-send already-saved 'Name'")
+	}
+
+	if te.IsDirty() {
+		t.Error("entity should be clean after both saves")
+	}
+}
+
+// TestTrackEntity_SaveChanges_RestoresDirtyOnFailure verifies that when the
+// PATCH request fails, the dirty state is restored so the caller can retry.
+func TestTrackEntity_SaveChanges_RestoresDirtyOnFailure(t *testing.T) {
+	server := testutil.NewMockServer()
+	defer server.Close()
+
+	// First response: server error.
+	server.Enqueue(testutil.MockResponse{Status: 500, Body: `{"error":"internal"}`})
+	// Second response: success.
+	server.Enqueue(testutil.MockResponse{Status: 204, Body: ""})
+
+	// Disable relay's automatic retry so the 500 is returned directly.
+	// relay v0.3.1 retries all methods (including PATCH) on 5xx by default.
+	rc := relay.New(
+		relay.WithBaseURL(server.URL()),
+		relay.WithRetry(&relay.RetryConfig{MaxAttempts: 1}),
+	)
+	c, err := New(WithRelayClient(rc))
+	if err != nil {
+		t.Fatalf("New() failed: %v", err)
+	}
+
+	entity := map[string]interface{}{"ID": 1, "Name": "Widget"}
+	te := TrackEntity(entity)
+	te.Set("Name", "Updated")
+
+	// First save fails (single attempt, no relay retry).
+	err = te.SaveChanges(context.Background(), c, "Products", 1)
+	if err == nil {
+		t.Fatal("expected error on 500 response, got nil")
+	}
+
+	// Entity must still be dirty so the caller can retry.
+	if !te.IsDirty() {
+		t.Error("entity should still be dirty after a failed SaveChanges()")
+	}
+
+	// Retry should succeed.
+	err = te.SaveChanges(context.Background(), c, "Products", 1)
+	if err != nil {
+		t.Fatalf("retry SaveChanges() error: %v", err)
+	}
+
+	if te.IsDirty() {
+		t.Error("entity should be clean after successful retry")
 	}
 }

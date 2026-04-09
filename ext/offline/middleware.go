@@ -2,6 +2,7 @@ package offline
 
 import (
 	"bytes"
+	"fmt"
 	"io"
 	"net/http"
 )
@@ -32,12 +33,13 @@ func OfflineMiddleware(store *Store) func(http.RoundTripper) http.RoundTripper {
 			// Persist successful (2xx) responses to the store.
 			if resp.StatusCode >= 200 && resp.StatusCode < 300 {
 				body, readErr := io.ReadAll(resp.Body)
-				if closeErr := resp.Body.Close(); closeErr != nil && readErr == nil {
-					readErr = closeErr
+				resp.Body.Close() //nolint:errcheck
+				if readErr != nil {
+					// Body could not be fully read; propagate the error rather than
+					// silently returning a partial or empty body to the caller.
+					return nil, fmt.Errorf("offline: buffer response body: %w", readErr)
 				}
-				if readErr == nil {
-					_ = store.Set(path, body)
-				}
+				_ = store.Set(path, body)
 				resp.Body = io.NopCloser(bytes.NewReader(body))
 			}
 

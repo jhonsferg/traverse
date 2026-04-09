@@ -256,3 +256,57 @@ func fakeResponse(code int, body []byte) *http.Response {
 		Body:       io.NopCloser(bytes.NewReader(body)),
 	}
 }
+
+// errReader returns an error after reading n bytes.
+type errReader struct {
+	data []byte
+	pos  int
+	err  error
+}
+
+func (r *errReader) Read(p []byte) (int, error) {
+	if r.pos >= len(r.data) {
+		return 0, r.err
+	}
+	n := copy(p, r.data[r.pos:])
+	r.pos += n
+	return n, nil
+}
+
+func (r *errReader) Close() error { return nil }
+
+func TestMiddleware_BodyReadError_ReturnsError(t *testing.T) {
+	dir := t.TempDir()
+	store, err := NewStore(dir)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	readErr := errors.New("simulated body read error")
+	mw := OfflineMiddleware(store)
+	wrapped := mw(roundTripperFunc(func(req *http.Request) (*http.Response, error) {
+		return &http.Response{
+			StatusCode: http.StatusOK,
+			Status:     "200 OK",
+			Header:     http.Header{},
+			Body:       &errReader{data: nil, err: readErr},
+		}, nil
+	}))
+
+	req, newErr := http.NewRequestWithContext(context.Background(), http.MethodGet, "http://example.com/Customers", nil)
+	if newErr != nil {
+		t.Fatal(newErr)
+	}
+
+	resp, callErr := wrapped.RoundTrip(req)
+	if resp != nil {
+		resp.Body.Close() //nolint:errcheck
+		t.Error("expected nil response on body read error, got non-nil")
+	}
+	if callErr == nil {
+		t.Fatal("expected error on body read failure, got nil")
+	}
+	if !errors.Is(callErr, readErr) {
+		t.Errorf("expected wrapped readErr, got %v", callErr)
+	}
+}
