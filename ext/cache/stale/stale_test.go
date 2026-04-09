@@ -299,37 +299,52 @@ func TestMultipleKeys(t *testing.T) {
 }
 
 func TestCache_BackgroundRefreshErrorCallback(t *testing.T) {
-var cbKey string
-var cbErr error
+	done := make(chan struct{}, 1)
+	var mu sync.Mutex
+	var cbKey string
+	var cbErr error
 
-cfg := Config{
-TTL:            10 * time.Millisecond,
-StaleTTL:       500 * time.Millisecond,
-BackgroundSync: true,
-OnError: func(key string, err error) {
-cbKey = key
-cbErr = err
-},
-}
-c := New(cfg)
+	cfg := Config{
+		TTL:            10 * time.Millisecond,
+		StaleTTL:       500 * time.Millisecond,
+		BackgroundSync: true,
+		OnError: func(key string, err error) {
+			mu.Lock()
+			cbKey = key
+			cbErr = err
+			mu.Unlock()
+			select {
+			case done <- struct{}{}:
+			default:
+			}
+		},
+	}
+	c := New(cfg)
 
-// Seed cache with valid data.
-_, _ = c.Get(context.Background(), "k", func(_ context.Context) ([]byte, error) {
-return []byte("v"), nil
-})
+	// Seed cache with valid data.
+	_, _ = c.Get(context.Background(), "k", func(_ context.Context) ([]byte, error) {
+		return []byte("v"), nil
+	})
 
-// Let TTL expire so next Get sees stale and triggers background refresh.
-time.Sleep(20 * time.Millisecond)
+	// Let TTL expire so next Get sees stale and triggers background refresh.
+	time.Sleep(20 * time.Millisecond)
 
-fetchErr := errors.New("backend down")
-_, _ = c.Get(context.Background(), "k", func(_ context.Context) ([]byte, error) {
-return nil, fetchErr
-})
+	fetchErr := errors.New("backend down")
+	_, _ = c.Get(context.Background(), "k", func(_ context.Context) ([]byte, error) {
+		return nil, fetchErr
+	})
 
-// Wait for the goroutine.
-time.Sleep(100 * time.Millisecond)
+	select {
+	case <-done:
+	case <-time.After(5 * time.Second):
+		t.Fatal("OnError callback was not called within 5s timeout")
+	}
 
-if cbKey != "k" || cbErr != fetchErr {
-t.Fatalf("expected OnError callback with key=k err=%v, got key=%q err=%v", fetchErr, cbKey, cbErr)
-}
+	mu.Lock()
+	gotKey, gotErr := cbKey, cbErr
+	mu.Unlock()
+
+	if gotKey != "k" || gotErr != fetchErr {
+		t.Fatalf("expected OnError callback with key=k err=%v, got key=%q err=%v", fetchErr, gotKey, gotErr)
+	}
 }
