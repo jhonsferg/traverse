@@ -157,7 +157,8 @@ func (sb *SchemaBuilder) buildQueryType() *gql.Object {
 		}
 
 		// Query field for single item by key (if entity type has a key)
-		if len(findEntityTypeByName(sb.metadata, es.EntityTypeName).Key) > 0 {
+		etDef := findEntityTypeByName(sb.metadata, es.EntityTypeName)
+		if etDef != nil && len(etDef.Key) > 0 {
 			keyType := gql.String
 			fields[es.Name+"_key"] = &gql.Field{
 				Type: entityType,
