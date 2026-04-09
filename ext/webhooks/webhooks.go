@@ -264,10 +264,14 @@ func (s *Subscription) handleNotification(w http.ResponseWriter, r *http.Request
 			ReceivedAt:     time.Now(),
 		}
 
-		// Dispatch to registered handlers
+		// Dispatch to registered handlers.
+		// Deep-copy the slice under the read lock so that concurrent OnCreated/
+		// OnUpdated/OnDeleted calls cannot race with our iteration.
 		ctx := r.Context()
 		s.mu.RLock()
-		handlers := s.handlers[notification.ChangeType]
+		orig := s.handlers[notification.ChangeType]
+		handlers := make([]func(context.Context, Notification), len(orig))
+		copy(handlers, orig)
 		s.mu.RUnlock()
 
 		for _, handler := range handlers {

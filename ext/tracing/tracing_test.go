@@ -172,6 +172,7 @@ func TestTracer_GetStats(t *testing.T) {
 }
 
 // TestTracer_GetActiveSpans verifies active spans retrieval.
+// After EndSpan, spans move to completedSpans — GetActiveSpans returns only in-progress spans.
 func TestTracer_GetActiveSpans(t *testing.T) {
 	tracer := New("test-service")
 	ctx := context.Background()
@@ -179,12 +180,23 @@ func TestTracer_GetActiveSpans(t *testing.T) {
 	_, span1 := tracer.StartSpan(ctx, "op1")
 	_, span2 := tracer.StartSpan(ctx, "op2")
 
+	// Both spans are in-flight — should appear as active.
+	active := tracer.GetActiveSpans()
+	if len(active) != 2 {
+		t.Fatalf("Expected 2 active spans before EndSpan, got %d", len(active))
+	}
+
 	tracer.EndSpan(span1, nil)
 	tracer.EndSpan(span2, nil)
 
-	spans := tracer.GetActiveSpans()
-	if len(spans) != 2 {
-		t.Fatalf("Expected 2 spans, got %d", len(spans))
+	// After EndSpan they are completed — active list must be empty.
+	if active = tracer.GetActiveSpans(); len(active) != 0 {
+		t.Fatalf("Expected 0 active spans after EndSpan, got %d", len(active))
+	}
+
+	// Completed spans are still retrievable via GetSpan.
+	if tracer.GetSpan(span1.SpanID) == nil {
+		t.Fatal("Expected to retrieve span1 from completed spans")
 	}
 
 	t.Logf("✅ Get active spans test passed")
@@ -198,14 +210,18 @@ func TestTracer_ClearSpans(t *testing.T) {
 	_, span := tracer.StartSpan(ctx, "op")
 	tracer.EndSpan(span, nil)
 
-	if len(tracer.GetActiveSpans()) == 0 {
+	// After EndSpan, the span is in completedSpans — verify retrievable.
+	if tracer.GetSpan(span.SpanID) == nil {
 		t.Fatalf("Expected span before clear")
 	}
 
 	tracer.ClearSpans()
 
+	if tracer.GetSpan(span.SpanID) != nil {
+		t.Fatalf("Expected span to be gone after clear")
+	}
 	if len(tracer.GetActiveSpans()) != 0 {
-		t.Fatalf("Expected no spans after clear")
+		t.Fatalf("Expected no active spans after clear")
 	}
 
 	t.Logf("✅ Clear spans test passed")
@@ -252,21 +268,34 @@ func TestTracer_ContextCarrier(t *testing.T) {
 	t.Logf("✅ Context carrier test passed")
 }
 
-// TestTracer_MultipleSpans verifies multiple concurrent spans.
+// TestTracer_MultipleSpans verifies multiple spans are correctly completed and retrievable.
 func TestTracer_MultipleSpans(t *testing.T) {
 	tracer := New("test-service")
 	ctx := context.Background()
 
-	// Create multiple spans
-	spanIDs := []string{}
+	spanIDs := make([]string, 0, 5)
 	for i := 0; i < 5; i++ {
 		_, span := tracer.StartSpan(ctx, "op"+string(rune('0'+i)))
 		tracer.EndSpan(span, nil)
 		spanIDs = append(spanIDs, span.SpanID)
 	}
 
-	if len(tracer.GetActiveSpans()) != 5 {
-		t.Fatalf("Expected 5 spans")
+	// Active spans must be 0 — all ended.
+	if n := len(tracer.GetActiveSpans()); n != 0 {
+		t.Fatalf("Expected 0 active spans, got %d", n)
+	}
+
+	// All 5 spans must appear in stats.
+	stats := tracer.GetStats()
+	if stats["total_spans"].(int) != 5 {
+		t.Fatalf("Expected 5 spans in stats, got %d", stats["total_spans"])
+	}
+
+	// All spans must be retrievable.
+	for _, id := range spanIDs {
+		if tracer.GetSpan(id) == nil {
+			t.Fatalf("Expected to retrieve span %s", id)
+		}
 	}
 
 	t.Logf("✅ Multiple spans test passed")
@@ -278,7 +307,6 @@ func TestTracer_Concurrency(t *testing.T) {
 	ctx := context.Background()
 	done := make(chan bool, 10)
 
-	// Concurrent span creation
 	for i := 0; i < 10; i++ {
 		go func(id int) {
 			_, span := tracer.StartSpan(ctx, "concurrent_op")
@@ -288,13 +316,18 @@ func TestTracer_Concurrency(t *testing.T) {
 		}(i)
 	}
 
-	// Wait for all
 	for i := 0; i < 10; i++ {
 		<-done
 	}
 
-	if len(tracer.GetActiveSpans()) != 10 {
-		t.Fatalf("Expected 10 spans")
+	// After all goroutines complete, active list must be empty.
+	if n := len(tracer.GetActiveSpans()); n != 0 {
+		t.Fatalf("Expected 0 active spans, got %d", n)
+	}
+
+	stats := tracer.GetStats()
+	if stats["total_spans"].(int) != 10 {
+		t.Fatalf("Expected 10 completed spans in stats, got %d", stats["total_spans"])
 	}
 
 	t.Logf("✅ Concurrency test passed (10 concurrent spans)")
