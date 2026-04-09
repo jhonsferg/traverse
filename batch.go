@@ -473,6 +473,7 @@ func (b *BatchRequest) ExecuteStream(ctx context.Context) <-chan BatchResult {
 
 	go func() {
 		defer close(out)
+		defer b.release()
 
 		// Ensure any open changeset is closed
 		if b.currentCS != nil {
@@ -513,11 +514,14 @@ func (b *BatchRequest) ExecuteStream(ctx context.Context) <-chan BatchResult {
 			return
 		}
 
-		// Stream multipart response incrementally
-		err = b.streamMultipartResponse(ctx, resp, out)
-		if err != nil {
-			out <- BatchResult{
-				Err: fmt.Errorf("traverse: batch parse failed: %w", err),
+		// Stream multipart response incrementally.
+		// Use a non-blocking send for the terminal error: if the caller cancelled
+		// and stopped reading, the buffer may be full and the goroutine would
+		// otherwise leak trying to deliver the final error.
+		if err = b.streamMultipartResponse(ctx, resp, out); err != nil {
+			select {
+			case out <- BatchResult{Err: fmt.Errorf("traverse: batch parse failed: %w", err)}:
+			default:
 			}
 		}
 	}()
@@ -557,6 +561,7 @@ func (b *BatchRequest) streamMultipartResponse(ctx context.Context, resp *relay.
 	reader := bytes.NewReader(resp.Body())
 	mr := multipart.NewReader(reader, boundary)
 
+	var partCount int
 	for {
 		select {
 		case <-ctx.Done():
@@ -570,6 +575,11 @@ func (b *BatchRequest) streamMultipartResponse(ctx context.Context, resp *relay.
 				break
 			}
 			return fmt.Errorf("traverse: error reading batch response: %w", err)
+		}
+
+		partCount++
+		if partCount > batchMaxResponseCount {
+			return fmt.Errorf("traverse: batch response exceeds maximum of %d parts", batchMaxResponseCount)
 		}
 
 		// Read response part
@@ -609,6 +619,7 @@ func (b *BatchRequest) streamMultipartResponse(ctx context.Context, resp *relay.
 func (b *BatchRequest) streamChangesetResponse(ctx context.Context, part *multipart.Part, boundary string, out chan<- BatchResult) error {
 	reader := multipart.NewReader(part, boundary)
 
+	var partCount int
 	for {
 		select {
 		case <-ctx.Done():
@@ -622,6 +633,11 @@ func (b *BatchRequest) streamChangesetResponse(ctx context.Context, part *multip
 				break
 			}
 			return fmt.Errorf("traverse: error reading changeset response: %w", err)
+		}
+
+		partCount++
+		if partCount > batchMaxResponseCount {
+			return fmt.Errorf("traverse: changeset response exceeds maximum of %d parts", batchMaxResponseCount)
 		}
 
 		var result BatchResult
