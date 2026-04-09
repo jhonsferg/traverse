@@ -46,6 +46,10 @@ type Config struct {
 	ClientState string
 	// RenewAutomatically enables automatic renewal before expiry.
 	RenewAutomatically bool
+	// OnRenewError is called when an automatic renewal attempt fails. If nil,
+	// renewal errors are silently ignored and the goroutine keeps retrying.
+	// The callback must not block; offload any heavy work to a goroutine.
+	OnRenewError func(err error)
 }
 
 // Notification is a parsed OData change notification.
@@ -372,8 +376,9 @@ func (s *Subscription) runAutoRenew() {
 		case <-ticker.C:
 			ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 			if err := s.Renew(ctx, s.cfg.Expiry); err != nil {
-				// Log error but continue trying
-				_ = err
+				if s.cfg.OnRenewError != nil {
+					s.cfg.OnRenewError(err)
+				}
 			}
 			cancel()
 		}
