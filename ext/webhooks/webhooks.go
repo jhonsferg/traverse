@@ -164,7 +164,7 @@ func Subscribe(ctx context.Context, client *traverse.Client, cfg Config) (*Subsc
 		cfg:           cfg,
 		client:        client,
 		handlers:      make(map[ChangeType][]func(context.Context, Notification)),
-		stopAutoRenew: make(chan struct{}),
+		stopAutoRenew: make(chan struct{}, 1),
 		autoRenewDone: make(chan struct{}),
 	}
 
