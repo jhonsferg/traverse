@@ -17,11 +17,16 @@ import (
 
 // GraphQLServer represents a GraphQL server that wraps an OData client.
 type GraphQLServer struct {
-	client     *traverse.Client
-	schema     *gql.Schema
-	schemaOnce sync.Once
-	schemaErr  error
-	logger     interface{ Printf(string, ...interface{}) }
+	client *traverse.Client
+	logger interface{ Printf(string, ...interface{}) }
+
+	// schemaMu protects schema and schemaBuilt. Using an explicit mutex
+	// instead of sync.Once so that a transient buildSchema failure
+	// (e.g. metadata endpoint temporarily unavailable) does not permanently
+	// poison the server — subsequent Execute calls will retry.
+	schemaMu    sync.Mutex
+	schema      *gql.Schema
+	schemaBuilt bool
 }
 
 // New creates a new GraphQL server with the given OData client.
@@ -74,18 +79,24 @@ func (s *GraphQLServer) Handler() http.Handler {
 }
 
 // Execute executes a GraphQL query against the schema.
+// The schema is built lazily on the first successful call. If schema
+// construction fails (e.g. metadata endpoint unreachable), the error is
+// logged and an empty result is returned; the next call will retry.
 func (s *GraphQLServer) Execute(ctx context.Context, query string, variables map[string]interface{}) *gql.Result {
-	// Lazy-load schema exactly once; safe for concurrent callers.
-	s.schemaOnce.Do(func() {
-		s.schemaErr = s.buildSchema(ctx)
-	})
-	if s.schemaErr != nil {
-		s.logger.Printf("Failed to build schema: %v", s.schemaErr)
-		return &gql.Result{}
+	s.schemaMu.Lock()
+	if !s.schemaBuilt {
+		if err := s.buildSchema(ctx); err != nil {
+			s.schemaMu.Unlock()
+			s.logger.Printf("failed to build schema: %v", err)
+			return &gql.Result{}
+		}
+		s.schemaBuilt = true
 	}
+	schema := *s.schema
+	s.schemaMu.Unlock()
 
 	params := gql.Params{
-		Schema:         *s.schema,
+		Schema:         schema,
 		RequestString:  query,
 		VariableValues: variables,
 		Context:        ctx,
