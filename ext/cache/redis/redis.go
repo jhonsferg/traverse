@@ -118,6 +118,11 @@ func (c *Cache) Clear() {
 	for iter.Next(ctx) {
 		keys = append(keys, iter.Val())
 	}
+	if iter.Err() != nil {
+		// Scan failed partway; skip deletion to avoid a partial clear that
+		// silently appears successful.
+		return
+	}
 
 	if len(keys) > 0 {
 		c.client.Del(ctx, keys...)
@@ -161,6 +166,9 @@ func (c *Cache) Size() int64 {
 	count := int64(0)
 	for iter.Next(ctx) {
 		count++
+	}
+	if iter.Err() != nil {
+		return -1
 	}
 	return count
 }
