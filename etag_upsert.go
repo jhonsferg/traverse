@@ -55,7 +55,8 @@ func (c *Client) ReadWithETag(ctx context.Context, entitySet string, key interfa
 		return nil, fmt.Errorf("traverse: invalid key: %w", err)
 	}
 
-	path := fmt.Sprintf("/%s(%s)", entitySet, keyStr)
+	entityPath, rawQuery := splitEntityPath(entitySet)
+	path := fmt.Sprintf("/%s(%s)%s", entityPath, keyStr, rawQuery)
 	req := c.http.Get(path)
 	req = req.WithContext(ctx)
 
@@ -104,7 +105,8 @@ func (c *Client) UpdateWithETag(ctx context.Context, entitySet string, key inter
 		return fmt.Errorf("traverse: invalid key: %w", err)
 	}
 
-	path := fmt.Sprintf("/%s(%s)", entitySet, keyStr)
+	entityPath, rawQuery := splitEntityPath(entitySet)
+	path := fmt.Sprintf("/%s(%s)%s", entityPath, keyStr, rawQuery)
 
 	var resp *relay.Response
 	var execErr error
@@ -144,7 +146,8 @@ func (c *Client) ReplaceWithETag(ctx context.Context, entitySet string, key inte
 		return fmt.Errorf("traverse: invalid key: %w", err)
 	}
 
-	path := fmt.Sprintf("/%s(%s)", entitySet, keyStr)
+	entityPath, rawQuery := splitEntityPath(entitySet)
+	path := fmt.Sprintf("/%s(%s)%s", entityPath, keyStr, rawQuery)
 	r := c.http.Put(path)
 	r = r.WithJSON(data)
 	r = r.WithContext(ctx)
@@ -167,7 +170,8 @@ func (c *Client) DeleteWithETag(ctx context.Context, entitySet string, key inter
 		return fmt.Errorf("traverse: invalid key: %w", err)
 	}
 
-	path := fmt.Sprintf("/%s(%s)", entitySet, keyStr)
+	entityPath, rawQuery := splitEntityPath(entitySet)
+	path := fmt.Sprintf("/%s(%s)%s", entityPath, keyStr, rawQuery)
 	r := c.http.Delete(path)
 	r = r.WithContext(ctx)
 	if !etag.IsEmpty() {
@@ -222,7 +226,8 @@ func (c *Client) Upsert(ctx context.Context, entitySet string, key interface{}, 
 		return fmt.Errorf("traverse: invalid key: %w", err)
 	}
 
-	path := fmt.Sprintf("/%s(%s)", entitySet, keyStr)
+	entityPath, rawQuery := splitEntityPath(entitySet)
+	path := fmt.Sprintf("/%s(%s)%s", entityPath, keyStr, rawQuery)
 	r := c.http.Put(path)
 	r = r.WithJSON(data)
 	r = r.WithContext(ctx)

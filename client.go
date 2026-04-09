@@ -105,6 +105,13 @@ import (
 //		// Process each order without loading entire dataset
 //		processOrder(result.Value)
 //	}
+
+// defaultMaxPages is the upper bound on the number of pages that will be
+// fetched when following nextLink URLs. 10,000 pages of 1,000 records each
+// equals 10 million entities — more than enough for any real-world dataset
+// while preventing infinite loops caused by misbehaving servers.
+const defaultMaxPages = 10_000
+
 type Client struct {
 	// http is the underlying relay HTTP client for making requests.
 	http *relay.Client
@@ -114,6 +121,11 @@ type Client struct {
 	version ODataVersion
 	// pageSize is the default number of records per page for pagination.
 	pageSize int
+	// maxPages is the maximum number of pages to follow via nextLink. A value
+	// of 0 or negative is treated as the default (defaultMaxPages). Set via
+	// WithMaxPages to override. Guards against servers that always return a
+	// nextLink causing an infinite pagination loop.
+	maxPages int
 	// logger is the logger for diagnostic output.
 	logger relay.Logger
 	// responseFormat is the requested response format (JSON or Atom/XML).
@@ -160,6 +172,7 @@ type clientConfig struct {
 	baseURL        string
 	version        ODataVersion
 	pageSize       int
+	maxPages       int
 	logger         relay.Logger
 	responseFormat ResponseFormat
 
@@ -226,6 +239,7 @@ func New(opts ...Option) (*Client, error) {
 	cfg := &clientConfig{
 		version:        ODataV4, // Default to OData v4
 		pageSize:       1000,
+		maxPages:       defaultMaxPages,
 		responseFormat: FormatJSON,
 		relayOpts:      []relay.Option{},
 		metadataCache:  &NoOpCache{}, // Default no-op cache
@@ -273,6 +287,7 @@ func New(opts ...Option) (*Client, error) {
 		baseURL:        cfg.baseURL,
 		version:        cfg.version,
 		pageSize:       cfg.pageSize,
+		maxPages:       cfg.maxPages,
 		logger:         cfg.logger,
 		responseFormat: cfg.responseFormat,
 		metadataCache:  cfg.metadataCache,
@@ -816,7 +831,8 @@ func (c *Client) Update(ctx context.Context, entitySet string, key interface{}, 
 		return fmt.Errorf("traverse: invalid key: %w", err)
 	}
 
-	path := fmt.Sprintf("/%s(%s)", entitySet, keyStr)
+	entityPath, rawQuery := splitEntityPath(entitySet)
+	path := fmt.Sprintf("/%s(%s)%s", entityPath, keyStr, rawQuery)
 	req := c.http.Patch(path)
 	req = req.WithJSON(data)
 	req = req.WithContext(ctx)
@@ -887,7 +903,8 @@ func (c *Client) Replace(ctx context.Context, entitySet string, key interface{},
 		return fmt.Errorf("traverse: invalid key: %w", err)
 	}
 
-	path := fmt.Sprintf("/%s(%s)", entitySet, keyStr)
+	entityPath, rawQuery := splitEntityPath(entitySet)
+	path := fmt.Sprintf("/%s(%s)%s", entityPath, keyStr, rawQuery)
 	req := c.http.Put(path)
 	req = req.WithJSON(data)
 	req = req.WithContext(ctx)
@@ -964,7 +981,8 @@ func (c *Client) Delete(ctx context.Context, entitySet string, key interface{}) 
 		return fmt.Errorf("traverse: invalid key: %w", err)
 	}
 
-	path := fmt.Sprintf("/%s(%s)", entitySet, keyStr)
+	entityPath, rawQuery := splitEntityPath(entitySet)
+	path := fmt.Sprintf("/%s(%s)%s", entityPath, keyStr, rawQuery)
 	req := c.http.Delete(path)
 	req = req.WithContext(ctx)
 
@@ -1090,6 +1108,29 @@ func WithPageSize(n int) Option {
 			return fmt.Errorf("page size must be positive")
 		}
 		cfg.pageSize = n
+		return nil
+	}
+}
+
+// WithMaxPages sets the maximum number of pages to follow when paginating via
+// nextLink. This guards against servers that always return a nextLink (whether
+// by misconfiguration or malice), which would otherwise cause an infinite loop.
+//
+// The default is [defaultMaxPages] (10,000). Use 0 to keep the default.
+// A value of 1 fetches only the first page regardless of nextLink.
+//
+// Example:
+//
+//	client, _ := traverse.New(
+//		traverse.WithBaseURL("..."),
+//		traverse.WithMaxPages(100), // cap at 100 pages (e.g. 500k records at pageSize=5000)
+//	)
+func WithMaxPages(n int) Option {
+	return func(cfg *clientConfig) error {
+		if n <= 0 {
+			return fmt.Errorf("max pages must be positive")
+		}
+		cfg.maxPages = n
 		return nil
 	}
 }

@@ -1544,7 +1544,7 @@ func (q *QueryBuilder) FindByKey(ctx context.Context, key interface{}) (map[stri
 		return nil, fmt.Errorf("traverse: invalid key: %w", err)
 	}
 
-	url := fmt.Sprintf("%s(%s)", q.entitySet, keyStr)
+	url := q.buildEntityKeyURL(keyStr)
 	req := q.client.http.Get(url)
 	req = req.WithContext(ctx)
 	req = q.applyQueryHeaders(req)
@@ -1613,8 +1613,8 @@ func (q *QueryBuilder) FindByCompositeKey(ctx context.Context, keys map[string]i
 		keyParts = append(keyParts, fmt.Sprintf("%s=%s", k, valStr))
 	}
 
-	url := fmt.Sprintf("%s(%s)", q.entitySet, strings.Join(keyParts, ","))
-	req := q.client.http.Get(url)
+	rawURL := q.buildEntityKeyURL(strings.Join(keyParts, ","))
+	req := q.client.http.Get(rawURL)
 	req = req.WithContext(ctx)
 	req = q.applyQueryHeaders(req)
 
@@ -2130,6 +2130,84 @@ func QueryParallel(ctx context.Context, queries ...*QueryBuilder) ([]Page, error
 // ─────────────────────────────────────────────────────────────────────────
 
 // Private methods
+
+// buildEntityKeyURL builds the request URL for a single-entity operation
+// (FindByKey, FindByCompositeKey, UpdateDeep, DeleteLink, etc.).
+//
+// It correctly handles entity sets that carry embedded query parameters via
+// From("EntitySet?sap-language=ES") by placing the key predicate on the path
+// segment — before the query string — and appending any Param() or Select()
+// values after it.
+//
+// Without this fix a call like:
+//
+//	client.From("ProductList?sap-language=ES").FindByCompositeKey(ctx, keys)
+//
+// would produce the invalid URL:
+//
+//	ProductList?sap-language=ES(Product='X',Plant='Y')  ← server rejects this
+//
+// This method produces the correct form:
+//
+//	ProductList(Product='X',Plant='Y')?sap-language=ES
+func (q *QueryBuilder) buildEntityKeyURL(keyPred string) string {
+	entityPath := q.entitySet
+	rawQuery := ""
+	if idx := strings.Index(entityPath, "?"); idx >= 0 {
+		rawQuery = entityPath[idx:] // includes the leading "?"
+		entityPath = entityPath[:idx]
+	}
+
+	// Append $select and any custom Param() values as query parameters.
+	var qbuf strings.Builder
+	qbuf.WriteString(rawQuery)
+	hasQ := rawQuery != ""
+
+	if len(q.selectFields) > 0 {
+		if hasQ {
+			qbuf.WriteByte('&')
+		} else {
+			qbuf.WriteByte('?')
+			hasQ = true
+		}
+		qbuf.WriteString("$select=")
+		for i, f := range q.selectFields {
+			if i > 0 {
+				qbuf.WriteByte(',')
+			}
+			qbuf.WriteString(f)
+		}
+	}
+
+	for k, v := range q.params {
+		if hasQ {
+			qbuf.WriteByte('&')
+		} else {
+			qbuf.WriteByte('?')
+			hasQ = true
+		}
+		qbuf.WriteString(url.QueryEscape(k))
+		qbuf.WriteByte('=')
+		qbuf.WriteString(url.QueryEscape(v))
+	}
+
+	return entityPath + "(" + keyPred + ")" + qbuf.String()
+}
+
+// splitEntityPath splits an entity-set string that may carry an embedded query
+// string into its path component and its raw query component.
+//
+//	splitEntityPath("ProductList?sap-language=ES") → ("ProductList", "?sap-language=ES")
+//	splitEntityPath("ProductList")                 → ("ProductList", "")
+//
+// This is used by operation helpers (Update, Replace, Delete, etc.) that build
+// key-predicate URLs from a plain entitySet string parameter.
+func splitEntityPath(s string) (path, rawQuery string) {
+	if i := strings.Index(s, "?"); i >= 0 {
+		return s[:i], s[i:]
+	}
+	return s, ""
+}
 
 // buildURL constructs the complete OData query URL with all query parameters.
 //

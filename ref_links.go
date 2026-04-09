@@ -42,7 +42,8 @@ func (q *QueryBuilder) LinkTo(ctx context.Context, key any, navProperty string, 
 		return fmt.Errorf("traverse: LinkTo invalid target key: %w", err)
 	}
 
-	path := fmt.Sprintf("/%s(%s)/%s/$ref", q.entitySet, keyStr, navProperty)
+	entityPath, rawQuery := splitEntityPath(q.entitySet)
+	path := fmt.Sprintf("/%s(%s)/%s/$ref%s", entityPath, keyStr, navProperty, rawQuery)
 
 	// Build the serviceRoot - strip trailing slash for consistent URL assembly.
 	serviceRoot := strings.TrimRight(q.client.baseURL, "/")
@@ -102,15 +103,16 @@ func (q *QueryBuilder) UnlinkFrom(ctx context.Context, key any, navProperty stri
 		return fmt.Errorf("traverse: UnlinkFrom invalid source key: %w", err)
 	}
 
+	entityPath, rawQuery := splitEntityPath(q.entitySet)
 	var path string
 	if len(targetKey) > 0 {
 		targetKeyStr, err := encodeKey(targetKey[0])
 		if err != nil {
 			return fmt.Errorf("traverse: UnlinkFrom invalid target key: %w", err)
 		}
-		path = fmt.Sprintf("/%s(%s)/%s(%s)/$ref", q.entitySet, keyStr, navProperty, targetKeyStr)
+		path = fmt.Sprintf("/%s(%s)/%s(%s)/$ref%s", entityPath, keyStr, navProperty, targetKeyStr, rawQuery)
 	} else {
-		path = fmt.Sprintf("/%s(%s)/%s/$ref", q.entitySet, keyStr, navProperty)
+		path = fmt.Sprintf("/%s(%s)/%s/$ref%s", entityPath, keyStr, navProperty, rawQuery)
 	}
 
 	req := q.client.http.Delete(path)

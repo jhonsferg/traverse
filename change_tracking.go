@@ -168,7 +168,8 @@ func (t *TrackedEntity) SaveChanges(ctx context.Context, client *Client, entityS
 		return fmt.Errorf("traverse: invalid key: %w", err)
 	}
 
-	path := fmt.Sprintf("/%s(%s)", entitySet, keyStr)
+	entityPath, rawQuery := splitEntityPath(entitySet)
+	path := fmt.Sprintf("/%s(%s)%s", entityPath, keyStr, rawQuery)
 	r := client.http.Patch(path).WithJSON(patch).WithContext(ctx)
 
 	resp, execErr := client.http.Execute(r)
