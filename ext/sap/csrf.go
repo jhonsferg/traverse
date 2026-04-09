@@ -64,6 +64,7 @@ func (c *CSRFMiddleware) Fetch(ctx context.Context) error {
 	if err != nil {
 		return fmt.Errorf("traverse: csrf fetch failed: %w", err)
 	}
+	defer relay.PutResponse(resp)
 
 	// Extract token from X-CSRF-Token response header
 	token := resp.Headers.Get("X-CSRF-Token")

@@ -65,6 +65,16 @@ func NewSAPClient(opts ...SAPOption) (*traverse.Client, error) {
 		tokenManager = oauth2.NewTokenManager(oauth2Config)
 	}
 
+	// Inject Basic Auth credentials when OAuth2 is not configured.
+	// This fixes a silent bug where WithSAPBasicAuth credentials were stored
+	// in sapConfig but never applied to outgoing requests.
+	if cfg.basicAuthUser != "" && cfg.basicAuthPass != "" && tokenManager == nil {
+		relayOpts = append(relayOpts, relay.WithOnBeforeRequest(func(_ context.Context, req *relay.Request) error {
+			req.WithBasicAuth(cfg.basicAuthUser, cfg.basicAuthPass)
+			return nil
+		}))
+	}
+
 	// Add CSRF token injection and OAuth2 auth via hooks
 	relayOpts = append(relayOpts,
 		relay.WithOnBeforeRequest(func(ctx context.Context, req *relay.Request) error {
