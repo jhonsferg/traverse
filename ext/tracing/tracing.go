@@ -53,18 +53,74 @@ type Tracer struct {
 }
 
 // Span represents a single unit of work in a trace.
+// Span represents a single unit of work in a trace.
+//
+// SpanID, TraceID, ParentID, Name and StartTime are set at creation and never
+// modified — they are safe to read at any time. All other fields are
+// protected by an internal mutex; use the accessor methods (Status, EndTime,
+// Duration, Err, Events, Attributes) for concurrent-safe reads.
 type Span struct {
-	SpanID     string
-	TraceID    string
-	ParentID   string
-	Name       string
-	StartTime  time.Time
-	EndTime    time.Time
-	Duration   time.Duration
-	Status     string // active, success, error
-	Attributes map[string]interface{}
-	Events     []SpanEvent
-	Error      error
+	SpanID    string
+	TraceID   string
+	ParentID  string
+	Name      string
+	StartTime time.Time
+
+	mu         sync.RWMutex
+	endTime    time.Time
+	duration   time.Duration
+	status     string // "active" | "success" | "error"
+	attributes map[string]interface{}
+	events     []SpanEvent
+	spanErr    error
+}
+
+// Status returns the current span status ("active", "success", or "error").
+func (s *Span) Status() string {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+	return s.status
+}
+
+// EndTime returns the time the span was ended (zero if still active).
+func (s *Span) EndTime() time.Time {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+	return s.endTime
+}
+
+// Duration returns how long the span ran (zero if still active).
+func (s *Span) Duration() time.Duration {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+	return s.duration
+}
+
+// Err returns the error recorded when the span ended, if any.
+func (s *Span) Err() error {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+	return s.spanErr
+}
+
+// Events returns a copy of the span's event list.
+func (s *Span) Events() []SpanEvent {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+	out := make([]SpanEvent, len(s.events))
+	copy(out, s.events)
+	return out
+}
+
+// Attributes returns a copy of the span's attribute map.
+func (s *Span) Attributes() map[string]interface{} {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+	out := make(map[string]interface{}, len(s.attributes))
+	for k, v := range s.attributes {
+		out[k] = v
+	}
+	return out
 }
 
 // SpanEvent represents an event that occurred during span execution.
@@ -102,9 +158,9 @@ func (t *Tracer) StartSpan(ctx context.Context, spanName string) (context.Contex
 		ParentID:   t.spanID,
 		Name:       spanName,
 		StartTime:  time.Now(),
-		Status:     "active",
-		Attributes: make(map[string]interface{}),
-		Events:     make([]SpanEvent, 0),
+		status:     "active",
+		attributes: make(map[string]interface{}),
+		events:     make([]SpanEvent, 0),
 	}
 
 	t.activeSpans[span.SpanID] = span
@@ -125,15 +181,16 @@ func (t *Tracer) EndSpan(span *Span, err error) {
 	t.mu.Lock()
 	defer t.mu.Unlock()
 
-	span.EndTime = time.Now()
-	span.Duration = span.EndTime.Sub(span.StartTime)
-
+	span.mu.Lock()
+	span.endTime = time.Now()
+	span.duration = span.endTime.Sub(span.StartTime)
 	if err != nil {
-		span.Status = "error"
-		span.Error = err
+		span.status = "error"
+		span.spanErr = err
 	} else {
-		span.Status = "success"
+		span.status = "success"
 	}
+	span.mu.Unlock()
 
 	// Move from active to completed, capped at maxCompletedSpans.
 	delete(t.activeSpans, span.SpanID)
@@ -160,7 +217,9 @@ func (t *Tracer) AddEvent(span *Span, eventName string, attrs map[string]interfa
 		Attributes: attrs,
 	}
 
-	span.Events = append(span.Events, event)
+	span.mu.Lock()
+	span.events = append(span.events, event)
+	span.mu.Unlock()
 }
 
 // SetAttribute sets an attribute on a span.
@@ -172,7 +231,9 @@ func (t *Tracer) SetAttribute(span *Span, key string, value interface{}) {
 	t.mu.Lock()
 	defer t.mu.Unlock()
 
-	span.Attributes[key] = value
+	span.mu.Lock()
+	span.attributes[key] = value
+	span.mu.Unlock()
 }
 
 // AddBaggage adds a baggage item (propagated with trace).
@@ -286,12 +347,12 @@ func (t *Tracer) GetStats() map[string]interface{} {
 	totalDuration := time.Duration(0)
 
 	for _, span := range t.completedSpans {
-		if span.Status == "success" {
+		if span.Status() == "success" {
 			successCount++
-		} else if span.Status == "error" {
+		} else if span.Status() == "error" {
 			errorCount++
 		}
-		totalDuration += span.Duration
+		totalDuration += span.Duration()
 	}
 
 	avgDuration := time.Duration(0)

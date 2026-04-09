@@ -44,14 +44,14 @@ func TestTracer_StartEndSpan(t *testing.T) {
 	// End span
 	tracer.EndSpan(span, nil)
 
-	if span.Status != "success" {
+	if span.Status() != "success" {
 		t.Fatalf("Expected success status")
 	}
-	if span.Duration == 0 {
+	if span.Duration() == 0 {
 		t.Fatalf("Expected non-zero duration")
 	}
 
-	t.Logf("✅ Span lifecycle test passed (duration: %v)", span.Duration)
+	t.Logf("✅ Span lifecycle test passed (duration: %v)", span.Duration())
 }
 
 // TestTracer_SpanWithError verifies error handling in spans.
@@ -64,10 +64,10 @@ func TestTracer_SpanWithError(t *testing.T) {
 	testErr := errors.New("query failed")
 	tracer.EndSpan(span, testErr)
 
-	if span.Status != "error" {
+	if span.Status() != "error" {
 		t.Fatalf("Expected error status")
 	}
-	if span.Error != testErr {
+	if span.Err() != testErr {
 		t.Fatalf("Expected error to be recorded")
 	}
 
@@ -87,8 +87,8 @@ func TestTracer_AddEvent(t *testing.T) {
 	tracer.AddEvent(span, "phase1_complete", attrs)
 	tracer.AddEvent(span, "phase2_complete", attrs)
 
-	if len(span.Events) != 2 {
-		t.Fatalf("Expected 2 events, got %d", len(span.Events))
+	if len(span.Events()) != 2 {
+		t.Fatalf("Expected 2 events, got %d", len(span.Events()))
 	}
 
 	t.Logf("✅ Add event test passed")
@@ -104,10 +104,10 @@ func TestTracer_SetAttribute(t *testing.T) {
 	tracer.SetAttribute(span, "entity_set", "Customers")
 	tracer.SetAttribute(span, "row_count", 100)
 
-	if span.Attributes["entity_set"] != "Customers" {
+	if span.Attributes()["entity_set"] != "Customers" {
 		t.Fatalf("Expected entity_set attribute")
 	}
-	if span.Attributes["row_count"] != 100 {
+	if span.Attributes()["row_count"] != 100 {
 		t.Fatalf("Expected row_count attribute")
 	}
 
@@ -345,9 +345,9 @@ func TestTracer_SpanDuration(t *testing.T) {
 
 	tracer.EndSpan(span, nil)
 
-	if span.Duration < sleepTime {
-		t.Fatalf("Expected duration >= %v, got %v", sleepTime, span.Duration)
+	if span.Duration() < sleepTime {
+		t.Fatalf("Expected duration >= %v, got %v", sleepTime, span.Duration())
 	}
 
-	t.Logf("✅ Span duration test passed (%v)", span.Duration)
+	t.Logf("✅ Span duration test passed (%v)", span.Duration())
 }
