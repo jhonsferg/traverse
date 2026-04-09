@@ -393,14 +393,16 @@ func TestDelete(t *testing.T) {
 	)
 	defer client.Close() //nolint:errcheck
 
+	_, stopRenew := context.WithCancel(context.Background())
 	sub := &Subscription{
 		id:            "sub-1",
 		cfg:           Config{EntitySet: "Products"},
 		client:        client,
 		handlers:      make(map[ChangeType][]func(context.Context, Notification)),
-		stopAutoRenew: make(chan struct{}),
+		stopRenew:     stopRenew,
 		autoRenewDone: make(chan struct{}),
 	}
+	close(sub.autoRenewDone) // no auto-renew goroutine started
 
 	err := sub.Delete(context.Background())
 	if err != nil {
@@ -597,8 +599,7 @@ func TestInvalidConfig(t *testing.T) {
 }
 
 func TestOnRenewErrorCallback(t *testing.T) {
-	var server *httptest.Server
-	server = httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		switch r.Method {
 		case http.MethodPost:
 			w.Header().Set("Content-Type", "application/json")
