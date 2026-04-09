@@ -70,7 +70,7 @@ type Subscription struct {
 	client        *traverse.Client
 	handlers      map[ChangeType][]func(context.Context, Notification)
 	mu            sync.RWMutex
-	stopAutoRenew chan struct{}
+	stopRenew     context.CancelFunc
 	autoRenewDone chan struct{}
 }
 
@@ -163,17 +163,22 @@ func Subscribe(ctx context.Context, client *traverse.Client, cfg Config) (*Subsc
 		return nil, fmt.Errorf("failed to parse subscription response: %w", err)
 	}
 
+	renewCtx, stopRenew := context.WithCancel(context.Background())
+
 	sub := &Subscription{
 		id:            respData.SubscriptionID,
 		cfg:           cfg,
 		client:        client,
 		handlers:      make(map[ChangeType][]func(context.Context, Notification)),
-		stopAutoRenew: make(chan struct{}, 1),
+		stopRenew:     stopRenew,
 		autoRenewDone: make(chan struct{}),
 	}
 
 	if cfg.RenewAutomatically {
-		go sub.runAutoRenew() //nolint:contextcheck,gosec
+		go sub.runAutoRenew(renewCtx) //nolint:contextcheck
+	} else {
+		stopRenew()
+		close(sub.autoRenewDone)
 	}
 
 	return sub, nil
@@ -324,16 +329,12 @@ func (s *Subscription) Renew(ctx context.Context, expiry time.Duration) error {
 
 // Delete cancels the subscription with the OData service.
 func (s *Subscription) Delete(ctx context.Context) error {
-	// Stop auto-renewal if running
-	select {
-	case s.stopAutoRenew <- struct{}{}:
-	default:
-	}
-
-	// Wait for auto-renew goroutine to finish
+	// Signal the auto-renew goroutine to stop and wait for it to finish.
+	// If auto-renew was not started, autoRenewDone is already closed.
+	s.stopRenew()
 	select {
 	case <-s.autoRenewDone:
-	case <-time.After(5 * time.Second):
+	case <-time.After(15 * time.Second):
 	}
 
 	req := s.client.RelayClient().Delete(fmt.Sprintf("/$subscriptions/%s", s.id))
@@ -357,7 +358,7 @@ func (s *Subscription) SubscriptionID() string {
 }
 
 // runAutoRenew periodically renews the subscription before expiry.
-func (s *Subscription) runAutoRenew() {
+func (s *Subscription) runAutoRenew(ctx context.Context) {
 	defer close(s.autoRenewDone)
 
 	// Renew 5 minutes before expiry
@@ -371,11 +372,11 @@ func (s *Subscription) runAutoRenew() {
 
 	for {
 		select {
-		case <-s.stopAutoRenew:
+		case <-ctx.Done():
 			return
 		case <-ticker.C:
-			ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
-			if err := s.Renew(ctx, s.cfg.Expiry); err != nil {
+			renewCtx, cancel := context.WithTimeout(ctx, 10*time.Second)
+			if err := s.Renew(renewCtx, s.cfg.Expiry); err != nil {
 				if s.cfg.OnRenewError != nil {
 					s.cfg.OnRenewError(err)
 				}
