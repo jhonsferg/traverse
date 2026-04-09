@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"net/http"
+	"net/http/httptest"
 	"strings"
 	"testing"
 
@@ -217,6 +218,49 @@ func TestDeepUpdate_BodyIsJSON(t *testing.T) {
 	}
 	if decoded["Status"] != "Confirmed" {
 		t.Errorf("expected Status=Confirmed in body, got %v", decoded["Status"])
+	}
+}
+
+func TestDeepUpdate_Accepts2xxStatusCodes(t *testing.T) {
+	// OData allows any 2xx response for PATCH (202 Accepted for async, etc.).
+	for _, status := range []int{200, 201, 202, 203, 204} {
+		status := status
+		t.Run(http.StatusText(status), func(t *testing.T) {
+			srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				w.WriteHeader(status)
+			}))
+			defer srv.Close()
+
+			client, err := New(WithBaseURL(srv.URL))
+			if err != nil {
+				t.Fatalf("New() failed: %v", err)
+			}
+			_, err = client.From("Orders").Key(1).UpdateDeep(context.Background(), map[string]any{"Status": "X"})
+			if err != nil {
+				t.Errorf("UpdateDeep returned error for HTTP %d: %v", status, err)
+			}
+		})
+	}
+}
+
+func TestDeepUpdate_Rejects4xxStatusCodes(t *testing.T) {
+	for _, status := range []int{400, 404, 409, 500} {
+		status := status
+		t.Run(http.StatusText(status), func(t *testing.T) {
+			srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				w.WriteHeader(status)
+			}))
+			defer srv.Close()
+
+			client, err := New(WithBaseURL(srv.URL))
+			if err != nil {
+				t.Fatalf("New() failed: %v", err)
+			}
+			_, err = client.From("Orders").Key(1).UpdateDeep(context.Background(), map[string]any{"Status": "X"})
+			if err == nil {
+				t.Errorf("UpdateDeep should return error for HTTP %d", status)
+			}
+		})
 	}
 }
 

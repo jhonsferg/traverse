@@ -91,7 +91,7 @@ func (q *QueryBuilder) CreateDeepWithPrefer(ctx context.Context, entity any, pre
 	if err != nil {
 		return nil, fmt.Errorf("traverse: deep insert failed: %w", err)
 	}
-	if resp.StatusCode != 200 && resp.StatusCode != 201 {
+	if resp.StatusCode < 200 || resp.StatusCode > 299 {
 		return resp, fmt.Errorf("traverse: deep insert returned status %d", resp.StatusCode)
 	}
 	return resp, nil
