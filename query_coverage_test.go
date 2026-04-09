@@ -2,6 +2,8 @@ package traverse
 
 import (
 	"context"
+	"net/url"
+	"strings"
 	"testing"
 
 	"github.com/jhonsferg/traverse/testutil"
@@ -329,5 +331,140 @@ func TestQueryCollect_WithTopAndSkip(t *testing.T) {
 	}
 	if len(results) != 3 {
 		t.Errorf("want 3 results, got %d", len(results))
+	}
+}
+
+// TestSplitEntityPath verifies that splitEntityPath correctly separates the path from
+// an embedded query string, and is a no-op when no query string is present.
+func TestSplitEntityPath(t *testing.T) {
+	cases := []struct {
+		in        string
+		wantPath  string
+		wantQuery string
+	}{
+		{"ProductList", "ProductList", ""},
+		{"ProductList?sap-language=ES", "ProductList", "?sap-language=ES"},
+		{"ProductList?a=1&b=2", "ProductList", "?a=1&b=2"},
+		{"A/B/C?x=y", "A/B/C", "?x=y"},
+	}
+	for _, tc := range cases {
+		p, q := splitEntityPath(tc.in)
+		if p != tc.wantPath {
+			t.Errorf("splitEntityPath(%q) path = %q, want %q", tc.in, p, tc.wantPath)
+		}
+		if q != tc.wantQuery {
+			t.Errorf("splitEntityPath(%q) query = %q, want %q", tc.in, q, tc.wantQuery)
+		}
+	}
+}
+
+// TestFindByKey_EmbeddedQueryOrdering verifies that when the entity set passed to
+// From() contains an embedded query string (e.g., "ProductList?sap-language=ES"),
+// FindByKey places the key predicate before the "?" — not after it.
+func TestFindByKey_EmbeddedQueryOrdering(t *testing.T) {
+	server := testutil.NewMockServer()
+	defer server.Close()
+
+	server.Enqueue(testutil.MockResponse{
+		Status: 200,
+		Body:   `{"value":[{"ID":1}]}`,
+	})
+
+	c, err := New(WithBaseURL(server.URL()))
+	if err != nil {
+		t.Fatalf("New: %v", err)
+	}
+	defer func() { _ = c.Close() }()
+
+	_, _ = c.From("ProductList?sap-language=ES").FindByKey(context.Background(), 42)
+
+	reqs := server.RecordedRequests()
+	if len(reqs) == 0 {
+		t.Fatal("no request recorded")
+	}
+	path := reqs[0].Path
+	unescapedPath, _ := url.PathUnescape(path)
+	// Must be /ProductList(42) — key predicate before query separator
+	if !strings.HasPrefix(unescapedPath, "/ProductList(42)") {
+		t.Errorf("key predicate must appear before '?': got path %q", unescapedPath)
+	}
+	// The query must NOT contain the literal "(" to confirm key is in path
+	rawQuery := reqs[0].Query
+	for k := range rawQuery {
+		if strings.Contains(k, "(") || strings.Contains(k, ")") {
+			t.Errorf("key predicate leaked into query param key=%q", k)
+		}
+	}
+}
+
+// TestFindByCompositeKey_EmbeddedQueryOrdering verifies that composite key predicates
+// are placed before any embedded query string in the entity set.
+func TestFindByCompositeKey_EmbeddedQueryOrdering(t *testing.T) {
+	server := testutil.NewMockServer()
+	defer server.Close()
+
+	server.Enqueue(testutil.MockResponse{
+		Status: 200,
+		Body:   `{"value":[{"Product":"3001008"}]}`,
+	})
+
+	c, err := New(WithBaseURL(server.URL()))
+	if err != nil {
+		t.Fatalf("New: %v", err)
+	}
+	defer func() { _ = c.Close() }()
+
+	keys := map[string]any{
+		"Product": "3001008",
+		"Plant":   "1010",
+	}
+	_, _ = c.From("ProductList?sap-language=ES").FindByCompositeKey(context.Background(), keys)
+
+	reqs := server.RecordedRequests()
+	if len(reqs) == 0 {
+		t.Fatal("no request recorded")
+	}
+	path := reqs[0].Path
+	unescapedPath, _ := url.PathUnescape(path)
+	// Path must start with /ProductList( — key predicate is part of path, not query
+	if !strings.HasPrefix(unescapedPath, "/ProductList(") {
+		t.Errorf("expected path to start with /ProductList(<key>), got %q", unescapedPath)
+	}
+	// sap-language must be a proper query parameter
+	if reqs[0].Query.Get("sap-language") != "ES" {
+		t.Errorf("expected sap-language=ES in query params, got %v", reqs[0].Query)
+	}
+}
+
+// TestFindByKey_ParamOptionPreserved verifies that Param() options added via the
+// builder are correctly forwarded to the URL when using FindByKey.
+func TestFindByKey_ParamOptionPreserved(t *testing.T) {
+	server := testutil.NewMockServer()
+	defer server.Close()
+
+	server.Enqueue(testutil.MockResponse{
+		Status: 200,
+		Body:   `{"value":[{"ID":7}]}`,
+	})
+
+	c, err := New(WithBaseURL(server.URL()))
+	if err != nil {
+		t.Fatalf("New: %v", err)
+	}
+	defer func() { _ = c.Close() }()
+
+	_, _ = c.From("Products").Param("sap-language", "ES").FindByKey(context.Background(), 7)
+
+	reqs := server.RecordedRequests()
+	if len(reqs) == 0 {
+		t.Fatal("no request recorded")
+	}
+	path := reqs[0].Path
+	unescapedPath, _ := url.PathUnescape(path)
+	if !strings.HasPrefix(unescapedPath, "/Products(7)") {
+		t.Errorf("key predicate not in path: got %q", unescapedPath)
+	}
+	if reqs[0].Query.Get("sap-language") != "ES" {
+		t.Errorf("sap-language param missing, got %v", reqs[0].Query)
 	}
 }

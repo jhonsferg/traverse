@@ -112,7 +112,8 @@ func (c *Client) DeleteWithOptions(ctx context.Context, entitySet string, key in
 
 	o := applyDeleteOptions(opts)
 
-	path := fmt.Sprintf("/%s(%s)", entitySet, keyStr)
+	entityPath, rawQuery := splitEntityPath(entitySet)
+	path := fmt.Sprintf("/%s(%s)%s", entityPath, keyStr, rawQuery)
 	req := c.http.Delete(path)
 	req = req.WithContext(ctx)
 
@@ -172,8 +173,9 @@ func (q *QueryBuilder) DeleteLink(ctx context.Context, navProperty string, relat
 		return fmt.Errorf("traverse: DeleteLink invalid related key: %w", err)
 	}
 
-	path := fmt.Sprintf("/%s(%s)/%s/$ref", q.entitySet, keyStr, navProperty)
-	idValue := fmt.Sprintf("%s(%s)", q.entitySet, relatedKeyStr)
+	entityPath, rawQuery := splitEntityPath(q.entitySet)
+	path := fmt.Sprintf("/%s(%s)/%s/$ref%s", entityPath, keyStr, navProperty, rawQuery)
+	idValue := fmt.Sprintf("%s(%s)", entityPath, relatedKeyStr)
 
 	req := q.client.http.Delete(path).
 		WithQueryParam("$id", idValue).
@@ -221,7 +223,8 @@ func (q *QueryBuilder) DeleteLinks(ctx context.Context, navProperty string) erro
 		return fmt.Errorf("traverse: DeleteLinks invalid source key: %w", err)
 	}
 
-	path := fmt.Sprintf("/%s(%s)/%s/$ref", q.entitySet, keyStr, navProperty)
+	entityPath, rawQuery := splitEntityPath(q.entitySet)
+	path := fmt.Sprintf("/%s(%s)/%s/$ref%s", entityPath, keyStr, navProperty, rawQuery)
 
 	req := q.client.http.Delete(path)
 	req = req.WithContext(ctx)

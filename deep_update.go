@@ -72,7 +72,8 @@ func (q *QueryBuilder) UpdateDeepWithPrefer(ctx context.Context, entity any, pre
 		if err != nil {
 			return nil, fmt.Errorf("traverse: deep update key encoding failed: %w", err)
 		}
-		path = fmt.Sprintf("/%s(%s)", q.entitySet, keyStr)
+		entityPath, rawQuery := splitEntityPath(q.entitySet)
+		path = fmt.Sprintf("/%s(%s)%s", entityPath, keyStr, rawQuery)
 	} else {
 		path = "/" + q.entitySet
 	}

@@ -135,3 +135,4 @@ bench_*.txt
 .claude/
 CLAUDE.md
 .copilot/
+usages/
