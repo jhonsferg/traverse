@@ -10,9 +10,9 @@ import (
 	"sync"
 )
 
-// maxPaginationIterations is the maximum number of pages traverse will follow
-// via server-provided nextLink values. This prevents infinite loops and limits
-// exposure to SSRF via unbounded server-controlled redirects.
+// maxPaginationIterations is the fallback page limit used by prefetch.go where
+// there is no per-client maxPages available. New code uses Client.maxPages
+// (configurable via WithMaxPages; default = defaultMaxPages = 10_000).
 const maxPaginationIterations = 100_000
 
 // validateNextLink checks that the nextLink URL has the same host as the
@@ -256,9 +256,9 @@ func (q *QueryBuilder) doStreamPages(ctx context.Context, out chan<- Result[map[
 	nextLink := q.buildURL()
 
 	for nextLink != "" {
-		if pageNum > maxPaginationIterations {
+		if pageNum > q.client.maxPages {
 			out <- Result[map[string]interface{}]{
-				Err: fmt.Errorf("traverse: exceeded maximum pagination limit of %d pages", maxPaginationIterations),
+				Err: fmt.Errorf("traverse: pagination exceeded %d pages; use WithMaxPages to increase limit", q.client.maxPages),
 			}
 			return
 		}
@@ -342,9 +342,9 @@ func (q *QueryBuilder) doStreamPagesRaw(ctx context.Context, out chan<- RawResul
 	nextLink := q.buildURL()
 
 	for nextLink != "" {
-		if pageNum > maxPaginationIterations {
+		if pageNum > q.client.maxPages {
 			out <- RawResult{
-				Err: fmt.Errorf("traverse: exceeded maximum pagination limit of %d pages", maxPaginationIterations),
+				Err: fmt.Errorf("traverse: pagination exceeded %d pages; use WithMaxPages to increase limit", q.client.maxPages),
 			}
 			return
 		}
