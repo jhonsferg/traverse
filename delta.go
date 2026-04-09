@@ -131,18 +131,19 @@ func (d *DeltaSync) Full(ctx context.Context, bufferSize ...int) (<-chan Result[
 			for i, record := range page.Value {
 				select {
 				case <-ctx.Done():
+					returnPageToPool(page, i)
 					out <- Result[map[string]interface{}]{
 						Err: ctx.Err(),
 					}
 					return
 				case out <- Result[map[string]interface{}]{
-					Value: record,
+					Value: copyMapDeep(record),
 					Page:  pageNum,
 					Index: i,
 				}:
-					// Record sent successfully
 				}
 			}
+			returnPageToPool(page, len(page.Value))
 
 			// Check for next page
 			nextLink = page.NextLink
@@ -243,37 +244,37 @@ func (d *DeltaSync) Incremental(ctx context.Context, token string, bufferSize ..
 			}
 
 			// Stream records with removed/modified tracking
-			for _, record := range page.Value {
+			for i, record := range page.Value {
 				removed := false
 				reason := ""
 
-				// Check for @removed annotation
-				if removedObj, ok := record["@removed"]; ok {
+				// Check for @removed annotation on a copy so the pool map isn't mutated.
+				rec := copyMapDeep(record)
+				if removedObj, ok := rec["@removed"]; ok {
 					removed = true
-					// Extract reason if available
 					if removedMap, ok := removedObj.(map[string]interface{}); ok {
 						if r, ok := removedMap["reason"].(string); ok {
 							reason = r
 						}
 					}
-					// Remove the annotation from the record
-					delete(record, "@removed")
+					delete(rec, "@removed")
 				}
 
 				select {
 				case <-ctx.Done():
+					returnPageToPool(page, i)
 					out <- DeltaResult{
 						Err: ctx.Err(),
 					}
 					return
 				case out <- DeltaResult{
-					Value:   record,
+					Value:   rec,
 					Removed: removed,
 					Reason:  reason,
 				}:
-					// Result sent successfully
 				}
 			}
+			returnPageToPool(page, len(page.Value))
 
 			// Check for next page
 			nextLink = page.NextLink

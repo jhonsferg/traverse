@@ -863,7 +863,7 @@ func (b *BatchRequest) parseMultipartResponse(resp *relay.Response) ([]BatchResu
 	for {
 		part, err := mr.NextPart()
 		if err != nil {
-			if err.Error() == "EOF" {
+			if errors.Is(err, io.EOF) {
 				break
 			}
 			return nil, fmt.Errorf("traverse: error reading batch response: %w", err)
@@ -914,7 +914,7 @@ func (b *BatchRequest) parseChangesetResponse(part *multipart.Part, boundary str
 	for {
 		part, err := reader.NextPart()
 		if err != nil {
-			if err.Error() == "EOF" {
+			if errors.Is(err, io.EOF) {
 				break
 			}
 			return nil, fmt.Errorf("traverse: error reading changeset response: %w", err)
