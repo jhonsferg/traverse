@@ -3,8 +3,10 @@ package oauth2
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"sync"
 	"sync/atomic"
 	"testing"
@@ -798,6 +800,114 @@ func TestTokenResponseParsing(t *testing.T) {
 				t.Errorf("expires_in = %d, want %d", cachedToken.ExpiresIn, tt.expectedExpiry)
 			}
 		})
+	}
+}
+
+// TestRFC6749ErrorNotLeaked verifies that a structured RFC 6749 error response
+// from the token endpoint is surfaced without echoing the raw response body.
+func TestRFC6749ErrorNotLeaked(t *testing.T) {
+	t.Parallel()
+
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusUnauthorized)
+		fmt.Fprintf(w, `{"error":"invalid_client","error_description":"Client authentication failed."}`)
+	}))
+	defer server.Close()
+
+	tm := NewTokenManagerWithClient(&OAuth2Config{
+		ClientID:     "bad",
+		ClientSecret: "credentials",
+		TokenURL:     server.URL + "/token",
+	}, server.Client())
+
+	_, err := tm.GetToken(context.Background())
+	if err == nil {
+		t.Fatal("expected error, got nil")
+	}
+	if !strings.Contains(err.Error(), "401") {
+		t.Errorf("error should mention status, got %q", err.Error())
+	}
+	if !strings.Contains(err.Error(), "invalid_client") {
+		t.Errorf("error should include RFC 6749 error code, got %q", err.Error())
+	}
+	if !strings.Contains(err.Error(), "Client authentication failed") {
+		t.Errorf("error should include error_description, got %q", err.Error())
+	}
+	// Raw body must not bleed into the error.
+	if strings.Contains(err.Error(), `{"error"`) {
+		t.Errorf("error must not echo raw JSON body, got %q", err.Error())
+	}
+}
+
+// TestNonJSONErrorNotLeaked verifies that a non-JSON (e.g. HTML) error response
+// body from the token endpoint is not included in the returned error.
+func TestNonJSONErrorNotLeaked(t *testing.T) {
+	t.Parallel()
+
+	const sensitiveBody = "<html>Configuration secret: abc123</html>"
+
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusInternalServerError)
+		fmt.Fprint(w, sensitiveBody)
+	}))
+	defer server.Close()
+
+	tm := NewTokenManagerWithClient(&OAuth2Config{
+		ClientID:     "id",
+		ClientSecret: "secret",
+		TokenURL:     server.URL + "/token",
+	}, server.Client())
+
+	_, err := tm.GetToken(context.Background())
+	if err == nil {
+		t.Fatal("expected error, got nil")
+	}
+	if strings.Contains(err.Error(), "abc123") {
+		t.Errorf("error must not echo sensitive response body, got %q", err.Error())
+	}
+	if !strings.Contains(err.Error(), "500") {
+		t.Errorf("error should mention status code, got %q", err.Error())
+	}
+}
+
+// TestSingleflightErrorPropagated verifies that when an in-flight token fetch
+// fails, waiting goroutines receive the error rather than silently succeeding.
+func TestSingleflightErrorPropagated(t *testing.T) {
+	t.Parallel()
+
+	var calls int64
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		atomic.AddInt64(&calls, 1)
+		w.WriteHeader(http.StatusUnauthorized)
+		fmt.Fprint(w, `{"error":"access_denied"}`)
+	}))
+	defer server.Close()
+
+	tm := NewTokenManagerWithClient(&OAuth2Config{
+		ClientID:     "id",
+		ClientSecret: "secret",
+		TokenURL:     server.URL + "/token",
+	}, server.Client())
+
+	const n = 10
+	errs := make(chan error, n)
+	var wg sync.WaitGroup
+	wg.Add(n)
+	for range n {
+		go func() {
+			defer wg.Done()
+			_, err := tm.GetToken(context.Background())
+			errs <- err
+		}()
+	}
+	wg.Wait()
+	close(errs)
+
+	for err := range errs {
+		if err == nil {
+			t.Error("expected all waiters to receive an error, got nil")
+		}
 	}
 }
 
