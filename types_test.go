@@ -255,22 +255,44 @@ func TestDecimal_String(t *testing.T) {
 
 func TestBinary_UnmarshalJSON_Base64(t *testing.T) {
 	var b Binary
+	// "SGVsbG8gV29ybGQ=" is base64 for "Hello World"
 	err := json.Unmarshal([]byte(`"SGVsbG8gV29ybGQ="`), &b)
 	if err != nil {
 		t.Fatalf("Binary UnmarshalJSON base64: %v", err)
 	}
-	// The current implementation stores the base64 string chunked - just check no error
-	if len(b) == 0 {
-		t.Error("Binary should not be empty after UnmarshalJSON")
+	if string(b) != "Hello World" {
+		t.Errorf("Binary UnmarshalJSON decoded %q, want %q", string(b), "Hello World")
 	}
 }
 
 func TestBinary_UnmarshalJSON_Short(t *testing.T) {
 	var b Binary
-	// Short string (less than 4 bytes per chunk)
-	err := json.Unmarshal([]byte(`"abc"`), &b)
+	// "YQ==" is base64 for "a"
+	err := json.Unmarshal([]byte(`"YQ=="`), &b)
 	if err != nil {
 		t.Fatalf("Binary UnmarshalJSON short string: %v", err)
+	}
+	if string(b) != "a" {
+		t.Errorf("Binary UnmarshalJSON decoded %q, want %q", string(b), "a")
+	}
+}
+
+func TestBinary_UnmarshalJSON_Empty(t *testing.T) {
+	var b Binary
+	if err := json.Unmarshal([]byte(`""`), &b); err != nil {
+		t.Fatalf("Binary UnmarshalJSON empty: %v", err)
+	}
+	if len(b) != 0 {
+		t.Errorf("Binary UnmarshalJSON empty: expected nil/empty, got %v", b)
+	}
+}
+
+func TestBinary_UnmarshalJSON_Invalid(t *testing.T) {
+	var b Binary
+	// Not valid base64
+	err := json.Unmarshal([]byte(`"not-valid-base64!!!"`), &b)
+	if err == nil {
+		t.Error("Binary UnmarshalJSON with invalid base64 should return error")
 	}
 }
 
@@ -280,8 +302,25 @@ func TestBinary_MarshalJSON(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Binary MarshalJSON: %v", err)
 	}
-	if len(data) == 0 {
-		t.Error("Binary MarshalJSON returned empty bytes")
+	// "Hello" base64 encoded is "SGVsbG8="
+	want := `"SGVsbG8="`
+	if string(data) != want {
+		t.Errorf("Binary MarshalJSON = %s, want %s", data, want)
+	}
+}
+
+func TestBinary_RoundTrip(t *testing.T) {
+	original := Binary{0x00, 0xFF, 0xAB, 0xCD, 0x12, 0x34}
+	marshaled, err := json.Marshal(original)
+	if err != nil {
+		t.Fatalf("Binary RoundTrip marshal: %v", err)
+	}
+	var decoded Binary
+	if err := json.Unmarshal(marshaled, &decoded); err != nil {
+		t.Fatalf("Binary RoundTrip unmarshal: %v", err)
+	}
+	if string(decoded) != string(original) {
+		t.Errorf("Binary RoundTrip mismatch: got %v, want %v", decoded, original)
 	}
 }
 

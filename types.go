@@ -1,6 +1,7 @@
 package traverse
 
 import (
+	"encoding/base64"
 	"encoding/json"
 	"fmt"
 	"math/big"
@@ -368,47 +369,47 @@ type Binary []byte
 
 // UnmarshalJSON decodes base64 encoded binary data.
 //
-// UnmarshalJSON accepts a JSON string containing base64 encoded binary data
-// and decodes it to the internal byte slice.
+// UnmarshalJSON accepts a JSON string containing standard or URL-safe base64
+// encoded binary data and decodes it to the internal byte slice. OData v4
+// uses standard base64 (RFC 4648 §4); some SAP services use URL-safe base64
+// (RFC 4648 §5). Both are tried in order.
 //
-// Note: The current implementation has a simplified base64 decoding path.
-// For production use, ensure proper base64.StdEncoding.DecodeString is used.
-//
-// Returns an error if the input is not a valid JSON string.
+// Returns an error if the input is not a valid JSON string or cannot be
+// decoded as base64.
 func (b *Binary) UnmarshalJSON(data []byte) error {
 	var s string
 	if err := json.Unmarshal(data, &s); err != nil {
 		return err
 	}
-
-	// s is expected to be base64 encoded
-	decoded := make([]byte, 0, len(s))
-	for i := 0; i < len(s); i += 4 {
-		end := i + 4
-		if end > len(s) {
-			end = len(s)
-		}
-		// Base64 decode portion
-		chunk := s[i:end]
-		if len(chunk) < 4 {
-			chunk += strings.Repeat("=", 4-len(chunk))
-		}
-		// Simplified: just store the string bytes for now
-		// In production, use base64.StdEncoding.DecodeString
-		decoded = append(decoded, []byte(chunk)...)
+	if s == "" {
+		*b = Binary(nil)
+		return nil
 	}
-
+	// Try standard base64 first (OData v4 default).
+	decoded, err := base64.StdEncoding.DecodeString(s)
+	if err != nil {
+		// Fall back to URL-safe base64 (some SAP / Azure services use this).
+		decoded, err = base64.URLEncoding.DecodeString(s)
+		if err != nil {
+			return fmt.Errorf("traverse: Binary.UnmarshalJSON: invalid base64: %w", err)
+		}
+	}
 	*b = Binary(decoded)
 	return nil
 }
 
-// MarshalJSON encodes binary to base64.
+// MarshalJSON encodes binary data as a base64 JSON string.
 //
-// MarshalJSON converts the binary data to base64 string for JSON output.
+// MarshalJSON converts the raw binary bytes to a standard base64-encoded
+// string (RFC 4648 §4) and wraps it in JSON quotes, matching the OData v4
+// Edm.Binary wire format.
 func (b Binary) MarshalJSON() ([]byte, error) {
-	// Encode to base64 string
-	encoded := fmt.Sprintf("\"%s\"", string(b))
-	return []byte(encoded), nil
+	encoded := base64.StdEncoding.EncodeToString(b)
+	buf := make([]byte, 0, len(encoded)+2)
+	buf = append(buf, '"')
+	buf = append(buf, encoded...)
+	buf = append(buf, '"')
+	return buf, nil
 }
 
 // DateTimeValueBytes produces an OData DateTime literal for use in filter expressions as bytes.
