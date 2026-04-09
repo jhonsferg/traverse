@@ -5,7 +5,7 @@ import (
 	"encoding/json"
 	"testing"
 
-	relay "github.com/jhonsferg/relay"
+	"github.com/jhonsferg/relay"
 	"github.com/jhonsferg/traverse/testutil"
 )
 
