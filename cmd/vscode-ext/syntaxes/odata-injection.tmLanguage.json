@@ -1,0 +1,30 @@
+{
+  "$schema": "https://raw.githubusercontent.com/martinring/tmlanguage/master/tmlanguage.json",
+  "name": "OData Injection (Go)",
+  "scopeName": "source.odata.injection",
+  "injectionSelector": "L:source.go string.quoted.double",
+  "patterns": [
+    {
+      "include": "#odata-filter-string"
+    }
+  ],
+  "repository": {
+    "odata-filter-string": {
+      "comment": "Highlight OData expressions in .Filter(...) and .Select(...) string arguments",
+      "patterns": [
+        {
+          "match": "\\b(and|or|not|eq|ne|lt|le|gt|ge|has|in|add|sub|mul|divby|div|mod)\\b",
+          "name": "keyword.operator.odata"
+        },
+        {
+          "match": "\\b(contains|startswith|endswith|length|indexof|tolower|toupper|trim|year|month|day|isof|cast|any|all)\\b(?=\\s*\\()",
+          "name": "support.function.odata"
+        },
+        {
+          "match": "\\$(filter|select|expand|orderby|top|skip|count|search|apply)\\b",
+          "name": "keyword.control.odata"
+        }
+      ]
+    }
+  }
+}

@@ -1,0 +1,123 @@
+{
+  "traverse.from": {
+    "prefix": ["trav.from", "traverse.from"],
+    "body": [
+      "client.From(\"${1:EntitySet}\").",
+      "\t${2:Filter(\"${3:field} eq '${4:value}'\").}",
+      "\t${5:Select(\"${6:Field1,Field2}\").}",
+      "\t${7:Top(${8:50}).}",
+      "\t${9|Collect,Page,Stream|}(${10:ctx})"
+    ],
+    "description": "traverse QueryBuilder chain"
+  },
+  "traverse.filter": {
+    "prefix": ["trav.filter", ".Filter"],
+    "body": "Filter(\"${1:field} ${2|eq,ne,lt,le,gt,ge|} '${3:value}'\")",
+    "description": "OData $filter expression"
+  },
+  "traverse.select": {
+    "prefix": ["trav.select", ".Select"],
+    "body": "Select(\"${1:Field1,Field2,Field3}\")",
+    "description": "OData $select"
+  },
+  "traverse.expand": {
+    "prefix": ["trav.expand", ".Expand"],
+    "body": "Expand(\"${1:NavProperty}\")",
+    "description": "OData $expand"
+  },
+  "traverse.orderby": {
+    "prefix": ["trav.orderby", ".OrderBy"],
+    "body": "OrderBy(\"${1:Field} ${2|asc,desc|}\")",
+    "description": "OData $orderby"
+  },
+  "traverse.stream": {
+    "prefix": ["trav.stream", "for.stream"],
+    "body": [
+      "for result := range client.From(\"${1:EntitySet}\").Stream(${2:ctx}) {",
+      "\tif result.Err != nil {",
+      "\t\t${3:return result.Err}",
+      "\t}",
+      "\t${4:// process result.Value}",
+      "}"
+    ],
+    "description": "traverse streaming loop"
+  },
+  "traverse.findbykey": {
+    "prefix": ["trav.findbykey", "traverse.key"],
+    "body": [
+      "entity, err := client.From(\"${1:EntitySet}\").Key(${2:keyValue}).FindByKey(${3:ctx})",
+      "if err != nil {",
+      "\t${4:return err}",
+      "}"
+    ],
+    "description": "traverse FindByKey"
+  },
+  "traverse.create": {
+    "prefix": ["trav.create", "traverse.create"],
+    "body": [
+      "created, err := client.Create(${1:ctx}, \"${2:EntitySet}\", ${3:body})",
+      "if err != nil {",
+      "\t${4:return err}",
+      "}"
+    ],
+    "description": "traverse Create entity"
+  },
+  "traverse.update": {
+    "prefix": ["trav.update", "traverse.update"],
+    "body": [
+      "err := client.Update(${1:ctx}, \"${2:EntitySet}\", ${3:key}, ${4:body})",
+      "if err != nil {",
+      "\t${5:return err}",
+      "}"
+    ],
+    "description": "traverse Update entity (PATCH)"
+  },
+  "traverse.delete": {
+    "prefix": ["trav.delete", "traverse.delete"],
+    "body": [
+      "err := client.Delete(${1:ctx}, \"${2:EntitySet}\", ${3:key})",
+      "if err != nil {",
+      "\t${4:return err}",
+      "}"
+    ],
+    "description": "traverse Delete entity"
+  },
+  "traverse.filter.contains": {
+    "prefix": ["odata.contains"],
+    "body": "Filter(\"contains(${1:Field}, '${2:value}')\")",
+    "description": "OData contains() filter"
+  },
+  "traverse.filter.any": {
+    "prefix": ["odata.any"],
+    "body": "Filter(\"${1:Collection}/any(x: x/${2:Field} eq '${3:value}')\")",
+    "description": "OData any() lambda filter"
+  },
+  "traverse.filter.in": {
+    "prefix": ["odata.in"],
+    "body": "Filter(\"${1:Field} in ('${2:val1}','${3:val2}')\")",
+    "description": "OData in operator"
+  },
+  "traverse.singleton": {
+    "prefix": ["trav.singleton", "traverse.singleton"],
+    "body": [
+      "entity, err := client.Singleton(\"${1:me}\").Find(${2:ctx})",
+      "if err != nil {",
+      "\t${3:return err}",
+      "}"
+    ],
+    "description": "traverse Singleton access"
+  },
+  "traverse.batch": {
+    "prefix": ["trav.batch", "traverse.batch"],
+    "body": [
+      "batch := client.NewBatch()",
+      "batch.Add(client.From(\"${1:EntitySet}\").BuildCreateRequest(${2:ctx}, ${3:body1}))",
+      "batch.Add(client.From(\"${4:EntitySet}\").BuildCreateRequest(${5:ctx}, ${6:body2}))",
+      "results, err := batch.Execute(${7:ctx})",
+      "if err != nil {",
+      "\t${8:return err}",
+      "}"
+    ],
+    "description": "traverse batch request"
+  }
+}

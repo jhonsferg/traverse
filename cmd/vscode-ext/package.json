@@ -1,0 +1,112 @@
+{
+  "name": "traverse-odata",
+  "displayName": "Traverse OData",
+  "description": "OData query syntax highlighting, autocompletion, and validation for traverse Go projects.",
+  "version": "0.1.0",
+  "publisher": "jhonsferg",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/jhonsferg/traverse"
+  },
+  "engines": {
+    "vscode": "^1.85.0"
+  },
+  "categories": [
+    "Programming Languages",
+    "Snippets",
+    "Linters"
+  ],
+  "keywords": [
+    "odata",
+    "sap",
+    "traverse",
+    "query",
+    "filter"
+  ],
+  "icon": "images/icon.png",
+  "activationEvents": [
+    "onLanguage:go",
+    "onLanguage:odata"
+  ],
+  "main": "./out/extension.js",
+  "contributes": {
+    "languages": [
+      {
+        "id": "odata",
+        "aliases": [
+          "OData Query",
+          "odata"
+        ],
+        "extensions": [
+          ".odata",
+          ".odatafilter"
+        ],
+        "configuration": "./language-configuration.json"
+      }
+    ],
+    "grammars": [
+      {
+        "language": "odata",
+        "scopeName": "source.odata",
+        "path": "./syntaxes/odata.tmLanguage.json"
+      },
+      {
+        "scopeName": "source.odata.injection",
+        "path": "./syntaxes/odata-injection.tmLanguage.json",
+        "injectTo": [
+          "source.go"
+        ],
+        "embeddedLanguages": {
+          "meta.embedded.block.odata": "odata"
+        }
+      }
+    ],
+    "snippets": [
+      {
+        "language": "go",
+        "path": "./snippets/traverse.json"
+      }
+    ],
+    "configuration": {
+      "title": "Traverse OData",
+      "properties": {
+        "traverse.odata.validateOnType": {
+          "type": "boolean",
+          "default": true,
+          "description": "Validate OData query strings as you type in Go source files."
+        },
+        "traverse.odata.completionMode": {
+          "type": "string",
+          "enum": [
+            "full",
+            "keywords-only",
+            "off"
+          ],
+          "default": "full",
+          "description": "Controls the level of OData autocompletion inside traverse builder calls."
+        },
+        "traverse.odata.hoverDocs": {
+          "type": "boolean",
+          "default": true,
+          "description": "Show OData function and operator documentation on hover."
+        }
+      }
+    }
+  },
+  "scripts": {
+    "vscode:prepublish": "npm run compile",
+    "compile": "tsc -p ./",
+    "watch": "tsc -watch -p ./",
+    "lint": "eslint src --ext ts",
+    "test": "node ./out/test/runTest.js",
+    "package": "npx @vscode/vsce package --no-dependencies"
+  },
+  "devDependencies": {
+    "@types/node": "^20.0.0",
+    "@types/vscode": "^1.85.0",
+    "@typescript-eslint/eslint-plugin": "^6.0.0",
+    "@typescript-eslint/parser": "^6.0.0",
+    "eslint": "^8.0.0",
+    "typescript": "^5.3.0"
+  }
+}
