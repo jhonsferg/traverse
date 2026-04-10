@@ -2191,7 +2191,7 @@ func (q *QueryBuilder) buildEntityKeyURL(keyPred string) string {
 		qbuf.WriteString(url.QueryEscape(v))
 	}
 
-	return entityPath + "(" + keyPred + ")" + qbuf.String()
+	return "/" + entityPath + "(" + keyPred + ")" + qbuf.String()
 }
 
 // splitEntityPath splits an entity-set string that may carry an embedded query
