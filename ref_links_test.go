@@ -54,9 +54,9 @@ func TestLinkTo_SendsPUTWithCorrectURLAndBody(t *testing.T) {
 	if !ok {
 		t.Fatal("body missing @odata.id field")
 	}
-	// encodeKey wraps strings in single quotes and URL-encodes: 'ALFKI' -> %27ALFKI%27
-	if !strings.HasSuffix(odataID, "/Customers(%27ALFKI%27)") {
-		t.Errorf("@odata.id: got %q, want suffix /Customers(%%27ALFKI%%27)", odataID)
+	// encodeKey wraps strings in single quotes (not percent-encoded): 'ALFKI'
+	if !strings.HasSuffix(odataID, "/Customers('ALFKI')") {
+		t.Errorf("@odata.id: got %q, want suffix /Customers('ALFKI')", odataID)
 	}
 }
 
@@ -251,7 +251,7 @@ func TestUnlinkFrom_StringKey(t *testing.T) {
 	if len(reqs) != 1 {
 		t.Fatalf("expected 1 request, got %d", len(reqs))
 	}
-	// String keys are URL-encoded: 'ALFKI' -> '%27ALFKI%27
+	// String keys are wrapped in single quotes (not percent-encoded)
 	req := reqs[0]
 	if !strings.Contains(req.Path, "/$ref") {
 		t.Errorf("path: got %q, expected /$ref suffix", req.Path)

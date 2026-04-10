@@ -41,7 +41,6 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"net/url"
 	"strings"
 	"sync"
 	"time"
@@ -1023,7 +1022,7 @@ func (c *Client) invalidateEntitySetCache(entitySet string) {
 //
 // Example encodings:
 //
-//	encodeKey("Product A")   → "'Product%20A'"
+//	encodeKey("Product A")   → "'Product A'"
 //	encodeKey(123)           → "123"
 //	encodeKey(45.67)         → "45.67"
 func encodeKey(key interface{}) (string, error) {
@@ -1031,9 +1030,11 @@ func encodeKey(key interface{}) (string, error) {
 	case string:
 		// OData string literals are wrapped in single quotes.
 		// Embedded single quotes must be escaped by doubling them ('').
-		// The entire literal is then URL-encoded for safe URL embedding.
+		// Single quotes and parentheses are RFC 3986 sub-delimiters and must
+		// NOT be percent-encoded in URL paths; encoding them causes double-encoding
+		// when relay resolves the full URL via url.URL.ResolveReference.
 		escaped := strings.ReplaceAll(v, "'", "''")
-		return url.QueryEscape("'" + escaped + "'"), nil
+		return "'" + escaped + "'", nil
 	case int, int32, int64, float32, float64:
 		return fmt.Sprint(v), nil
 	default:

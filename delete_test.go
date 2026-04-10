@@ -134,9 +134,9 @@ func TestDeleteWithOptions_StringKey_QuotedInURL(t *testing.T) {
 	}
 
 	req := server.RecordedRequests()[0]
-	// encodeKey wraps string keys in single quotes, URL-encoded as %27
-	if req.Path != "/Materials(%27MAT001%27)" {
-		t.Errorf("path: got %q, want /Materials(%%27MAT001%%27)", req.Path)
+	// encodeKey wraps string keys in single quotes; single quotes are not percent-encoded in URL paths
+	if req.Path != "/Materials('MAT001')" {
+		t.Errorf("path: got %q, want /Materials('MAT001')", req.Path)
 	}
 }
 
@@ -253,8 +253,8 @@ func TestDeleteLink_StringSourceKey(t *testing.T) {
 	}
 
 	req := server.RecordedRequests()[0]
-	if req.Path != "/Customers(%27ALFKI%27)/Orders/$ref" {
-		t.Errorf("path: got %q, want /Customers(%%27ALFKI%%27)/Orders/$ref", req.Path)
+	if req.Path != "/Customers('ALFKI')/Orders/$ref" {
+		t.Errorf("path: got %q, want /Customers('ALFKI')/Orders/$ref", req.Path)
 	}
 }
 
