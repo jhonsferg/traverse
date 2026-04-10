@@ -1,0 +1,89 @@
+{
+  "$schema": "https://raw.githubusercontent.com/martinring/tmlanguage/master/tmlanguage.json",
+  "name": "OData Query",
+  "scopeName": "source.odata",
+  "patterns": [
+    { "include": "#system-query-options" },
+    { "include": "#logical-operators" },
+    { "include": "#comparison-operators" },
+    { "include": "#arithmetic-operators" },
+    { "include": "#string-functions" },
+    { "include": "#math-functions" },
+    { "include": "#date-functions" },
+    { "include": "#type-functions" },
+    { "include": "#geo-functions" },
+    { "include": "#lambda-operators" },
+    { "include": "#literals" },
+    { "include": "#identifiers" }
+  ],
+  "repository": {
+    "system-query-options": {
+      "match": "\\$(filter|select|expand|orderby|top|skip|count|search|apply|compute|format|schemaversion|skiptoken|deltatoken)\\b",
+      "name": "keyword.control.odata"
+    },
+    "logical-operators": {
+      "match": "\\b(and|or|not|in)\\b",
+      "name": "keyword.operator.logical.odata"
+    },
+    "comparison-operators": {
+      "match": "\\b(eq|ne|lt|le|gt|ge|has)\\b",
+      "name": "keyword.operator.comparison.odata"
+    },
+    "arithmetic-operators": {
+      "match": "\\b(add|sub|mul|divby|div|mod)\\b",
+      "name": "keyword.operator.arithmetic.odata"
+    },
+    "string-functions": {
+      "match": "\\b(contains|startswith|endswith|length|indexof|substring|tolower|toupper|trim|concat|matchesPattern|substringof)\\b(?=\\s*\\()",
+      "name": "support.function.string.odata"
+    },
+    "math-functions": {
+      "match": "\\b(round|floor|ceiling)\\b(?=\\s*\\()",
+      "name": "support.function.math.odata"
+    },
+    "date-functions": {
+      "match": "\\b(year|month|day|hour|minute|second|fractionalseconds|totalseconds|date|time|now|mindatetime|maxdatetime|totaloffsetminutes)\\b(?=\\s*\\()",
+      "name": "support.function.date.odata"
+    },
+    "type-functions": {
+      "match": "\\b(isof|cast)\\b(?=\\s*\\()",
+      "name": "support.function.type.odata"
+    },
+    "geo-functions": {
+      "match": "\\b(geo\\.distance|geo\\.intersects|geo\\.length|geo\\.contains|geo\\.crosses)\\b(?=\\s*\\()",
+      "name": "support.function.geo.odata"
+    },
+    "lambda-operators": {
+      "match": "\\b(any|all)\\b(?=\\s*\\()",
+      "name": "keyword.control.lambda.odata"
+    },
+    "literals": {
+      "patterns": [
+        {
+          "match": "'[^']*'",
+          "name": "string.quoted.single.odata"
+        },
+        {
+          "match": "\\b(true|false|null)\\b",
+          "name": "constant.language.odata"
+        },
+        {
+          "match": "\\b-?[0-9]+(\\.[0-9]+)?([Ee][+-]?[0-9]+)?[mMlLdDfF]?\\b",
+          "name": "constant.numeric.odata"
+        },
+        {
+          "match": "\\b[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}\\b",
+          "name": "constant.other.guid.odata"
+        },
+        {
+          "match": "\\b(asc|desc)\\b",
+          "name": "constant.language.direction.odata"
+        }
+      ]
+    },
+    "identifiers": {
+      "match": "\\b[A-Za-z_][A-Za-z0-9_.]*\\b",
+      "name": "variable.other.odata"
+    }
+  }
+}
