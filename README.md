@@ -118,15 +118,27 @@ func main() {
 | **Typed pagination** | `Paginator[T]` with `.NextPage()` and `.Stream()` |
 | **Async operations** | Automatic polling for `202 Accepted` long-running operations |
 | **Streaming** | Channel-based streaming via `json.Decoder` - constant memory |
-| **Batch requests** | `$batch` with transactional changesets |
+| **Batch requests** | `$batch` with transactional changesets; OData 4.01 JSON batch format |
 | **Delta sync** | `$deltatoken` tracking for incremental data sync |
 | **Lambda filters** | `any()` / `all()` on collection navigation properties |
 | **Deep insert** | Create entity graphs in a single request |
+| **Deep update** | `PATCH` nested entity graphs in a single round-trip |
+| **BulkUpdate** | `PATCH /EntitySet?$filter=...` for mass updates (OData 4.01) |
+| **Singletons** | First-class singleton access: `client.Singleton("me").Page(ctx)` |
+| **Type casting** | `AsType("Model.Manager")` path segments; `IsOf()` / `Cast()` filter helpers |
+| **$expand $levels** | `Expand("Children", traverse.WithExpandLevels(traverse.LevelsMax))` |
+| **Geospatial** | `GeographyPoint`, `GeometryPoint`, `GeoDistance`, `GeoIntersects` filter functions |
 | **$ref link operations** | `LinkTo()` / `UnlinkFrom()` for managing navigation property references |
 | **Actions & Functions** | `ActionBuilder` / `FunctionBuilder` - bound and unbound |
 | **Schema validation** | Client-side field name validation on `$filter` / `$orderby` |
+| **Prefer headers** | `PreferHandlingStrict`, `ReturnMinimal`, `ReturnRepresentation`, `PreferTrackChanges` |
+| **$schemaversion** | `WithSchemaVersion("2.0")` at client or per-query level |
+| **Atom/XML responses** | OData v2 `application/atom+xml` streaming parser (auto-detected) |
+| **OData v2 $inlinecount** | `$inlinecount=allpages` emitted for v2 services; `d.__count` parsed |
+| **SAP TLS** | `WithSAPTLSConfig(cfg)` for custom CA bundles and self-signed certs |
+| **SAP property path** | `FetchPropertyAs[T]` for scalar/complex property fetch by key and path |
 | **Code generation** | `traverse-gen` generates typed clients from `$metadata` |
-| **SAP compatibility** | CSRF tokens, X-Requested-With, SAP-specific OData quirks |
+| **SAP compatibility** | CSRF tokens, X-Requested-With, SAP sap:* metadata attributes |
 
 > Full feature documentation: **[jhonsferg.github.io/traverse](https://jhonsferg.github.io/traverse)**
 
@@ -208,6 +220,44 @@ for _, et := range meta.EntityTypes {
 ```
 
 Available types: `CoreVocabulary` (Description, LongDescription, Immutable, Computed, Permissions, …) and `ValidationVocabulary` (Minimum, Maximum, Pattern, AllowedValues, Required).
+
+---
+
+## Tools
+
+### traverse-gen
+
+`traverse-gen` generates type-safe Go clients from an OData `$metadata` endpoint:
+
+```bash
+go run github.com/jhonsferg/traverse/cmd/traverse-gen \
+  -metadata https://services.odata.org/V4/Northwind/Northwind.svc/$metadata \
+  -out ./northwind
+```
+
+### traverse-tui
+
+Interactive terminal UI for exploring OData endpoints, building queries, and inspecting results:
+
+```bash
+go run github.com/jhonsferg/traverse/cmd/traverse-tui
+```
+
+### SAP OData Mock Server
+
+A local SAP NetWeaver OData v2 simulator for integration testing without a real SAP system:
+
+```bash
+go run github.com/jhonsferg/traverse/cmd/sap-mock
+```
+
+Simulates CSRF token lifecycle, Basic Auth, `$metadata` responses, entity-set queries, key-predicate lookups, and property-path navigation. Logs all incoming requests with headers, query parameters, and body for inspection.
+
+```
+SAP OData Mock Server
+  Listen: http://localhost:44300
+  Auth:   enabled (user=sapuser pass=sappass)
+```
 
 ---
 
