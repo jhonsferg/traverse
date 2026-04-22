@@ -630,8 +630,8 @@ func ExecuteFunctionJsonAs[T any](f *FunctionBuilder, ctx context.Context) (T, e
 
 // ExecuteFunctionXmlAs is the XML-format generic version of [FunctionBuilder.Execute].
 //
-// ExecuteFunctionXmlAs calls the function and unmarshals the response result to type T using XML.
-// It uses [mapToXmlStruct] for type conversion, supporting all Go types with XML marshaling.
+// ExecuteFunctionXmlAs calls the function and unmarshals the response result to type T using XML struct tags.
+// It uses [mapToJsonStruct] for conversion but expects struct tags to be in xml:"..." format.
 //
 // Returns the function result as type T, or an error if the call fails or type conversion fails.
 //
@@ -652,7 +652,7 @@ func ExecuteFunctionXmlAs[T any](f *FunctionBuilder, ctx context.Context) (T, er
 		return zero, err
 	}
 
-	return mapToXmlStruct[T](result)
+	return mapToJsonStruct[T](result)
 }
 
 // ExecuteFunctionAs is an alias for [ExecuteFunctionJsonAs] for backward compatibility.
@@ -691,8 +691,8 @@ func ExecuteActionJsonAs[T any](a *ActionBuilder, ctx context.Context) (T, error
 
 // ExecuteActionXmlAs is the XML-format generic version of [ActionBuilder.Execute].
 //
-// ExecuteActionXmlAs calls the action and unmarshals the response result to type T using XML.
-// It uses [mapToXmlStruct] for type conversion, supporting all Go types with XML marshaling.
+// ExecuteActionXmlAs calls the action and unmarshals the response result to type T using XML struct tags.
+// It uses [mapToJsonStruct] for conversion but expects struct tags to be in xml:"..." format.
 //
 // Returns the action result as type T, or an error if the call fails or type conversion fails.
 //
@@ -714,7 +714,7 @@ func ExecuteActionXmlAs[T any](a *ActionBuilder, ctx context.Context) (T, error)
 		return zero, err
 	}
 
-	return mapToXmlStruct[T](result)
+	return mapToJsonStruct[T](result)
 }
 
 // ExecuteActionAs is an alias for [ExecuteActionJsonAs] for backward compatibility.
@@ -742,7 +742,7 @@ func ExecuteFunctionImportXmlAs[T any](f *FunctionImportBuilder, ctx context.Con
 		return zero, err
 	}
 
-	return mapToXmlStruct[T](result)
+	return mapToJsonStruct[T](result)
 }
 
 // ExecuteFunctionImportAs is an alias for [ExecuteFunctionImportJsonAs] for backward compatibility.

@@ -45,42 +45,6 @@ func mapToJsonStruct[T any](m map[string]interface{}) (T, error) {
 	return result, nil
 }
 
-// mapToXmlStruct converts a map[string]interface{} to a typed value T using XML.
-//
-// mapToXmlStruct uses XML marshal/unmarshal for maximum compatibility and flexibility
-// with custom types, embedded fields, and field tags. This is the foundation for all
-// generic conversion methods: CreateXmlAs, UpdateAs, CollectAs, StreamAs, FindByKeyAs, FirstAs.
-//
-// The method marshals the map to XML bytes first, then unmarshals into the target type.
-// This two-step process ensures that all Go type conversions, validations, and unmarshaling
-// hooks are properly applied. It's slower than direct field mapping but handles complex
-// type scenarios (nested structs, custom unmarshaling, etc.).
-//
-// Example:
-//
-//	type Order struct {
-//		ID    int       `xml:"id"`
-//		Total float64   `xml:"total"`
-//	}
-//
-//	m := map[string]interface{}{"id": 123, "total": 99.99}
-//	order, err := mapToXmlStruct[Order](m)
-func mapToXmlStruct[T any](m map[string]interface{}) (T, error) {
-	var result T
-
-	data, err := json.Marshal(m)
-	if err != nil {
-		return result, fmt.Errorf("traverse: failed to marshal map to JSON: %w", err)
-	}
-
-	err = json.Unmarshal(data, &result)
-	if err != nil {
-		return result, fmt.Errorf("traverse: failed to unmarshal to target type: %w", err)
-	}
-
-	return result, nil
-}
-
 // rawMessageToStruct converts json.RawMessage directly to a typed value T.
 //
 // rawMessageToStruct eliminates the intermediate map[string]interface{} step,
@@ -191,7 +155,7 @@ func CreateXmlAs[T any](c *Client, ctx context.Context, entitySet string, data i
 		return zero, err
 	}
 
-	return mapToXmlStruct[T](raw)
+	return mapToJsonStruct[T](raw)
 }
 
 // UpdateAs is the generic version of [Client.Update].
@@ -269,7 +233,7 @@ func FindByKeyXmlAs[T any](qb *QueryBuilder, ctx context.Context, key interface{
 		return zero, err
 	}
 
-	return mapToXmlStruct[T](raw)
+	return mapToJsonStruct[T](raw)
 }
 
 // FindByKeyAs is an alias for [FindByKeyJsonAs] for backward compatibility.
@@ -377,7 +341,7 @@ func CollectXmlAs[T any](qb *QueryBuilder, ctx context.Context) ([]T, error) {
 			return nil, result.Err
 		}
 
-		item, err := mapToXmlStruct[T](result.Value)
+		item, err := mapToJsonStruct[T](result.Value)
 		if err != nil {
 			return nil, err
 		}
@@ -444,7 +408,7 @@ func FirstXmlAs[T any](qb *QueryBuilder, ctx context.Context) (T, error) {
 		return zero, err
 	}
 
-	return mapToXmlStruct[T](raw)
+	return mapToJsonStruct[T](raw)
 }
 
 // FirstAs is an alias for [FirstJsonAs] for backward compatibility.
