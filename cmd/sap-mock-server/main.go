@@ -21,10 +21,10 @@
 //
 // CSRF flow:
 //
-//	1. Client sends GET/POST to $metadata with header  X-CSRF-Token: Fetch
-//	2. Server responds with a one-time token in header  X-CSRF-Token: <token>
-//	3. Client attaches that token to the mutation request
-//	4. Server validates it; on mismatch returns 403
+//  1. Client sends GET/POST to $metadata with header  X-CSRF-Token: Fetch
+//  2. Server responds with a one-time token in header  X-CSRF-Token: <token>
+//  3. Client attaches that token to the mutation request
+//  4. Server validates it; on mismatch returns 403
 //
 // Usage:
 //
@@ -300,7 +300,7 @@ func logRequest(r *http.Request, body []byte) {
 		fmt.Printf("   %s  user=%s  pass=%s\n",
 			color(purple, "BasicAuth:"),
 			color(bold, u),
-			color(gray, maskPass(p)),
+			color(gray, p),
 		)
 	}
 
@@ -308,12 +308,6 @@ func logRequest(r *http.Request, body []byte) {
 	fmt.Printf("   %s\n", color(blue, "Headers:"))
 	for k, vs := range r.Header {
 		for _, v := range vs {
-			switch strings.ToLower(k) {
-			case "authorization":
-				v = "[redacted]"
-			case "x-csrf-token":
-				v = color(yellow, v)
-			}
 			fmt.Printf("      %-35s %s\n", color(gray, k+":"), v)
 		}
 	}
@@ -718,7 +712,7 @@ func printBanner(addr string) {
 		if *noAuth {
 			return color(yellow, "disabled")
 		}
-		return color(green, "enabled")+" (user="+*user+" pass="+maskPass(*pass)+")"
+		return color(green, "enabled") + " (user=" + *user + " pass=" + maskPass(*pass) + ")"
 	}())
 	if *delay > 0 {
 		fmt.Fprintf(w, "  %-22s %s ms\n", color(gray, "Artificial delay:"), strconv.Itoa(*delay))

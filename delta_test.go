@@ -509,3 +509,189 @@ func TestDeltaSyncAs_Incremental_Error(t *testing.T) {
 		t.Error("DeltaSyncAs.Incremental: expected error on 500, got none")
 	}
 }
+
+func TestNewDeltaSyncJsonAs(t *testing.T) {
+	t.Run("DeltaSyncJsonAs signature", func(t *testing.T) {
+		type Product struct {
+			ID   int    `json:"ID"`
+			Name string `json:"Name"`
+		}
+
+		c, _ := New(WithBaseURL("http://localhost:8080/odata"))
+		ds := NewDeltaSyncJsonAs[Product](c, "Products")
+		_ = ds
+	})
+}
+
+func TestNewDeltaSyncXmlAs(t *testing.T) {
+	t.Run("DeltaSyncXmlAs signature", func(t *testing.T) {
+		type Product struct {
+			ID   int    `xml:"ID"`
+			Name string `xml:"Name"`
+		}
+
+		c, _ := New(WithBaseURL("http://localhost:8080/odata"))
+		ds := NewDeltaSyncXmlAs[Product](c, "Products")
+		_ = ds
+	})
+}
+
+func TestDeltaSyncJsonAs_Full(t *testing.T) {
+	type Product struct {
+		ID   int    `json:"ID"`
+		Name string `json:"Name"`
+	}
+
+	server := testutil.NewMockServer()
+	defer server.Close()
+
+	server.Enqueue(testutil.MockResponse{
+		Status: 200,
+		Body:   `{"value":[{"ID":1,"Name":"Product1"}],"@odata.deltaLink":"http://example.com/delta?tok=xyz"}`,
+	})
+
+	client, err := New(WithBaseURL(server.URL()))
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	ctx := context.Background()
+	ds := NewDeltaSyncJsonAs[Product](client, "Products")
+
+	ch, _, callErr := ds.Full(ctx)
+	if callErr != nil {
+		t.Fatalf("DeltaSyncJsonAs.Full() error: %v", callErr)
+	}
+
+	count := 0
+	for result := range ch {
+		if result.Err != nil {
+			t.Fatalf("stream error: %v", result.Err)
+		}
+		count++
+	}
+
+	if count == 0 {
+		t.Error("expected results from DeltaSyncJsonAs.Full")
+	}
+}
+
+func TestDeltaSyncXmlAs_Full(t *testing.T) {
+	type Product struct {
+		ID   int    `xml:"ID"`
+		Name string `xml:"Name"`
+	}
+
+	server := testutil.NewMockServer()
+	defer server.Close()
+
+	server.Enqueue(testutil.MockResponse{
+		Status: 200,
+		Body:   `{"value":[{"ID":2,"Name":"Product2"}],"@odata.deltaLink":"http://example.com/delta?tok=abc"}`,
+	})
+
+	client, err := New(WithBaseURL(server.URL()))
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	ctx := context.Background()
+	ds := NewDeltaSyncXmlAs[Product](client, "Products")
+
+	ch, _, callErr := ds.Full(ctx)
+	if callErr != nil {
+		t.Fatalf("DeltaSyncXmlAs.Full() error: %v", callErr)
+	}
+
+	count := 0
+	for result := range ch {
+		if result.Err != nil {
+			t.Fatalf("stream error: %v", result.Err)
+		}
+		count++
+	}
+
+	if count == 0 {
+		t.Error("expected results from DeltaSyncXmlAs.Full")
+	}
+}
+
+func TestDeltaSyncJsonAs_Incremental(t *testing.T) {
+	type Product struct {
+		ID   int    `json:"ID"`
+		Name string `json:"Name"`
+	}
+
+	server := testutil.NewMockServer()
+	defer server.Close()
+
+	server.Enqueue(testutil.MockResponse{
+		Status: 200,
+		Body:   `{"value":[{"ID":3,"Name":"NewProduct"}],"@odata.deltaLink":"http://example.com/delta?tok=new"}`,
+	})
+
+	client, err := New(WithBaseURL(server.URL()))
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	ctx := context.Background()
+	ds := NewDeltaSyncJsonAs[Product](client, "Products")
+
+	ch, _, callErr := ds.Incremental(ctx, "old_token")
+	if callErr != nil {
+		t.Fatalf("DeltaSyncJsonAs.Incremental() error: %v", callErr)
+	}
+
+	count := 0
+	for result := range ch {
+		if result.Err != nil {
+			t.Fatalf("stream error: %v", result.Err)
+		}
+		count++
+	}
+
+	if count == 0 {
+		t.Error("expected results from DeltaSyncJsonAs.Incremental")
+	}
+}
+
+func TestDeltaSyncXmlAs_Incremental(t *testing.T) {
+	type Product struct {
+		ID   int    `xml:"ID"`
+		Name string `xml:"Name"`
+	}
+
+	server := testutil.NewMockServer()
+	defer server.Close()
+
+	server.Enqueue(testutil.MockResponse{
+		Status: 200,
+		Body:   `{"value":[{"ID":4,"Name":"UpdatedProduct"}],"@odata.deltaLink":"http://example.com/delta?tok=newer"}`,
+	})
+
+	client, err := New(WithBaseURL(server.URL()))
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	ctx := context.Background()
+	ds := NewDeltaSyncXmlAs[Product](client, "Products")
+
+	ch, _, callErr := ds.Incremental(ctx, "old_token")
+	if callErr != nil {
+		t.Fatalf("DeltaSyncXmlAs.Incremental() error: %v", callErr)
+	}
+
+	count := 0
+	for result := range ch {
+		if result.Err != nil {
+			t.Fatalf("stream error: %v", result.Err)
+		}
+		count++
+	}
+
+	if count == 0 {
+		t.Error("expected results from DeltaSyncXmlAs.Incremental")
+	}
+}

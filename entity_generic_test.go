@@ -35,8 +35,8 @@ func TestRawMessageToStruct_Invalid(t *testing.T) {
 	}
 }
 
-// TestCreateAs_Success verifies CreateAs returns a typed entity from a 201 response.
-func TestCreateAs_Success(t *testing.T) {
+// TestCreateAsJson_Success verifies CreateJsonAs returns a typed entity from a 201 response.
+func TestCreateAsJson_Success(t *testing.T) {
 	server := testutil.NewMockServer()
 	defer server.Close()
 
@@ -51,17 +51,17 @@ func TestCreateAs_Success(t *testing.T) {
 	}
 
 	ctx := context.Background()
-	product, err := CreateAs[testProduct](client, ctx, "Products", map[string]interface{}{"Name": "NewProduct"})
+	product, err := CreateJsonAs[testProduct](client, ctx, "Products", map[string]interface{}{"Name": "NewProduct"})
 	if err != nil {
-		t.Fatalf("CreateAs() error = %v", err)
+		t.Fatalf("CreateJsonAs() error = %v", err)
 	}
 	if product.ID != 1 || product.Name != "NewProduct" {
-		t.Errorf("CreateAs() = %+v, want {ID:1 Name:NewProduct}", product)
+		t.Errorf("CreateJsonAs() = %+v, want {ID:1 Name:NewProduct}", product)
 	}
 }
 
-// TestCreateAs_Error verifies CreateAs returns an error on non-201 status.
-func TestCreateAs_Error(t *testing.T) {
+// TestCreateAsJson_Error verifies CreateJsonAs returns an error on non-201 status.
+func TestCreateAsJson_Error(t *testing.T) {
 	server := testutil.NewMockServer()
 	defer server.Close()
 
@@ -76,9 +76,9 @@ func TestCreateAs_Error(t *testing.T) {
 	}
 
 	ctx := context.Background()
-	_, err = CreateAs[testProduct](client, ctx, "Products", map[string]interface{}{"Name": ""})
+	_, err = CreateJsonAs[testProduct](client, ctx, "Products", map[string]interface{}{"Name": ""})
 	if err == nil {
-		t.Error("CreateAs() expected error on 400, got nil")
+		t.Error("CreateJsonAs() expected error on 400, got nil")
 	}
 }
 
