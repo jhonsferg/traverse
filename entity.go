@@ -68,16 +68,14 @@ func mapToJsonStruct[T any](m map[string]interface{}) (T, error) {
 func mapToXmlStruct[T any](m map[string]interface{}) (T, error) {
 	var result T
 
-	// Marshal the map to XML bytes
-	data, err := xml.Marshal(m)
+	data, err := json.Marshal(m)
 	if err != nil {
-		return result, fmt.Errorf("traverse: failed to marshal map to XML: %w", err)
+		return result, fmt.Errorf("traverse: failed to marshal map to JSON: %w", err)
 	}
 
-	// Unmarshal XML bytes into the target type T
-	err = xml.Unmarshal(data, &result)
+	err = json.Unmarshal(data, &result)
 	if err != nil {
-		return result, fmt.Errorf("traverse: failed to unmarshal XML to target type: %w", err)
+		return result, fmt.Errorf("traverse: failed to unmarshal to target type: %w", err)
 	}
 
 	return result, nil

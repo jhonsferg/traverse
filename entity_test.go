@@ -9,8 +9,8 @@ import (
 	"time"
 )
 
-// TestmapToJsonStruct tests the mapToJsonStruct helper function.
-func TestmapToJsonStruct(t *testing.T) {
+// TestMapToJsonStruct tests the mapToJsonStruct helper function.
+func TestMapToJsonStruct(t *testing.T) {
 	type TestEntity struct {
 		ID    string `json:"ID"`
 		Name  string `json:"Name"`
@@ -182,8 +182,8 @@ func TestCollectAsStructure(t *testing.T) {
 	}
 }
 
-// TestmapToJsonStructWithODataTypes tests conversion with OData types.
-func TestmapToJsonStructWithODataTypes(t *testing.T) {
+// TestMapToJsonStructWithODataTypes tests conversion with OData types.
+func TestMapToJsonStructWithODataTypes(t *testing.T) {
 	type MaterialWithDate struct {
 		MatID     string    `json:"MatID"`
 		Name      string    `json:"Name"`
@@ -227,8 +227,8 @@ func TestmapToJsonStructWithODataTypes(t *testing.T) {
 	}
 }
 
-// BenchmarkmapToJsonStruct benchmarks the mapToJsonStruct function.
-func BenchmarkmapToJsonStruct(b *testing.B) {
+// BenchmarkMapToJsonStruct benchmarks the mapToJsonStruct function.
+func BenchmarkMapToJsonStruct(b *testing.B) {
 	type Item struct {
 		ID    string `json:"ID"`
 		Name  string `json:"Name"`
