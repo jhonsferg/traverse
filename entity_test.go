@@ -379,11 +379,6 @@ func TestCreateXmlAs(t *testing.T) {
 }
 
 func TestCollectXmlAsStructure(t *testing.T) {
-	type Product struct {
-		ID   string `xml:"id"`
-		Name string `xml:"name"`
-	}
-
 	t.Run("CollectXmlAs signature", func(t *testing.T) {
 		qb := &QueryBuilder{
 			client:    &Client{},
@@ -424,11 +419,6 @@ func TestStreamXmlAsBasic(t *testing.T) {
 
 func TestFirstXmlAs(t *testing.T) {
 	t.Run("FirstXmlAs signature", func(t *testing.T) {
-		type Item struct {
-			ID   string `xml:"id"`
-			Name string `xml:"name"`
-		}
-
 		qb := &QueryBuilder{
 			client:    &Client{},
 			entitySet: "Items",
@@ -439,11 +429,6 @@ func TestFirstXmlAs(t *testing.T) {
 
 func TestFindByKeyXmlAs(t *testing.T) {
 	t.Run("FindByKeyXmlAs signature", func(t *testing.T) {
-		type Product struct {
-			ID   string `xml:"id"`
-			Name string `xml:"name"`
-		}
-
 		qb := &QueryBuilder{
 			client:    &Client{},
 			entitySet: "Products",

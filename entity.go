@@ -317,7 +317,7 @@ func CollectJsonAs[T any](qb *QueryBuilder, ctx context.Context) ([]T, error) {
 
 	return results, nil
 }
-//
+
 // CollectAs iterates through the query result stream, converts each result to type T,
 // and collects them into a slice. All results are loaded into memory before returning.
 //
@@ -340,6 +340,7 @@ func CollectJsonAs[T any](qb *QueryBuilder, ctx context.Context) ([]T, error) {
 //
 //	// Load all products (⚠️ use with caution for large datasets)
 //	products, err := CollectAs[Product](qb, ctx)
+//
 // CollectAs is an alias for [CollectJsonAs] for backward compatibility.
 // Deprecated: Use [CollectJsonAs] or [CollectXmlAs] instead.
 func CollectAs[T any](qb *QueryBuilder, ctx context.Context) ([]T, error) {
