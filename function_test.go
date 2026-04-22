@@ -429,3 +429,51 @@ func BenchmarkResponseParsing(b *testing.B) {
 		_, _ = parseResponseValue(body)
 	}
 }
+
+func TestExecuteFunctionJsonAs(t *testing.T) {
+	t.Run("ExecuteFunctionJsonAs signature", func(t *testing.T) {
+		mockClient := &Client{}
+		fb := mockClient.Function("GetMaterials")
+		_ = fb
+	})
+}
+
+func TestExecuteFunctionXmlAs(t *testing.T) {
+	t.Run("ExecuteFunctionXmlAs signature", func(t *testing.T) {
+		mockClient := &Client{}
+		fb := mockClient.Function("GetMaterials")
+		_ = fb
+	})
+}
+
+func TestExecuteActionJsonAs(t *testing.T) {
+	t.Run("ExecuteActionJsonAs signature", func(t *testing.T) {
+		mockClient := &Client{}
+		ab := mockClient.Action("CreateMaterial")
+		_ = ab
+	})
+}
+
+func TestExecuteActionXmlAs(t *testing.T) {
+	t.Run("ExecuteActionXmlAs signature", func(t *testing.T) {
+		mockClient := &Client{}
+		ab := mockClient.Action("CreateMaterial")
+		_ = ab
+	})
+}
+
+func TestExecuteFunctionImportJsonAs(t *testing.T) {
+	t.Run("ExecuteFunctionImportJsonAs signature", func(t *testing.T) {
+		mockClient := &Client{}
+		fib := mockClient.FunctionImport("GetSalesData")
+		_ = fib
+	})
+}
+
+func TestExecuteFunctionImportXmlAs(t *testing.T) {
+	t.Run("ExecuteFunctionImportXmlAs signature", func(t *testing.T) {
+		mockClient := &Client{}
+		fib := mockClient.FunctionImport("GetSalesData")
+		_ = fib
+	})
+}

@@ -124,7 +124,7 @@ func (mr *MutationResolver) ResolveCreate(p gql.ResolveParams) (interface{}, err
 		return nil, fmt.Errorf("input argument is required")
 	}
 
-	result, err := traverse.CreateAs[map[string]interface{}](mr.client, ctx, mr.entitySet, input)
+	result, err := traverse.CreateJsonAs[map[string]interface{}](mr.client, ctx, mr.entitySet, input)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create %s: %w", mr.entitySet, err)
 	}

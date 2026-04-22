@@ -601,10 +601,10 @@ func (f *FunctionImportBuilder) Execute(ctx context.Context) (map[string]interfa
 	return parseResponseValue(body)
 }
 
-// ExecuteFunctionAs is the generic version of [FunctionBuilder.Execute].
+// ExecuteFunctionJsonAs is the JSON-format generic version of [FunctionBuilder.Execute].
 //
-// ExecuteFunctionAs calls the function and unmarshals the response result to type T.
-// It uses [mapToStruct] for type conversion, supporting all Go types with JSON marshaling.
+// ExecuteFunctionJsonAs calls the function and unmarshals the response result to type T using JSON.
+// It uses [mapToJsonStruct] for type conversion, supporting all Go types with JSON marshaling.
 //
 // Returns the function result as type T, or an error if the call fails or type conversion fails.
 //
@@ -614,25 +614,57 @@ func (f *FunctionImportBuilder) Execute(ctx context.Context) (map[string]interfa
 //		Products []Product `json:"products"`
 //	}
 //
-//	result, err := ExecuteFunctionAs[TopProducts](
+//	result, err := ExecuteFunctionJsonAs[TopProducts](
 //		client.Function("GetTopProducts").Param("count", 10),
 //		ctx,
 //	)
-func ExecuteFunctionAs[T any](f *FunctionBuilder, ctx context.Context) (T, error) {
+func ExecuteFunctionJsonAs[T any](f *FunctionBuilder, ctx context.Context) (T, error) {
 	result, err := f.Execute(ctx)
 	var zero T
 	if err != nil {
 		return zero, err
 	}
 
-	// Use mapToStruct for type conversion
-	return mapToStruct[T](result)
+	return mapToJsonStruct[T](result)
 }
 
-// ExecuteActionAs is the generic version of [ActionBuilder.Execute].
+// ExecuteFunctionXmlAs is the XML-format generic version of [FunctionBuilder.Execute].
 //
-// ExecuteActionAs calls the action and unmarshals the response result to type T.
-// It uses [mapToStruct] for type conversion, supporting all Go types with JSON marshaling.
+// ExecuteFunctionXmlAs calls the function and unmarshals the response result to type T using XML.
+// It uses [mapToXmlStruct] for type conversion, supporting all Go types with XML marshaling.
+//
+// Returns the function result as type T, or an error if the call fails or type conversion fails.
+//
+// Example:
+//
+//	type TopProducts struct {
+//		Products []Product `xml:"products"`
+//	}
+//
+//	result, err := ExecuteFunctionXmlAs[TopProducts](
+//		client.Function("GetTopProducts").Param("count", 10),
+//		ctx,
+//	)
+func ExecuteFunctionXmlAs[T any](f *FunctionBuilder, ctx context.Context) (T, error) {
+	result, err := f.Execute(ctx)
+	var zero T
+	if err != nil {
+		return zero, err
+	}
+
+	return mapToXmlStruct[T](result)
+}
+
+// ExecuteFunctionAs is an alias for [ExecuteFunctionJsonAs] for backward compatibility.
+// Deprecated: Use [ExecuteFunctionJsonAs] or [ExecuteFunctionXmlAs] instead.
+func ExecuteFunctionAs[T any](f *FunctionBuilder, ctx context.Context) (T, error) {
+	return ExecuteFunctionJsonAs[T](f, ctx)
+}
+
+// ExecuteActionJsonAs is the JSON-format generic version of [ActionBuilder.Execute].
+//
+// ExecuteActionJsonAs calls the action and unmarshals the response result to type T using JSON.
+// It uses [mapToJsonStruct] for type conversion, supporting all Go types with JSON marshaling.
 //
 // Returns the action result as type T, or an error if the call fails or type conversion fails.
 //
@@ -643,31 +675,80 @@ func ExecuteFunctionAs[T any](f *FunctionBuilder, ctx context.Context) (T, error
 //		Message  string `json:"message"`
 //	}
 //
-//	result, err := ExecuteActionAs[ApprovalResult](
+//	result, err := ExecuteActionJsonAs[ApprovalResult](
 //		client.Action("ApproveOrder").WithBody(approvalData),
 //		ctx,
 //	)
-func ExecuteActionAs[T any](a *ActionBuilder, ctx context.Context) (T, error) {
+func ExecuteActionJsonAs[T any](a *ActionBuilder, ctx context.Context) (T, error) {
 	result, err := a.Execute(ctx)
 	var zero T
 	if err != nil {
 		return zero, err
 	}
 
-	// Use mapToStruct for type conversion
-	return mapToStruct[T](result)
+	return mapToJsonStruct[T](result)
 }
 
-// ExecuteFunctionImportAs is the generic version of FunctionImportBuilder.Execute.
-func ExecuteFunctionImportAs[T any](f *FunctionImportBuilder, ctx context.Context) (T, error) {
+// ExecuteActionXmlAs is the XML-format generic version of [ActionBuilder.Execute].
+//
+// ExecuteActionXmlAs calls the action and unmarshals the response result to type T using XML.
+// It uses [mapToXmlStruct] for type conversion, supporting all Go types with XML marshaling.
+//
+// Returns the action result as type T, or an error if the call fails or type conversion fails.
+//
+// Example:
+//
+//	type ApprovalResult struct {
+//		Approved bool   `xml:"approved"`
+//		Message  string `xml:"message"`
+//	}
+//
+//	result, err := ExecuteActionXmlAs[ApprovalResult](
+//		client.Action("ApproveOrder").WithBody(approvalData),
+//		ctx,
+//	)
+func ExecuteActionXmlAs[T any](a *ActionBuilder, ctx context.Context) (T, error) {
+	result, err := a.Execute(ctx)
+	var zero T
+	if err != nil {
+		return zero, err
+	}
+
+	return mapToXmlStruct[T](result)
+}
+
+// ExecuteActionAs is an alias for [ExecuteActionJsonAs] for backward compatibility.
+// Deprecated: Use [ExecuteActionJsonAs] or [ExecuteActionXmlAs] instead.
+func ExecuteActionAs[T any](a *ActionBuilder, ctx context.Context) (T, error) {
+	return ExecuteActionJsonAs[T](a, ctx)
+}
+
+// ExecuteFunctionImportJsonAs is the JSON-format generic version of FunctionImportBuilder.Execute.
+func ExecuteFunctionImportJsonAs[T any](f *FunctionImportBuilder, ctx context.Context) (T, error) {
 	result, err := f.Execute(ctx)
 	var zero T
 	if err != nil {
 		return zero, err
 	}
 
-	// Use mapToStruct for type conversion
-	return mapToStruct[T](result)
+	return mapToJsonStruct[T](result)
+}
+
+// ExecuteFunctionImportXmlAs is the XML-format generic version of FunctionImportBuilder.Execute.
+func ExecuteFunctionImportXmlAs[T any](f *FunctionImportBuilder, ctx context.Context) (T, error) {
+	result, err := f.Execute(ctx)
+	var zero T
+	if err != nil {
+		return zero, err
+	}
+
+	return mapToXmlStruct[T](result)
+}
+
+// ExecuteFunctionImportAs is an alias for [ExecuteFunctionImportJsonAs] for backward compatibility.
+// Deprecated: Use [ExecuteFunctionImportJsonAs] or [ExecuteFunctionImportXmlAs] instead.
+func ExecuteFunctionImportAs[T any](f *FunctionImportBuilder, ctx context.Context) (T, error) {
+	return ExecuteFunctionImportJsonAs[T](f, ctx)
 }
 
 // Invoke calls the function and unmarshals the response into result.
@@ -676,7 +757,7 @@ func ExecuteFunctionImportAs[T any](f *FunctionImportBuilder, ctx context.Contex
 // HTTP GET request to the OData function URL (with inline parameters) and unmarshals
 // the response body into the value pointed to by result.
 //
-// result must be a non-nil pointer. Invoke uses JSON round-trip via [mapToStruct]
+// result must be a non-nil pointer. Invoke uses JSON round-trip via [mapToJsonStruct]
 // for the unmarshaling, so standard json struct tags are respected.
 //
 // Returns an error if the HTTP call fails, the response status is not 2xx, or

@@ -168,6 +168,84 @@ meta, err := traverse.ParseCSDLJSONReader(resp.Body)
 
 ---
 
+## XML Support
+
+Traverse supports both JSON and XML response formats. Some OData backends (particularly SAP) may return XML instead of JSON, even when JSON is requested. Use the explicit format methods to handle both:
+
+```go
+type Product struct {
+    ID    int    `json:"ProductID" xml:"ProductID"`
+    Name  string `json:"ProductName" xml:"ProductName"`
+}
+
+client, _ := traverse.New(traverse.WithBaseURL("https://api.example.com/odata/"))
+
+ctx := context.Background()
+
+qb := client.From("Products").Filter("Price lt 100")
+
+products, err := traverse.CollectJsonAs[Product](qb, ctx)
+
+if err != nil {
+    products, err = traverse.CollectXmlAs[Product](qb, ctx)
+    if err != nil {
+        log.Fatal(err)
+    }
+}
+
+for _, p := range products {
+    fmt.Printf("%s\n", p.Name)
+}
+```
+
+Streaming with XML:
+
+```go
+type Order struct {
+    OrderID string `json:"OrderID" xml:"OrderID"`
+    Amount  float64 `json:"Amount" xml:"Amount"`
+}
+
+qb := client.From("Orders").Top(1000)
+
+for result := range traverse.StreamXmlAs[Order](qb, context.Background()) {
+    if result.Err != nil {
+        log.Printf("stream error: %v", result.Err)
+        break
+    }
+    fmt.Printf("Order %s: $%.2f\n", result.Value.OrderID, result.Value.Amount)
+}
+```
+
+All CRUD and query operations have explicit JSON/XML variants:
+
+| Operation | JSON | XML |
+|-----------|------|-----|
+| Create | `CreateJsonAs[T]()` | `CreateXmlAs[T]()` |
+| Collect (list) | `CollectJsonAs[T]()` | `CollectXmlAs[T]()` |
+| Stream (paginated) | `StreamJsonAs[T]()` | `StreamXmlAs[T]()` |
+| First (single) | `FirstJsonAs[T]()` | `FirstXmlAs[T]()` |
+| FindByKey (get) | `FindByKeyJsonAs[T]()` | `FindByKeyXmlAs[T]()` |
+| Functions | `ExecuteFunctionJsonAs[T]()` | `ExecuteFunctionXmlAs[T]()` |
+| Actions | `ExecuteActionJsonAs[T]()` | `ExecuteActionXmlAs[T]()` |
+| Delta sync | `DeltaSyncJsonAs[T]` | `DeltaSyncXmlAs[T]` |
+
+Struct tags determine marshaling behavior:
+
+```go
+type Material struct {
+    ID    string `json:"MatID" xml:"MatID"`
+    Name  string `json:"Name" xml:"Name"`
+    Stock int    `json:"StockQty" xml:"StockQty"`
+}
+
+json_mats, _ := traverse.CollectJsonAs[Material](qb, ctx)
+
+xml_mats, _ := traverse.CollectXmlAs[Material](qb, ctx)
+```
+
+---
+
 ## OpenAPI 3.1 Export
 
 Convert OData metadata to an OpenAPI 3.1 document:

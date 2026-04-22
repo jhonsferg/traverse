@@ -9,8 +9,8 @@ import (
 	"time"
 )
 
-// TestMapToStruct tests the mapToStruct helper function.
-func TestMapToStruct(t *testing.T) {
+// TestmapToJsonStruct tests the mapToJsonStruct helper function.
+func TestmapToJsonStruct(t *testing.T) {
 	type TestEntity struct {
 		ID    string `json:"ID"`
 		Name  string `json:"Name"`
@@ -80,31 +80,31 @@ func TestMapToStruct(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got, err := mapToStruct[TestEntity](tt.input)
+			got, err := mapToJsonStruct[TestEntity](tt.input)
 			if (err != nil) != tt.wantErr {
-				t.Errorf("mapToStruct() error = %v, wantErr %v", err, tt.wantErr)
+				t.Errorf("mapToJsonStruct() error = %v, wantErr %v", err, tt.wantErr)
 				return
 			}
 			if got != tt.want {
-				t.Errorf("mapToStruct() = %v, want %v", got, tt.want)
+				t.Errorf("mapToJsonStruct() = %v, want %v", got, tt.want)
 			}
 		})
 	}
 }
 
-// TestCreateAs tests the CreateAs generic function.
-func TestCreateAs(t *testing.T) {
+// TestCreateJsonAs tests the CreateJsonAs generic function.
+func TestCreateJsonAs(t *testing.T) {
 	// Create a mock client
 	client := &Client{}
 
 	// Mock data - in a real test, we'd use a test server
-	t.Run("CreateAs basic", func(t *testing.T) {
+	t.Run("CreateJsonAs basic", func(t *testing.T) {
 		// This would require mocking the underlying Create() method
 		// For now, we just test that the function signature compiles
 		_ = client
 
 		// In a real integration test:
-		// mat, err := CreateAs[Material](client, ctx, "Materials", data)
+		// mat, err := CreateJsonAs[Material](client, ctx, "Materials", data)
 		// if err != nil { t.Errorf(...) }
 		// if mat.MatID != "expected" { t.Errorf(...) }
 	})
@@ -182,8 +182,8 @@ func TestCollectAsStructure(t *testing.T) {
 	}
 }
 
-// TestMapToStructWithODataTypes tests conversion with OData types.
-func TestMapToStructWithODataTypes(t *testing.T) {
+// TestmapToJsonStructWithODataTypes tests conversion with OData types.
+func TestmapToJsonStructWithODataTypes(t *testing.T) {
 	type MaterialWithDate struct {
 		MatID     string    `json:"MatID"`
 		Name      string    `json:"Name"`
@@ -216,19 +216,19 @@ func TestMapToStructWithODataTypes(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got, err := mapToStruct[MaterialWithDate](tt.input)
+			got, err := mapToJsonStruct[MaterialWithDate](tt.input)
 			if (err != nil) != tt.wantErr {
-				t.Errorf("mapToStruct() error = %v, wantErr %v", err, tt.wantErr)
+				t.Errorf("mapToJsonStruct() error = %v, wantErr %v", err, tt.wantErr)
 			}
 			if got.MatID == "" && tt.input["MatID"] != "" {
-				t.Errorf("mapToStruct() MatID not converted properly")
+				t.Errorf("mapToJsonStruct() MatID not converted properly")
 			}
 		})
 	}
 }
 
-// BenchmarkMapToStruct benchmarks the mapToStruct function.
-func BenchmarkMapToStruct(b *testing.B) {
+// BenchmarkmapToJsonStruct benchmarks the mapToJsonStruct function.
+func BenchmarkmapToJsonStruct(b *testing.B) {
 	type Item struct {
 		ID    string `json:"ID"`
 		Name  string `json:"Name"`
@@ -244,7 +244,7 @@ func BenchmarkMapToStruct(b *testing.B) {
 	b.ReportAllocs()
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		_, _ = mapToStruct[Item](input)
+		_, _ = mapToJsonStruct[Item](input)
 	}
 }
 
@@ -300,5 +300,170 @@ func TestFetchPropertyAs_EmptyName(t *testing.T) {
 	_, err = FetchPropertyAs[string](qb, context.Background(), "")
 	if err == nil {
 		t.Error("expected error for empty property name, got nil")
+	}
+}
+
+func TestMapToXmlStruct(t *testing.T) {
+	type TestEntity struct {
+		ID    string `xml:"ID"`
+		Name  string `xml:"Name"`
+		Value int    `xml:"Value"`
+	}
+
+	tests := []struct {
+		name    string
+		input   map[string]interface{}
+		want    TestEntity
+		wantErr bool
+	}{
+		{
+			name: "Basic conversion",
+			input: map[string]interface{}{
+				"ID":    "001",
+				"Name":  "Test",
+				"Value": 42,
+			},
+			want: TestEntity{
+				ID:    "001",
+				Name:  "Test",
+				Value: 42,
+			},
+			wantErr: false,
+		},
+		{
+			name:  "Empty map",
+			input: map[string]interface{}{},
+			want: TestEntity{
+				ID:    "",
+				Name:  "",
+				Value: 0,
+			},
+			wantErr: false,
+		},
+		{
+			name: "Extra fields ignored",
+			input: map[string]interface{}{
+				"ID":       "002",
+				"Name":     "Test2",
+				"Value":    100,
+				"ExtraKey": "ignored",
+			},
+			want: TestEntity{
+				ID:    "002",
+				Name:  "Test2",
+				Value: 100,
+			},
+			wantErr: false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got, err := mapToXmlStruct[TestEntity](tt.input)
+			if (err != nil) != tt.wantErr {
+				t.Errorf("mapToXmlStruct() error = %v, wantErr %v", err, tt.wantErr)
+				return
+			}
+			if got != tt.want {
+				t.Errorf("mapToXmlStruct() = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}
+
+func TestCreateXmlAs(t *testing.T) {
+	t.Run("CreateXmlAs signature", func(t *testing.T) {
+		client := &Client{}
+		_ = client
+	})
+}
+
+func TestCollectXmlAsStructure(t *testing.T) {
+	type Product struct {
+		ID   string `xml:"id"`
+		Name string `xml:"name"`
+	}
+
+	t.Run("CollectXmlAs signature", func(t *testing.T) {
+		qb := &QueryBuilder{
+			client:    &Client{},
+			entitySet: "Products",
+		}
+		_ = qb
+		_ = context.Background()
+	})
+}
+
+func TestStreamXmlAsBasic(t *testing.T) {
+	type Order struct {
+		OrderID string  `xml:"OrderID"`
+		Amount  float64 `xml:"Amount"`
+	}
+
+	t.Skip("Requires mock HTTP server")
+
+	qb := &QueryBuilder{
+		client:    &Client{},
+		entitySet: "Orders",
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), 1*time.Second)
+	defer cancel()
+
+	results := StreamXmlAs[Order](qb, ctx)
+
+	if results == nil {
+		t.Error("StreamXmlAs() returned nil channel")
+	}
+
+	count := 0
+	for range results {
+		count++
+	}
+}
+
+func TestFirstXmlAs(t *testing.T) {
+	t.Run("FirstXmlAs signature", func(t *testing.T) {
+		type Item struct {
+			ID   string `xml:"id"`
+			Name string `xml:"name"`
+		}
+
+		qb := &QueryBuilder{
+			client:    &Client{},
+			entitySet: "Items",
+		}
+		_ = qb
+	})
+}
+
+func TestFindByKeyXmlAs(t *testing.T) {
+	t.Run("FindByKeyXmlAs signature", func(t *testing.T) {
+		type Product struct {
+			ID   string `xml:"id"`
+			Name string `xml:"name"`
+		}
+
+		qb := &QueryBuilder{
+			client:    &Client{},
+			entitySet: "Products",
+		}
+		_ = qb
+	})
+}
+
+func BenchmarkRawMessageToXmlStruct(b *testing.B) {
+	type Item struct {
+		ID    string `xml:"ID"`
+		Name  string `xml:"Name"`
+		Value int    `xml:"Value"`
+	}
+
+	rawXML := json.RawMessage(`<Item><ID>001</ID><Name>Test Item</Name><Value>42</Value></Item>`)
+
+	b.ReportAllocs()
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		_, _ = rawMessageToXmlStruct[Item](rawXML)
 	}
 }

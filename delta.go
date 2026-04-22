@@ -360,20 +360,20 @@ func (d *DeltaSync) Token() string {
 	return d.token
 }
 
-// DeltaSyncAs is the generic version of delta sync.
-type DeltaSyncAs[T any] struct {
+// DeltaSyncJsonAs is the JSON-format generic version of delta sync.
+type DeltaSyncJsonAs[T any] struct {
 	delta *DeltaSync
 }
 
-// NewDeltaSyncAs creates a typed delta sync handler.
-func NewDeltaSyncAs[T any](c *Client, entitySet string) *DeltaSyncAs[T] {
-	return &DeltaSyncAs[T]{
+// NewDeltaSyncJsonAs creates a typed delta sync handler for JSON format.
+func NewDeltaSyncJsonAs[T any](c *Client, entitySet string) *DeltaSyncJsonAs[T] {
+	return &DeltaSyncJsonAs[T]{
 		delta: c.NewDeltaSync(entitySet),
 	}
 }
 
-// Full performs a complete sync with type T.
-func (d *DeltaSyncAs[T]) Full(ctx context.Context, bufferSize ...int) (<-chan Result[T], string, error) {
+// Full performs a complete sync with type T using JSON format.
+func (d *DeltaSyncJsonAs[T]) Full(ctx context.Context, bufferSize ...int) (<-chan Result[T], string, error) {
 	buffer := 256
 	if len(bufferSize) > 0 && bufferSize[0] > 0 {
 		buffer = bufferSize[0]
@@ -397,8 +397,7 @@ func (d *DeltaSyncAs[T]) Full(ctx context.Context, bufferSize ...int) (<-chan Re
 				continue
 			}
 
-			// Convert result.Value to T using mapToStruct
-			val, decodeErr := mapToStruct[T](result.Value)
+			val, decodeErr := mapToJsonStruct[T](result.Value)
 			if decodeErr != nil {
 				out <- Result[T]{
 					Err: decodeErr,
@@ -417,8 +416,8 @@ func (d *DeltaSyncAs[T]) Full(ctx context.Context, bufferSize ...int) (<-chan Re
 	return out, token, nil
 }
 
-// Incremental performs an incremental sync with type T.
-func (d *DeltaSyncAs[T]) Incremental(ctx context.Context, token string, bufferSize ...int) (<-chan DeltaResultAs[T], string, error) {
+// Incremental performs an incremental sync with type T using JSON format.
+func (d *DeltaSyncJsonAs[T]) Incremental(ctx context.Context, token string, bufferSize ...int) (<-chan DeltaResultAs[T], string, error) {
 	buffer := 256
 	if len(bufferSize) > 0 && bufferSize[0] > 0 {
 		buffer = bufferSize[0]
@@ -442,8 +441,7 @@ func (d *DeltaSyncAs[T]) Incremental(ctx context.Context, token string, bufferSi
 				continue
 			}
 
-			// Convert result.Value to T using mapToStruct
-			val, decodeErr := mapToStruct[T](result.Value)
+			val, decodeErr := mapToJsonStruct[T](result.Value)
 			if decodeErr != nil {
 				out <- DeltaResultAs[T]{
 					Err: decodeErr,
@@ -462,7 +460,133 @@ func (d *DeltaSyncAs[T]) Incremental(ctx context.Context, token string, bufferSi
 	return out, newToken, nil
 }
 
-// DeltaResultAs is the typed version of DeltaResult.
+// DeltaSyncXmlAs is the XML-format generic version of delta sync.
+type DeltaSyncXmlAs[T any] struct {
+	delta *DeltaSync
+}
+
+// NewDeltaSyncXmlAs creates a typed delta sync handler for XML format.
+func NewDeltaSyncXmlAs[T any](c *Client, entitySet string) *DeltaSyncXmlAs[T] {
+	return &DeltaSyncXmlAs[T]{
+		delta: c.NewDeltaSync(entitySet),
+	}
+}
+
+// Full performs a complete sync with type T using XML format.
+func (d *DeltaSyncXmlAs[T]) Full(ctx context.Context, bufferSize ...int) (<-chan Result[T], string, error) {
+	buffer := 256
+	if len(bufferSize) > 0 && bufferSize[0] > 0 {
+		buffer = bufferSize[0]
+	}
+
+	out := make(chan Result[T], buffer)
+	mapChan, token, err := d.delta.Full(ctx, buffer)
+
+	if err != nil {
+		close(out)
+		return out, "", err
+	}
+
+	go func() {
+		defer close(out)
+		for result := range mapChan {
+			if result.Err != nil {
+				out <- Result[T]{
+					Err: result.Err,
+				}
+				continue
+			}
+
+			val, decodeErr := mapToXmlStruct[T](result.Value)
+			if decodeErr != nil {
+				out <- Result[T]{
+					Err: decodeErr,
+				}
+				continue
+			}
+
+			out <- Result[T]{
+				Value: val,
+				Page:  result.Page,
+				Index: result.Index,
+			}
+		}
+	}()
+
+	return out, token, nil
+}
+
+// Incremental performs an incremental sync with type T using XML format.
+func (d *DeltaSyncXmlAs[T]) Incremental(ctx context.Context, token string, bufferSize ...int) (<-chan DeltaResultAs[T], string, error) {
+	buffer := 256
+	if len(bufferSize) > 0 && bufferSize[0] > 0 {
+		buffer = bufferSize[0]
+	}
+
+	out := make(chan DeltaResultAs[T], buffer)
+	deltaChan, newToken, err := d.delta.Incremental(ctx, token, buffer)
+
+	if err != nil {
+		close(out)
+		return out, "", err
+	}
+
+	go func() {
+		defer close(out)
+		for result := range deltaChan {
+			if result.Err != nil {
+				out <- DeltaResultAs[T]{
+					Err: result.Err,
+				}
+				continue
+			}
+
+			val, decodeErr := mapToXmlStruct[T](result.Value)
+			if decodeErr != nil {
+				out <- DeltaResultAs[T]{
+					Err: decodeErr,
+				}
+				continue
+			}
+
+			out <- DeltaResultAs[T]{
+				Value:   val,
+				Removed: result.Removed,
+				Reason:  result.Reason,
+			}
+		}
+	}()
+
+	return out, newToken, nil
+}
+
+// DeltaSyncAs is an alias for [DeltaSyncJsonAs] for backward compatibility.
+// Deprecated: Use [DeltaSyncJsonAs] or [DeltaSyncXmlAs] instead.
+type DeltaSyncAs[T any] struct {
+	delta *DeltaSync
+}
+
+// NewDeltaSyncAs is an alias for [NewDeltaSyncJsonAs] for backward compatibility.
+// Deprecated: Use [NewDeltaSyncJsonAs] or [NewDeltaSyncXmlAs] instead.
+func NewDeltaSyncAs[T any](c *Client, entitySet string) *DeltaSyncAs[T] {
+	return &DeltaSyncAs[T]{
+		delta: c.NewDeltaSync(entitySet),
+	}
+}
+
+// Full is an alias for the JSON-format Full method.
+// Deprecated: Use [DeltaSyncJsonAs.Full] or [DeltaSyncXmlAs.Full] instead.
+func (d *DeltaSyncAs[T]) Full(ctx context.Context, bufferSize ...int) (<-chan Result[T], string, error) {
+	return NewDeltaSyncJsonAs[T](d.delta.client, d.delta.entitySet).Full(ctx, bufferSize...)
+}
+
+// Incremental is an alias for the JSON-format Incremental method.
+// Deprecated: Use [DeltaSyncJsonAs.Incremental] or [DeltaSyncXmlAs.Incremental] instead.
+func (d *DeltaSyncAs[T]) Incremental(ctx context.Context, token string, bufferSize ...int) (<-chan DeltaResultAs[T], string, error) {
+	return NewDeltaSyncJsonAs[T](d.delta.client, d.delta.entitySet).Incremental(ctx, token, bufferSize...)
+}
+
+// DeltaResultAs is the typed version of delta result.
 type DeltaResultAs[T any] struct {
 	Value   T
 	Removed bool
