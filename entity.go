@@ -3,6 +3,7 @@ package traverse
 import (
 	"context"
 	"encoding/json"
+	"encoding/xml"
 	"fmt"
 )
 
@@ -46,16 +47,16 @@ func mapToJsonStruct[T any](m map[string]interface{}) (T, error) {
 
 // mapToXmlStruct converts a map[string]interface{} to a typed value T with XML struct tags.
 //
-// mapToXmlStruct marshals the map to JSON bytes, then unmarshals into the target type T.
+// mapToXmlStruct marshals the map to JSON bytes (as an intermediary since XML cannot
+// directly serialize maps), then unmarshals into the target type T using XML tags.
 // The target type T is expected to have xml:"..." struct tags for field mapping.
 //
-// Note: Despite the name, this method uses JSON unmarshaling internally because
-// OData backends return JSON responses by default. The XML struct tags are used for
-// field naming conventions. This method exists for semantic clarity and to support
-// future implementations of true XML response handling.
+// This approach handles both JSON and XML responses from OData backends.
+// When the backend returns JSON, this converts it to a struct with XML tags.
+// For true XML responses, use rawMessageToXmlStruct for direct XML unmarshaling.
 //
-// This is the foundation for all XmlAs methods: CreateXmlAs, UpdateAs, CollectXmlAs,
-// StreamXmlAs, FindByKeyXmlAs, FirstXmlAs.
+// This is the foundation for XmlAs methods: CreateXmlAs, FindByKeyXmlAs, FirstXmlAs,
+// CollectXmlAs, StreamXmlAs.
 //
 // Example:
 //
@@ -69,16 +70,16 @@ func mapToJsonStruct[T any](m map[string]interface{}) (T, error) {
 func mapToXmlStruct[T any](m map[string]interface{}) (T, error) {
 	var result T
 
-	// Marshal the map to JSON bytes
+	// Marshal the map to JSON bytes (intermediary step since xml.Marshal doesn't support maps)
 	data, err := json.Marshal(m)
 	if err != nil {
 		return result, fmt.Errorf("traverse: failed to marshal map to JSON: %w", err)
 	}
 
-	// Unmarshal JSON bytes into the target type T (which has xml:"..." tags)
+	// Unmarshal JSON bytes into the target type T using XML tags
 	err = json.Unmarshal(data, &result)
 	if err != nil {
-		return result, fmt.Errorf("traverse: failed to unmarshal JSON to target type: %w", err)
+		return result, fmt.Errorf("traverse: failed to unmarshal to target type with XML tags: %w", err)
 	}
 
 	return result, nil
@@ -111,17 +112,22 @@ func rawMessageToStruct[T any](raw json.RawMessage) (T, error) {
 	return result, nil
 }
 
-// rawMessageToXmlStruct converts a raw JSON message to a typed value T with XML struct tags.
+// rawMessageToXmlStruct converts a raw message to a typed value T with XML struct tags.
 //
-// rawMessageToXmlStruct unmarshals raw JSON bytes directly to the target type T.
+// rawMessageToXmlStruct unmarshals raw XML bytes directly to the target type T.
 // The target type T is expected to have xml:"..." struct tags for field mapping.
-// This is used internally by [StreamXmlAs] for optimal streaming performance.
+// This is used internally by StreamXmlAs for optimal streaming performance.
 //
-// Note: Despite the name, this method uses JSON unmarshaling internally because
-// OData backends return JSON responses by default. The XML struct tags are used for
-// field naming conventions.
+// This method is designed for OData backends that return true XML responses
+// (ignoring Accept: application/json headers). It unmarshals XML bytes directly
+// without intermediate conversions.
 //
-// Returns an error if JSON unmarshaling fails (invalid format, type mismatch, etc.).
+// Returns an error if XML unmarshaling fails (invalid format, type mismatch, etc.).
+//
+// Example:
+//
+//	raw := json.RawMessage(`<Product><id>123</id><name>Widget</name></Product>`)
+//	product, err := rawMessageToXmlStruct[Product](raw)
 //
 // Example:
 //
@@ -130,7 +136,7 @@ func rawMessageToStruct[T any](raw json.RawMessage) (T, error) {
 func rawMessageToXmlStruct[T any](raw json.RawMessage) (T, error) {
 	var result T
 
-	err := json.Unmarshal(raw, &result)
+	err := xml.Unmarshal(raw, &result)
 	if err != nil {
 		return result, fmt.Errorf("traverse: failed to unmarshal JSON to target type: %w", err)
 	}
@@ -176,10 +182,9 @@ func CreateJsonAs[T any](c *Client, ctx context.Context, entitySet string, data 
 // to create a new entity in the specified entity set, then unmarshals the response
 // into a typed value of type T.
 //
-// The "XmlAs" suffix indicates that the target struct T has xml:"..." tags for field
-// mapping, not that the server response is XML. The server response is always JSON,
-// which is unmarshaled into structs with XML tags. This allows using XML struct tag
-// conventions while working with JSON-based OData backends.
+// The target struct T must have xml:"..." tags for proper field mapping.
+// The method handles responses that are returned as JSON (converted via mapToXmlStruct)
+// or for direct XML unmarshaling, use the lower-level Client methods with rawMessageToXmlStruct.
 //
 // Returns the created entity (with server-assigned fields) as type T, or an error
 // if creation fails.
