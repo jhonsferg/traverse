@@ -497,7 +497,7 @@ func (d *DeltaSyncXmlAs[T]) Full(ctx context.Context, bufferSize ...int) (<-chan
 				continue
 			}
 
-			val, decodeErr := mapToJsonStruct[T](result.Value)
+			val, decodeErr := mapToXmlStruct[T](result.Value)
 			if decodeErr != nil {
 				out <- Result[T]{
 					Err: decodeErr,
@@ -541,7 +541,7 @@ func (d *DeltaSyncXmlAs[T]) Incremental(ctx context.Context, token string, buffe
 				continue
 			}
 
-			val, decodeErr := mapToJsonStruct[T](result.Value)
+			val, decodeErr := mapToXmlStruct[T](result.Value)
 			if decodeErr != nil {
 				out <- DeltaResultAs[T]{
 					Err: decodeErr,
