@@ -84,7 +84,6 @@ func mapToXmlStruct[T any](m map[string]interface{}) (T, error) {
 	return result, nil
 }
 
-
 // rawMessageToStruct converts json.RawMessage directly to a typed value T.
 //
 // rawMessageToStruct eliminates the intermediate map[string]interface{} step,
