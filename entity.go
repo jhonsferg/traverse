@@ -209,6 +209,43 @@ func CreateXmlAs[T any](c *Client, ctx context.Context, entitySet string, data i
 	return mapToXmlStruct[T](raw)
 }
 
+// CreateRawAs creates a new entity and returns the raw response bytes.
+//
+// CreateRawAs sends a POST request to create a new entity in the specified entity set
+// and returns the raw response body as bytes. This is useful for debugging, testing,
+// or handling responses that don't fit standard patterns (e.g., custom XML, mixed formats).
+//
+// Returns the raw response bytes, or an error if creation fails.
+// The caller is responsible for parsing or validating the response content.
+//
+// Example:
+//
+//	rawData, err := CreateRawAs(client, ctx, "Orders", newOrder)
+//	if err != nil {
+//		// handle error
+//	}
+//	fmt.Println(string(rawData)) // Print raw response
+//
+// This is commonly used for:
+//   - Testing and debugging OData responses
+//   - Working with non-standard response formats
+//   - Validating SAP backend behavior
+//   - Capturing both JSON and XML responses transparently
+func CreateRawAs(c *Client, ctx context.Context, entitySet string, data interface{}) ([]byte, error) {
+	raw, err := c.Create(ctx, entitySet, data)
+	if err != nil {
+		return nil, err
+	}
+
+	// raw is map[string]interface{}, convert to bytes
+	jsonBytes, err := json.Marshal(raw)
+	if err != nil {
+		return nil, fmt.Errorf("traverse: failed to marshal response to bytes: %w", err)
+	}
+
+	return jsonBytes, nil
+}
+
 // UpdateAs is the generic version of [Client.Update].
 //
 // UpdateAs updates an existing entity identified by its key. The update data is
