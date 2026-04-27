@@ -175,16 +175,23 @@ func WithSAPBaseURL(systemURL, client, service string) SAPOption {
 			return fmt.Errorf("systemURL and service cannot be empty")
 		}
 
-		// Build the base URL
-		baseURL := fmt.Sprintf("%s/sap/opu/odata/sap/%s", systemURL, service)
+		parsedSystemURL, err := url.Parse(systemURL)
+		if err != nil {
+			return fmt.Errorf("invalid systemURL: %w", err)
+		}
 
-		// Add client parameter if provided
+		baseURL := url.URL{
+			Scheme: parsedSystemURL.Scheme,
+			Host:   parsedSystemURL.Host,
+			Path:   "/sap/opu/odata/sap/" + service,
+		}
+
 		if client != "" {
-			baseURL += fmt.Sprintf("?sap-client=%s", url.QueryEscape(client))
+			baseURL.RawQuery = "sap-client=" + url.QueryEscape(client)
 			cfg.client = client
 		}
 
-		cfg.baseURL = baseURL
+		cfg.baseURL = baseURL.String()
 		cfg.system = systemURL
 		cfg.service = service
 
