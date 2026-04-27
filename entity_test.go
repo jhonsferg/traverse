@@ -113,7 +113,7 @@ func TestCreateJsonAs(t *testing.T) {
 // TestCreateRawAs tests the CreateRawAs function for raw response bytes.
 func TestCreateRawAs(t *testing.T) {
 	type Order struct {
-		ID    int    `json:"id"`
+		ID    int     `json:"id"`
 		Total float64 `json:"total"`
 	}
 
