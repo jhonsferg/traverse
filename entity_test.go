@@ -110,6 +110,67 @@ func TestCreateJsonAs(t *testing.T) {
 	})
 }
 
+// TestCreateRawAs tests the CreateRawAs function for raw response bytes.
+func TestCreateRawAs(t *testing.T) {
+	type Order struct {
+		ID    int     `json:"id"`
+		Total float64 `json:"total"`
+	}
+
+	// Create a mock server that simulates OData response
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Method == "POST" && r.URL.Path == "/Orders" {
+			w.Header().Set("Content-Type", "application/json")
+			w.WriteHeader(http.StatusCreated)
+			// Return a sample response
+			response := map[string]interface{}{
+				"id":    123,
+				"total": 99.99,
+			}
+			if err := json.NewEncoder(w).Encode(response); err != nil {
+				w.WriteHeader(http.StatusInternalServerError)
+			}
+		}
+	}))
+	defer server.Close()
+
+	// Create a client
+	client, err := New(
+		WithBaseURL(server.URL + "/"),
+	)
+	if err != nil {
+		t.Fatalf("New() error = %v", err)
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+
+	// Test CreateRawAs
+	order := Order{Total: 99.99}
+	rawData, err := CreateRawAs(client, ctx, "Orders", order)
+	if err != nil {
+		t.Fatalf("CreateRawAs() error = %v", err)
+	}
+
+	if rawData == nil {
+		t.Error("CreateRawAs() returned nil bytes")
+	}
+
+	// Verify the raw data can be parsed as JSON
+	var parsed map[string]interface{}
+	err = json.Unmarshal(rawData, &parsed)
+	if err != nil {
+		t.Errorf("Failed to unmarshal raw data: %v", err)
+	}
+
+	// Verify content
+	if id, ok := parsed["id"].(float64); !ok || id != 123 {
+		t.Errorf("Expected id=123 in parsed data, got %v", parsed["id"])
+	}
+	if total, ok := parsed["total"].(float64); !ok || total != 99.99 {
+		t.Errorf("Expected total=99.99 in parsed data, got %v", parsed["total"])
+	}
+}
+
 // TestStreamAs tests the StreamAs generic function.
 func TestStreamAs(t *testing.T) {
 	type Order struct {
