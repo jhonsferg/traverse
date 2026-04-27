@@ -144,6 +144,45 @@ func main() {
 
 ---
 
+## SAP CSRF Token Management (Automatic)
+
+Traverse now handles SAP CSRF tokens completely transparently, including session cookie management. This fixes a critical architectural issue where CSRF tokens and session cookies must be paired atomically:
+
+```go
+import (
+    "context"
+    "github.com/jhonsferg/traverse"
+    "github.com/jhonsferg/traverse/ext/sap"
+)
+
+// CSRF token and session cookie are fetched and managed automatically
+// No explicit token management needed
+client, _ := traverse.New(
+    traverse.WithBaseURL("https://sap.example.com/sap/opu/odata/"),
+    sap.WithCSRFMiddleware(), // Automatic token fetch + session persistence
+)
+
+// Create operation - token is reused, session cookies are automatic
+newOrder := Order{ID: "1001", Amount: 99.99}
+created, err := sap.CreateJsonAs[Order](
+    client.From("Orders"),
+    context.Background(),
+    newOrder,
+)
+
+// If token expires, middleware automatically handles 403 recovery
+// No retry logic needed in application code
+```
+
+**What's Fixed (v0.19.0+):**
+- ✅ Session cookies are now captured and reused (via relay v0.4.0 CookieJar support)
+- ✅ CSRF tokens are reused for their full validity window (no preventive invalidation)
+- ✅ URL construction handles edge cases (no multiple slashes)
+- ✅ Better error diagnostics distinguish between CSRF, auth, config, and network failures
+- ✅ Automatic 403 recovery when tokens expire in-flight
+
+---
+
 ## CSDL JSON Support
 
 Traverse can parse both EDMX/XML and CSDL JSON (the OData v4.01 JSON format used by Microsoft Graph). The client auto-detects the format by `Content-Type` when fetching `$metadata`:
