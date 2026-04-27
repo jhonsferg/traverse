@@ -127,7 +127,9 @@ func TestCreateRawAs(t *testing.T) {
 				"id":    123,
 				"total": 99.99,
 			}
-			json.NewEncoder(w).Encode(response)
+			if err := json.NewEncoder(w).Encode(response); err != nil {
+				w.WriteHeader(http.StatusInternalServerError)
+			}
 		}
 	}))
 	defer server.Close()
