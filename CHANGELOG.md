@@ -7,7 +7,30 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-## [0.14.1] - 2026-04-10
+## [0.20.0] - 2026-04-27
+
+### Added
+
+- `feat(entity)`: new `CreateRawAs()` generic function returns raw response bytes from Create operations, complementing `CreateJsonAs()` and `CreateXmlAs()`. Useful for debugging, testing, handling non-standard OData formats, and transparently capturing both JSON and XML responses. Includes comprehensive test coverage via `TestCreateRawAs()`.
+
+## [0.19.0] - 2026-04-27
+
+### Added
+
+- `feat(phase-10)`: Critical SAP CSRF Architecture Fix addressing 7 interrelated bugs that broke OData integration with SAP backends:
+  - **BUG-001** (CRITICAL): CookieJar support in relay v0.4.0 — http.Client now automatically captures and reuses session cookies, fixing CSRF token validation failures. This is the root cause of all `403 FORBIDDEN` errors in enterprise SAP integrations.
+  - **BUG-002** (CRITICAL): Automatic cookie management via http.CookieJar — no manual cookie handling needed.
+  - **BUG-003** (CRITICAL): Token lifecycle fix — tokens are now reused for their full 30-minute validity window instead of being invalidated before every request.
+  - **BUG-004** (HIGH): Response hooks properly connected — `HandleResponse()` now correctly subscribes to `OnAfterResponse` to enable automatic 403 recovery.
+  - **BUG-005** (HIGH): CSRF middleware API consistency — `Hook()` method signature aligns with relay's `OnBeforeRequest` hook system.
+  - **BUG-006** (MEDIUM): URL normalization — fixed malformed URLs with multiple consecutive slashes (`///sap/opu/...`) using `url.URL` struct instead of `fmt.Sprintf`.
+  - **BUG-007** (MEDIUM): Error diagnostics — implemented `ErrorDiagnostic` with 9 error categories (csrf_expired, csrf_invalid, auth_failed, network_error, etc.) to distinguish between configuration, security, and transport failures.
+
+### Changed
+
+- `fix(ext/sap)`: improved CSRF middleware initialization and token management. Token fetch now correctly captures and stores session cookies alongside tokens. All subsequent requests automatically include both token header (`X-CSRF-Token`) and cookie header, fixing atomic CSRF+cookie validation.
+- `fix(xml)`: XML struct mapping now correctly identifies response content type from `Content-Type` header to distinguish JSON vs XML responses from SAP backends that may ignore Accept header preferences.
+- `refactor(url)`: URL construction in `ext/sap/client.go` uses `url.URL` struct for proper path joining, eliminating edge cases that produced double-slash patterns.
 
 ### Fixed
 

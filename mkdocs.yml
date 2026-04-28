@@ -86,6 +86,7 @@ nav:
     - Deep Insert: guides/deep-insert.md
     - Stream Properties: guides/stream-properties.md
     - SAP Compatibility: guides/sap.md
+    - Debugging & Raw Responses: guides/debugging.md
     - $ref Link Operations: guides/ref-links.md
     - Actions & Functions: guides/actions-functions.md
     - Schema Validation: guides/schema-validation.md
