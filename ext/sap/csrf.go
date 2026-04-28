@@ -318,6 +318,60 @@ func (c *CSRFMiddleware) ExecuteWithCSRFRetry(ctx context.Context, fn func() (*r
 	return resp, err
 }
 
+// WithWriteMethodDetection returns a relay hook that tags write-operation requests
+// in the context so that HandleResponse can distinguish CSRF errors from other 403s.
+//
+// Write operations (POST, PATCH, PUT, DELETE) may have CSRF requirements.
+// Read operations (GET, HEAD, OPTIONS) never require CSRF handling.
+//
+// This hook should be registered via client.WithOnBeforeRequest(...) on all requests.
+// It tags write operations via a context key, so HandleResponse can apply CSRF logic
+// selectively only to write operations.
+//
+// Example:
+//
+//	client.WithOnBeforeRequest(csrfMiddleware.WithWriteMethodDetection())
+//	client.WithOnAfterResponse(csrfMiddleware.HandleResponseForWriteOps(ctx))
+func (c *CSRFMiddleware) WithWriteMethodDetection() relay.HookFunc {
+	return func(ctx context.Context, req *relay.Request) (context.Context, error) {
+		// Detect write operations
+		method := req.Method
+		isWrite := method == "POST" || method == "PATCH" || method == "PUT" || method == "DELETE"
+
+		// Tag the context so HandleResponseForWriteOps can see this
+		if isWrite {
+			ctx = context.WithValue(ctx, csrfWriteOpKey, true)
+		}
+
+		return ctx, nil
+	}
+}
+
+// HandleResponseForWriteOps is a method-aware version of HandleResponse that only
+// applies CSRF logic to write operations (POST, PATCH, PUT, DELETE).
+//
+// This prevents false positives where SAP returns 403 for non-CSRF reasons
+// (e.g., authorization, service not found) on read operations.
+//
+// Usage:
+//
+//	client.WithOnAfterResponse(csrfMiddleware.HandleResponseForWriteOps())
+func (c *CSRFMiddleware) HandleResponseForWriteOps() relay.AfterResponseHookFunc {
+	return func(ctx context.Context, resp *relay.Response, err error) error {
+		// Only apply CSRF logic if this was a write operation
+		if ctx.Value(csrfWriteOpKey) != true {
+			return err
+		}
+
+		return c.HandleResponse(ctx, resp, err)
+	}
+}
+
+// Context key for tracking write operations
+type csrfWriteOpKeyType struct{}
+
+var csrfWriteOpKey csrfWriteOpKeyType
+
 // Token returns the current cached token without checking expiry.
 // Used primarily for testing or diagnostic purposes.
 // For production code, use GetToken() instead.

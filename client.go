@@ -869,6 +869,38 @@ func (c *Client) Create(ctx context.Context, entitySet string, data interface{})
 	return result, nil
 }
 
+// createWithRawXML creates a new entity and returns the raw XML response bytes (internal helper).
+//
+// This internal method is used by CreateAtomXmlAs to get the raw XML response
+// without going through the map[string]interface{} conversion layer.
+// It sends a POST with Accept: application/atom+xml header.
+func (c *Client) createWithRawXML(ctx context.Context, entitySet string, data interface{}) ([]byte, error) {
+	req := c.http.Post("/" + entitySet)
+	req = req.WithJSON(data)
+	req = req.WithContext(ctx)
+	req = req.WithHeader("Accept", "application/atom+xml")
+
+	resp, err := c.http.Execute(req)
+	if err != nil {
+		return nil, fmt.Errorf("traverse: create failed: %w", err)
+	}
+
+	if resp.StatusCode != 201 {
+		return nil, fmt.Errorf("traverse: create returned status %d", resp.StatusCode)
+	}
+
+	// Invalidate cached responses for this entity set since data has changed.
+	c.invalidateEntitySetCache(entitySet)
+
+	// Read the raw response body
+	bodyBytes, err := io.ReadAll(resp.BodyReader())
+	if err != nil {
+		return nil, fmt.Errorf("traverse: failed to read response body: %w", err)
+	}
+
+	return bodyBytes, nil
+}
+
 // Update updates an existing entity using a partial update (PATCH/MERGE operation).
 //
 // Update sends an HTTP PATCH request (or HTTP MERGE for OData v2 compatibility) with the entity data.

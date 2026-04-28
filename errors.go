@@ -1,6 +1,8 @@
 package traverse
 
 import (
+	"encoding/json"
+	"encoding/xml"
 	"errors"
 	"strings"
 )
@@ -100,6 +102,173 @@ var (
 	// ErrClientClosed is returned when client is closed.
 	ErrClientClosed = errors.New("traverse: client closed")
 )
+
+// SAPError represents a structured error from a SAP OData service.
+//
+// SAPError encapsulates both JSON and XML error formats that SAP systems return,
+// parsing and normalizing them into a unified structure. This allows consumers
+// to branch on error type (configuration, authorization, CSRF, transient) rather
+// than inspecting raw response bodies.
+//
+// SAP returns errors in multiple formats:
+//   - JSON format (OData v4): {"error":{"code":"...","message":{"value":"..."},"innererror":{...}}}
+//   - XML Atom format (OData v2): <error><code>...</code><message>...</message><innererror>...</innererror></error>
+//
+// Example:
+//
+//	if sapErr := ParseSAPError(resp); sapErr != nil {
+//		switch sapErr.ErrorType {
+//		case SAPErrorTypeNotFound:
+//			// Handle entity not found
+//		case SAPErrorTypeCSRF:
+//			// Handle CSRF token expiration
+//		case SAPErrorTypeUnauthorized:
+//			// Handle auth failure
+//		}
+//	}
+type SAPError struct {
+	Code        string                 // SAP error code (e.g., "/IWFND/MED/170")
+	Message     string                 // Human-readable error message
+	InnerError  string                 // SAP inner error details if present
+	ErrorType   SAPErrorType           // Categorized error type
+	RawBody     string                 // Original response body for debugging
+	IsXML       bool                   // Whether original response was XML format
+}
+
+// SAPErrorType categorizes SAP errors for programmatic handling.
+type SAPErrorType int
+
+const (
+	SAPErrorTypeUnknown       SAPErrorType = iota // Unknown or uncategorized error
+	SAPErrorTypeNotFound                         // Service or entity not found
+	SAPErrorTypeCSRF                             // CSRF token invalid or missing
+	SAPErrorTypeUnauthorized                     // Authentication or authorization failure
+	SAPErrorTypeServiceConfig                    // SAP configuration or setup issue
+	SAPErrorTypeTransient                        // Transient error (timeout, gateway issue)
+)
+
+// Error implements the error interface for SAPError.
+func (e *SAPError) Error() string {
+	if e == nil {
+		return ""
+	}
+	var b strings.Builder
+	b.Grow(100)
+	b.WriteString("traverse: SAP error ")
+	if e.Code != "" {
+		b.WriteString(e.Code)
+		b.WriteString(" ")
+	}
+	b.WriteString(e.Message)
+	if e.InnerError != "" {
+		b.WriteString(" (inner: ")
+		b.WriteString(e.InnerError)
+		b.WriteString(")")
+	}
+	return b.String()
+}
+
+// ParseSAPError extracts and categorizes a structured error from SAP response body.
+//
+// ParseSAPError attempts to parse the response body as either JSON (OData v4 format)
+// or XML (OData v2 Atom format), categorizing the error type for programmatic handling.
+// Returns nil if the body is not a recognized SAP error format.
+//
+// Supported categorizations:
+//   - CSRF errors: Contains "csrf", "token invalid", "token expired", "x-csrf-token"
+//   - Authorization errors: Contains "forbidden", "unauthorized", "permission"
+//   - Configuration errors: Contains "/IWFND/MED", "not found", "unknown service"
+//   - Transient errors: Contains "timeout", "gateway", "temporarily"
+func ParseSAPError(body string) *SAPError {
+	if body == "" {
+		return nil
+	}
+
+	// Try JSON format first
+	var jsonErr struct {
+		Error struct {
+			Code       string `json:"code"`
+			Message    struct{ Value string } `json:"message"`
+			InnerError struct{ Message string } `json:"message"`
+		} `json:"error"`
+	}
+
+	if err := json.Unmarshal([]byte(body), &jsonErr); err == nil && jsonErr.Error.Code != "" {
+		return categorizeSAPError(&SAPError{
+			Code:       jsonErr.Error.Code,
+			Message:    jsonErr.Error.Message.Value,
+			InnerError: jsonErr.Error.InnerError.Message,
+			RawBody:    body,
+			IsXML:      false,
+		})
+	}
+
+	// Try XML format (OData v2 Atom)
+	var xmlErr struct {
+		Code       string `xml:"code"`
+		Message    string `xml:"message"`
+		InnerError string `xml:"innererror"`
+	}
+
+	if err := xml.Unmarshal([]byte(body), &xmlErr); err == nil && xmlErr.Code != "" {
+		return categorizeSAPError(&SAPError{
+			Code:       xmlErr.Code,
+			Message:    xmlErr.Message,
+			InnerError: xmlErr.InnerError,
+			RawBody:    body,
+			IsXML:      true,
+		})
+	}
+
+	return nil
+}
+
+// categorizeSAPError assigns an error type based on code and message content.
+func categorizeSAPError(sapErr *SAPError) *SAPError {
+	lowerCode := strings.ToLower(sapErr.Code)
+	lowerMsg := strings.ToLower(sapErr.Message + " " + sapErr.InnerError)
+
+	switch {
+	case strings.Contains(lowerMsg, "csrf") || strings.Contains(lowerMsg, "token invalid") ||
+		strings.Contains(lowerMsg, "token expired") || strings.Contains(lowerMsg, "x-csrf-token"):
+		sapErr.ErrorType = SAPErrorTypeCSRF
+
+	case strings.Contains(lowerMsg, "forbidden") || strings.Contains(lowerMsg, "unauthorized") ||
+		strings.Contains(lowerMsg, "permission") || strings.Contains(lowerMsg, "access denied"):
+		sapErr.ErrorType = SAPErrorTypeUnauthorized
+
+	case strings.Contains(lowerCode, "/iwfnd/med/") || strings.Contains(lowerMsg, "not found") ||
+		strings.Contains(lowerMsg, "unknown service") || strings.Contains(lowerMsg, "service definition"):
+		sapErr.ErrorType = SAPErrorTypeServiceConfig
+
+	case strings.Contains(lowerMsg, "timeout") || strings.Contains(lowerMsg, "gateway") ||
+		strings.Contains(lowerMsg, "temporarily"):
+		sapErr.ErrorType = SAPErrorTypeTransient
+
+	default:
+		sapErr.ErrorType = SAPErrorTypeUnknown
+	}
+
+	return sapErr
+}
+
+// IsSAPError extracts a *SAPError from an error value.
+//
+// IsSAPError uses errors.As to unwrap and retrieve the *SAPError from
+// a potentially wrapped error. Returns the *SAPError and true if found,
+// otherwise returns nil and false.
+func IsSAPError(err error) (*SAPError, bool) {
+	if err == nil {
+		return nil, false
+	}
+
+	var sapErr *SAPError
+	if errors.As(err, &sapErr) {
+		return sapErr, true
+	}
+
+	return nil, false
+}
 
 // IsODataError extracts an *ODataError from an error value.
 //

@@ -276,6 +276,53 @@ func CreateRawAs(c *Client, ctx context.Context, entitySet string, data interfac
 	return jsonBytes, nil
 }
 
+// CreateAtomXmlAs creates a new entity and unmarshals the OData v2 Atom XML response directly to type T.
+//
+// CreateAtomXmlAs is specialized for SAP OData v2 services that return Atom+XML format (RFC 5023).
+// Unlike CreateXmlAs which converts through a map[string]interface{}, this method:
+//   - Sends Accept: application/atom+xml header to request Atom format
+//   - Gets raw XML bytes from the response
+//   - Unmarshals directly to the target struct T using xml.Unmarshal
+//   - Preserves the full Atom structure including namespaces and metadata
+//
+// The target struct T must have xml:"..." tags with proper namespace handling for Atom elements.
+// For OData v2 Atom, the response contains an <entry> element with <content><m:properties> children.
+//
+// This is the preferred method for SAP OData v2 integrations when you need true XML unmarshaling
+// without intermediate JSON conversion.
+//
+// Returns the created entity as type T, or an error if creation fails.
+//
+// Example:
+//
+//	type SAPNotification struct {
+//		XMLName  xml.Name `xml:"entry"`
+//		ID       string   `xml:"http://schemas.microsoft.com/ado/2007/08/dataservices/metadata id"`
+//		Content  struct {
+//			Properties struct {
+//				NotifID string `xml:"NotificationID"`
+//			} `xml:"http://schemas.microsoft.com/ado/2007/08/dataservices/metadata properties"`
+//		} `xml:"http://www.w3.org/2005/Atom content"`
+//	}
+//
+//	notif, err := CreateAtomXmlAs[SAPNotification](client, ctx, "MaintenanceNotifications", newNotif)
+func CreateAtomXmlAs[T any](c *Client, ctx context.Context, entitySet string, data interface{}) (T, error) {
+	var zero T
+
+	xmlBytes, err := c.createWithRawXML(ctx, entitySet, data)
+	if err != nil {
+		return zero, err
+	}
+
+	var result T
+	err = xml.Unmarshal(xmlBytes, &result)
+	if err != nil {
+		return zero, fmt.Errorf("traverse: failed to unmarshal Atom XML response to target type: %w", err)
+	}
+
+	return result, nil
+}
+
 // UpdateAs is the generic version of [Client.Update].
 //
 // UpdateAs updates an existing entity identified by its key. The update data is
