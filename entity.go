@@ -85,9 +85,9 @@ func mapToXmlStruct[T any](m map[string]interface{}) (T, error) {
 	return result, nil
 }
 
-// xmlBytesToStruct converts raw XML bytes directly to a typed value T with XML struct tags.
+// XmlBytesToStruct converts raw XML bytes directly to a typed value T with XML struct tags.
 //
-// xmlBytesToStruct performs true XML unmarshaling using xml.Unmarshal, which respects
+// XmlBytesToStruct performs true XML unmarshaling using xml.Unmarshal, which respects
 // xml:"..." struct tags. This is the correct method for handling native XML responses from
 // OData v2 services that return Atom+XML format (e.g., SAP systems).
 //
@@ -102,8 +102,8 @@ func mapToXmlStruct[T any](m map[string]interface{}) (T, error) {
 //	}
 //
 //	rawXML := []byte(`<Order><id>123</id><total>99.99</total></Order>`)
-//	order, err := xmlBytesToStruct[Order](rawXML)
-func xmlBytesToStruct[T any](xmlData []byte) (T, error) {
+//	order, err := XmlBytesToStruct[Order](rawXML)
+func XmlBytesToStruct[T any](xmlData []byte) (T, error) {
 	var result T
 
 	// Perform true XML unmarshaling
