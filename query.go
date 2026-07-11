@@ -1086,6 +1086,10 @@ func Cast(args ...string) string {
 //
 //	err := client.From("TempLogs").Filter("CreatedAt lt 2024-01-01").BulkDelete(ctx)
 func (q *QueryBuilder) BulkDelete(ctx context.Context) error {
+	if q.lastError != nil {
+		return q.lastError
+	}
+
 	path := "/" + q.entitySet
 
 	req := q.client.http.Delete(path).WithContext(ctx)
@@ -1139,6 +1143,10 @@ func (q *QueryBuilder) BulkDelete(ctx context.Context) error {
 //	    Filter("Status eq 'Draft'").
 //	    BulkUpdate(ctx, OrderPatch{Status: "Confirmed"})
 func (q *QueryBuilder) BulkUpdate(ctx context.Context, data interface{}) error {
+	if q.lastError != nil {
+		return q.lastError
+	}
+
 	path := "/" + q.entitySet
 
 	req := q.client.http.Patch(path).WithContext(ctx).WithJSON(data)
