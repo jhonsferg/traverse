@@ -127,12 +127,12 @@ var (
 //		}
 //	}
 type SAPError struct {
-	Code        string                 // SAP error code (e.g., "/IWFND/MED/170")
-	Message     string                 // Human-readable error message
-	InnerError  string                 // SAP inner error details if present
-	ErrorType   SAPErrorType           // Categorized error type
-	RawBody     string                 // Original response body for debugging
-	IsXML       bool                   // Whether original response was XML format
+	Code       string       // SAP error code (e.g., "/IWFND/MED/170")
+	Message    string       // Human-readable error message
+	InnerError string       // SAP inner error details if present
+	ErrorType  SAPErrorType // Categorized error type
+	RawBody    string       // Original response body for debugging
+	IsXML      bool         // Whether original response was XML format
 }
 
 // SAPErrorType categorizes SAP errors for programmatic handling.
@@ -140,11 +140,11 @@ type SAPErrorType int
 
 const (
 	SAPErrorTypeUnknown       SAPErrorType = iota // Unknown or uncategorized error
-	SAPErrorTypeNotFound                         // Service or entity not found
-	SAPErrorTypeCSRF                             // CSRF token invalid or missing
-	SAPErrorTypeUnauthorized                     // Authentication or authorization failure
-	SAPErrorTypeServiceConfig                    // SAP configuration or setup issue
-	SAPErrorTypeTransient                        // Transient error (timeout, gateway issue)
+	SAPErrorTypeNotFound                          // Service or entity not found
+	SAPErrorTypeCSRF                              // CSRF token invalid or missing
+	SAPErrorTypeUnauthorized                      // Authentication or authorization failure
+	SAPErrorTypeServiceConfig                     // SAP configuration or setup issue
+	SAPErrorTypeTransient                         // Transient error (timeout, gateway issue)
 )
 
 // Error implements the error interface for SAPError.
@@ -187,9 +187,9 @@ func ParseSAPError(body string) *SAPError {
 	// Try JSON format first
 	var jsonErr struct {
 		Error struct {
-			Code       string `json:"code"`
-			Message    struct{ Value string } `json:"message"`
-			InnerError struct{ Message string } `json:"message"`
+			Code       string                   `json:"code"`
+			Message    struct{ Value string }   `json:"message"`
+			InnerError struct{ Message string } `json:"innererror"`
 		} `json:"error"`
 	}
 
