@@ -2,10 +2,10 @@
 
 ## Requirements
 
-- Go 1.24 or later
+- Go 1.25 or later
 - Module-aware project (`go mod init`)
 
-traverse uses generics (Go 1.18+) and other features that require Go 1.24.
+traverse uses generics (Go 1.18+) and other features that require Go 1.25.
 
 ## Core Module
 
@@ -74,7 +74,7 @@ See [Code Generation](codegen/index.md) for usage details.
 If your project uses a Go workspace (`go.work`), add traverse alongside your own modules:
 
 ```
-go 1.24
+go 1.25
 
 use (
     .
