@@ -1,7 +1,7 @@
 version: 2
 
 updates:
-  # Go Dependencies
+  # Go Dependencies - core module
   - package-ecosystem: "gomod"
     directory: "/"
     schedule:
@@ -25,14 +25,7 @@ updates:
       prefix-patch: "chore(deps):"
       include: "scope"
     rebase-strategy: "auto"
-    # Open a PR with dependency updates
     open-pull-requests-limit: 5
-    # Only update indirect dependencies if they have vulnerabilities
-    ignore:
-      - dependency-name: "*"
-        # Uncomment to ignore specific versions
-        # update-types:
-        #   - "version-update:semver-patch"
 
   # GitHub Actions
   - package-ecosystem: "github-actions"
@@ -53,29 +46,288 @@ updates:
     rebase-strategy: "auto"
     open-pull-requests-limit: 5
 
-  # Python Requirements (if any)
-  # - package-ecosystem: "pip"
-  #   directory: "/"
-  #   schedule:
-  #     interval: "monthly"
-  #   reviewers:
-  #     - "jhonsferg"
-
-# Grouped security updates
-groups:
-  security-updates:
-    patterns:
-      - "security*"
-    update-types:
-      - "version-update:semver-major"
-      - "version-update:semver-minor"
-    schedule:
-      interval: "daily"
-
-  dependency-updates:
-    patterns:
-      - "*"
-    update-types:
-      - "version-update:semver-patch"
+  # Extension modules (go.work)
+  - package-ecosystem: "gomod"
+    directory: "/ext/audit"
     schedule:
       interval: "weekly"
+      day: "sunday"
+      time: "02:00"
+    reviewers:
+      - "jhonsferg"
+    labels:
+      - "dependencies"
+      - "go"
+    allow:
+      - dependency-type: "direct"
+      - dependency-type: "indirect"
+    commit-message:
+      prefix: "chore(deps):"
+      include: "scope"
+    open-pull-requests-limit: 5
+
+  - package-ecosystem: "gomod"
+    directory: "/ext/azure"
+    schedule:
+      interval: "weekly"
+      day: "sunday"
+      time: "02:00"
+    reviewers:
+      - "jhonsferg"
+    labels:
+      - "dependencies"
+      - "go"
+    allow:
+      - dependency-type: "direct"
+      - dependency-type: "indirect"
+    commit-message:
+      prefix: "chore(deps):"
+      include: "scope"
+    open-pull-requests-limit: 5
+
+  - package-ecosystem: "gomod"
+    directory: "/ext/dataverse"
+    schedule:
+      interval: "weekly"
+      day: "sunday"
+      time: "02:00"
+    reviewers:
+      - "jhonsferg"
+    labels:
+      - "dependencies"
+      - "go"
+    allow:
+      - dependency-type: "direct"
+      - dependency-type: "indirect"
+    commit-message:
+      prefix: "chore(deps):"
+      include: "scope"
+    open-pull-requests-limit: 5
+
+  - package-ecosystem: "gomod"
+    directory: "/ext/cache"
+    schedule:
+      interval: "weekly"
+      day: "sunday"
+      time: "02:00"
+    reviewers:
+      - "jhonsferg"
+    labels:
+      - "dependencies"
+      - "go"
+    allow:
+      - dependency-type: "direct"
+      - dependency-type: "indirect"
+    commit-message:
+      prefix: "chore(deps):"
+      include: "scope"
+    open-pull-requests-limit: 5
+
+  - package-ecosystem: "gomod"
+    directory: "/ext/cache/memory"
+    schedule:
+      interval: "weekly"
+      day: "sunday"
+      time: "02:00"
+    reviewers:
+      - "jhonsferg"
+    labels:
+      - "dependencies"
+      - "go"
+    allow:
+      - dependency-type: "direct"
+      - dependency-type: "indirect"
+    commit-message:
+      prefix: "chore(deps):"
+      include: "scope"
+    open-pull-requests-limit: 5
+
+  - package-ecosystem: "gomod"
+    directory: "/ext/cache/redis"
+    schedule:
+      interval: "weekly"
+      day: "sunday"
+      time: "02:00"
+    reviewers:
+      - "jhonsferg"
+    labels:
+      - "dependencies"
+      - "go"
+    allow:
+      - dependency-type: "direct"
+      - dependency-type: "indirect"
+    commit-message:
+      prefix: "chore(deps):"
+      include: "scope"
+    open-pull-requests-limit: 5
+
+  - package-ecosystem: "gomod"
+    directory: "/ext/cache/stale"
+    schedule:
+      interval: "weekly"
+      day: "sunday"
+      time: "02:00"
+    reviewers:
+      - "jhonsferg"
+    labels:
+      - "dependencies"
+      - "go"
+    allow:
+      - dependency-type: "direct"
+      - dependency-type: "indirect"
+    commit-message:
+      prefix: "chore(deps):"
+      include: "scope"
+    open-pull-requests-limit: 5
+
+  - package-ecosystem: "gomod"
+    directory: "/ext/graphql"
+    schedule:
+      interval: "weekly"
+      day: "sunday"
+      time: "02:00"
+    reviewers:
+      - "jhonsferg"
+    labels:
+      - "dependencies"
+      - "go"
+    allow:
+      - dependency-type: "direct"
+      - dependency-type: "indirect"
+    commit-message:
+      prefix: "chore(deps):"
+      include: "scope"
+    open-pull-requests-limit: 5
+
+  - package-ecosystem: "gomod"
+    directory: "/ext/oauth2"
+    schedule:
+      interval: "weekly"
+      day: "sunday"
+      time: "02:00"
+    reviewers:
+      - "jhonsferg"
+    labels:
+      - "dependencies"
+      - "go"
+    allow:
+      - dependency-type: "direct"
+      - dependency-type: "indirect"
+    commit-message:
+      prefix: "chore(deps):"
+      include: "scope"
+    open-pull-requests-limit: 5
+
+  - package-ecosystem: "gomod"
+    directory: "/ext/offline"
+    schedule:
+      interval: "weekly"
+      day: "sunday"
+      time: "02:00"
+    reviewers:
+      - "jhonsferg"
+    labels:
+      - "dependencies"
+      - "go"
+    allow:
+      - dependency-type: "direct"
+      - dependency-type: "indirect"
+    commit-message:
+      prefix: "chore(deps):"
+      include: "scope"
+    open-pull-requests-limit: 5
+
+  - package-ecosystem: "gomod"
+    directory: "/ext/openapi"
+    schedule:
+      interval: "weekly"
+      day: "sunday"
+      time: "02:00"
+    reviewers:
+      - "jhonsferg"
+    labels:
+      - "dependencies"
+      - "go"
+    allow:
+      - dependency-type: "direct"
+      - dependency-type: "indirect"
+    commit-message:
+      prefix: "chore(deps):"
+      include: "scope"
+    open-pull-requests-limit: 5
+
+  - package-ecosystem: "gomod"
+    directory: "/ext/prometheus"
+    schedule:
+      interval: "weekly"
+      day: "sunday"
+      time: "02:00"
+    reviewers:
+      - "jhonsferg"
+    labels:
+      - "dependencies"
+      - "go"
+    allow:
+      - dependency-type: "direct"
+      - dependency-type: "indirect"
+    commit-message:
+      prefix: "chore(deps):"
+      include: "scope"
+    open-pull-requests-limit: 5
+
+  - package-ecosystem: "gomod"
+    directory: "/ext/sap"
+    schedule:
+      interval: "weekly"
+      day: "sunday"
+      time: "02:00"
+    reviewers:
+      - "jhonsferg"
+    labels:
+      - "dependencies"
+      - "go"
+    allow:
+      - dependency-type: "direct"
+      - dependency-type: "indirect"
+    commit-message:
+      prefix: "chore(deps):"
+      include: "scope"
+    open-pull-requests-limit: 5
+
+  - package-ecosystem: "gomod"
+    directory: "/ext/tracing"
+    schedule:
+      interval: "weekly"
+      day: "sunday"
+      time: "02:00"
+    reviewers:
+      - "jhonsferg"
+    labels:
+      - "dependencies"
+      - "go"
+    allow:
+      - dependency-type: "direct"
+      - dependency-type: "indirect"
+    commit-message:
+      prefix: "chore(deps):"
+      include: "scope"
+    open-pull-requests-limit: 5
+
+  - package-ecosystem: "gomod"
+    directory: "/ext/webhooks"
+    schedule:
+      interval: "weekly"
+      day: "sunday"
+      time: "02:00"
+    reviewers:
+      - "jhonsferg"
+    labels:
+      - "dependencies"
+      - "go"
+    allow:
+      - dependency-type: "direct"
+      - dependency-type: "indirect"
+    commit-message:
+      prefix: "chore(deps):"
+      include: "scope"
+    open-pull-requests-limit: 5
