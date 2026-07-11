@@ -271,12 +271,12 @@ func isCsrfError(body string) bool {
 // and automatically retries once if it receives a 403 CSRF error.
 //
 // This method implements transparent CSRF token refresh + retry:
-// 1. Call the provided function
-// 2. If 403 + CSRF error is detected:
-//    a. Invalidate current token
-//    b. Fetch fresh token
-//    c. Re-execute the function
-// 3. Return result (success or final error)
+//  1. Call the provided function
+//  2. If 403 + CSRF error is detected:
+//     a. Invalidate current token
+//     b. Fetch fresh token
+//     c. Re-execute the function
+//  3. Return result (success or final error)
 //
 // This eliminates boilerplate retry logic from consumers and makes CSRF
 // token management completely transparent.
