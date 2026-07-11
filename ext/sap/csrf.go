@@ -32,6 +32,12 @@ type CSRFMiddleware struct {
 	// mu.RLock before actually calling Fetch so that only one network round-trip
 	// is made even when many goroutines simultaneously observe an expired token.
 	fetchMu sync.Mutex
+
+	// lastMethod stores the HTTP method of the most recent request seen by
+	// WithWriteMethodDetection, so HandleResponseForWriteOps can determine
+	// whether the request was a write operation without relying on context
+	// (relay.WithOnBeforeRequest hooks cannot return a modified context).
+	lastMethod string
 }
 
 // NewCSRFMiddleware creates a new CSRF token middleware.
@@ -201,11 +207,11 @@ func (c *CSRFMiddleware) HandleResponse(ctx context.Context, resp *relay.Respons
 
 	// Read response body to check for CSRF-specific errors
 	bodyBytes, readErr := readResponseBody(resp)
-	if readErr != nil {
-		// If we can't read the body, assume it might be CSRF and refresh
-		// This is a safe precaution
+	if readErr != nil || len(bodyBytes) == 0 {
+		// If we can't read the body or it's empty, assume it might be CSRF and refresh.
+		// This is a safe precaution for SAP systems.
 		c.InvalidateToken()
-		return fmt.Errorf("traverse: 403 Forbidden received (token may be invalid) - retrying with fresh token")
+		return fmt.Errorf("traverse: 403 Forbidden received (token may be invalid) - token invalidated")
 	}
 
 	// Check if the body contains CSRF-specific language
@@ -318,32 +324,27 @@ func (c *CSRFMiddleware) ExecuteWithCSRFRetry(ctx context.Context, fn func() (*r
 	return resp, err
 }
 
-// WithWriteMethodDetection returns a relay hook that tags write-operation requests
-// in the context so that HandleResponse can distinguish CSRF errors from other 403s.
+// WithWriteMethodDetection returns a relay hook that records the HTTP method
+// of write-operation requests so that HandleResponseForWriteOps can apply
+// CSRF logic selectively.
 //
 // Write operations (POST, PATCH, PUT, DELETE) may have CSRF requirements.
 // Read operations (GET, HEAD, OPTIONS) never require CSRF handling.
 //
-// This hook should be registered via client.WithOnBeforeRequest(...) on all requests.
-// It tags write operations via a context key, so HandleResponse can apply CSRF logic
-// selectively only to write operations.
+// This hook should be registered via relay.WithOnBeforeRequest(...) on the
+// relay client. It stores the method in the middleware so that
+// HandleResponseForWriteOps can check it later.
 //
 // Example:
 //
-//	client.WithOnBeforeRequest(csrfMiddleware.WithWriteMethodDetection())
-//	client.WithOnAfterResponse(csrfMiddleware.HandleResponseForWriteOps(ctx))
-func (c *CSRFMiddleware) WithWriteMethodDetection() relay.HookFunc {
-	return func(ctx context.Context, req *relay.Request) (context.Context, error) {
-		// Detect write operations
-		method := req.Method
-		isWrite := method == "POST" || method == "PATCH" || method == "PUT" || method == "DELETE"
-
-		// Tag the context so HandleResponseForWriteOps can see this
-		if isWrite {
-			ctx = context.WithValue(ctx, csrfWriteOpKey, true)
-		}
-
-		return ctx, nil
+//	relay.WithOnBeforeRequest(csrfMiddleware.WithWriteMethodDetection())
+//	relay.WithOnAfterResponse(csrfMiddleware.HandleResponseForWriteOps())
+func (c *CSRFMiddleware) WithWriteMethodDetection() func(context.Context, *relay.Request) error {
+	return func(ctx context.Context, req *relay.Request) error {
+		c.mu.Lock()
+		c.lastMethod = req.Method()
+		c.mu.Unlock()
+		return nil
 	}
 }
 
@@ -355,22 +356,21 @@ func (c *CSRFMiddleware) WithWriteMethodDetection() relay.HookFunc {
 //
 // Usage:
 //
-//	client.WithOnAfterResponse(csrfMiddleware.HandleResponseForWriteOps())
-func (c *CSRFMiddleware) HandleResponseForWriteOps() relay.AfterResponseHookFunc {
+//	relay.WithOnAfterResponse(csrfMiddleware.HandleResponseForWriteOps())
+func (c *CSRFMiddleware) HandleResponseForWriteOps() func(context.Context, *relay.Response, error) error {
 	return func(ctx context.Context, resp *relay.Response, err error) error {
-		// Only apply CSRF logic if this was a write operation
-		if ctx.Value(csrfWriteOpKey) != true {
+		c.mu.RLock()
+		method := c.lastMethod
+		c.mu.RUnlock()
+
+		isWrite := method == "POST" || method == "PATCH" || method == "PUT" || method == "DELETE"
+		if !isWrite {
 			return err
 		}
 
 		return c.HandleResponse(ctx, resp, err)
 	}
 }
-
-// Context key for tracking write operations
-type csrfWriteOpKeyType struct{}
-
-var csrfWriteOpKey csrfWriteOpKeyType
 
 // Token returns the current cached token without checking expiry.
 // Used primarily for testing or diagnostic purposes.
