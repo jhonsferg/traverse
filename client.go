@@ -218,6 +218,16 @@ func applyAuthOpts(cfg *clientConfig) {
 			},
 		))
 	}
+
+	if cfg.apiKeyHeader != "" {
+		header, value := cfg.apiKeyHeader, cfg.apiKeyValue
+		cfg.relayOpts = append(cfg.relayOpts, relay.WithOnBeforeRequest(
+			func(_ context.Context, req *relay.Request) error {
+				req.WithHeader(header, value)
+				return nil
+			},
+		))
+	}
 }
 
 // New creates a new [Client] with the provided options.
@@ -770,27 +780,36 @@ func decodeJSONResponse(bodyBytes []byte, version ODataVersion) (map[string]inte
 
 // decodeXMLResponse decodes an XML OData response (typically SAP OData v2 Atom format)
 func decodeXMLResponse(bodyBytes []byte, version ODataVersion) (map[string]interface{}, error) {
-	// First, try to unmarshal as a generic XML structure
+	type xmlProp struct {
+		XMLName xml.Name
+		Value   string `xml:",chardata"`
+	}
+
 	var entry struct {
 		Content struct {
-			Properties struct {
-				Entries []byte `xml:",innerxml"`
-			} `xml:"http://schemas.microsoft.com/ado/2007/08/dataservices content"`
+			Properties []xmlProp `xml:"http://schemas.microsoft.com/ado/2007/08/dataservices *"`
 		} `xml:"http://www.w3.org/2005/Atom content"`
 		Properties struct {
-			Entries []byte `xml:",innerxml"`
+			Properties []xmlProp `xml:"http://schemas.microsoft.com/ado/2007/08/dataservices *"`
 		} `xml:"http://schemas.microsoft.com/ado/2007/08/dataservices m:properties"`
 	}
 
-	err := xml.Unmarshal(bodyBytes, &entry)
-	if err != nil {
+	if err := xml.Unmarshal(bodyBytes, &entry); err != nil {
 		return nil, fmt.Errorf("failed to unmarshal XML entry: %w", err)
 	}
 
-	// Convert XML properties to map[string]interface{}
-	// For now, return a basic structure - ideally would parse m:properties
-	result := map[string]interface{}{
-		"_raw_xml": string(bodyBytes),
+	props := entry.Content.Properties
+	if len(props) == 0 {
+		props = entry.Properties.Properties
+	}
+
+	result := make(map[string]interface{}, len(props))
+	for _, p := range props {
+		local := p.XMLName.Local
+		if idx := strings.Index(local, "."); idx >= 0 {
+			local = local[idx+1:]
+		}
+		result[local] = p.Value
 	}
 
 	return result, nil
@@ -853,7 +872,7 @@ func (c *Client) Create(ctx context.Context, entitySet string, data interface{})
 		return nil, fmt.Errorf("traverse: create failed: %w", err)
 	}
 
-	if resp.StatusCode != 201 {
+	if resp.StatusCode != 200 && resp.StatusCode != 201 {
 		return nil, fmt.Errorf("traverse: create returned status %d", resp.StatusCode)
 	}
 
@@ -885,7 +904,7 @@ func (c *Client) createWithRawXML(ctx context.Context, entitySet string, data in
 		return nil, fmt.Errorf("traverse: create failed: %w", err)
 	}
 
-	if resp.StatusCode != 201 {
+	if resp.StatusCode != 200 && resp.StatusCode != 201 {
 		return nil, fmt.Errorf("traverse: create returned status %d", resp.StatusCode)
 	}
 
@@ -971,7 +990,7 @@ func (c *Client) Update(ctx context.Context, entitySet string, key interface{}, 
 		return fmt.Errorf("traverse: update failed: %w", err)
 	}
 
-	if resp.StatusCode != 204 {
+	if resp.StatusCode != 200 && resp.StatusCode != 204 {
 		return fmt.Errorf("traverse: update returned status %d", resp.StatusCode)
 	}
 
@@ -1043,7 +1062,7 @@ func (c *Client) Replace(ctx context.Context, entitySet string, key interface{},
 		return fmt.Errorf("traverse: replace failed: %w", err)
 	}
 
-	if resp.StatusCode != 204 {
+	if resp.StatusCode != 200 && resp.StatusCode != 204 {
 		return fmt.Errorf("traverse: replace returned status %d", resp.StatusCode)
 	}
 
@@ -1120,7 +1139,7 @@ func (c *Client) Delete(ctx context.Context, entitySet string, key interface{}) 
 		return fmt.Errorf("traverse: delete failed: %w", err)
 	}
 
-	if resp.StatusCode != 204 {
+	if resp.StatusCode != 200 && resp.StatusCode != 204 {
 		return fmt.Errorf("traverse: delete returned status %d", resp.StatusCode)
 	}
 
@@ -1247,7 +1266,7 @@ func WithPageSize(n int) Option {
 // nextLink. This guards against servers that always return a nextLink (whether
 // by misconfiguration or malice), which would otherwise cause an infinite loop.
 //
-// The default is [defaultMaxPages] (10,000). Use 0 to keep the default.
+// The default is [defaultMaxPages] (10,000). Omit or pass a positive value.
 // A value of 1 fetches only the first page regardless of nextLink.
 //
 // Example:
