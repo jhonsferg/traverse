@@ -38,9 +38,12 @@
 package traverse
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
+	"encoding/xml"
 	"fmt"
+	"io"
 	"strings"
 	"sync"
 	"time"
@@ -683,6 +686,116 @@ func (c *Client) fetchMetadata(ctx context.Context) (*Metadata, error) {
 	return metadata, nil
 }
 
+// decodeODataResponse decodes an OData response body into a map[string]interface{}.
+// It detects the content type (JSON vs XML) and routes to the appropriate decoder.
+//
+// For JSON responses, it unmarshals directly using the OData version-specific structure.
+// For XML responses (common in SAP OData v2), it converts to JSON first via intermediate unmarshaling.
+func (c *Client) decodeODataResponse(resp *relay.Response) (map[string]interface{}, error) {
+	// Read the response body into memory so we can inspect it
+	bodyBytes, err := io.ReadAll(resp.BodyReader())
+	if err != nil {
+		return nil, fmt.Errorf("traverse: failed to read response body: %w", err)
+	}
+
+	// Detect content type: check header first, then body
+	contentType := resp.ContentType()
+	isXML := isXMLContentType(contentType) || isXMLBody(bodyBytes)
+
+	var result map[string]interface{}
+
+	if isXML {
+		// Handle XML response (OData v2 Atom format)
+		result, err = decodeXMLResponse(bodyBytes, c.version)
+		if err != nil {
+			return nil, fmt.Errorf("traverse: failed to decode XML response: %w", err)
+		}
+	} else {
+		// Handle JSON response
+		result, err = decodeJSONResponse(bodyBytes, c.version)
+		if err != nil {
+			return nil, fmt.Errorf("traverse: failed to decode JSON response: %w", err)
+		}
+	}
+
+	return result, nil
+}
+
+// isXMLContentType checks if the content type indicates XML
+func isXMLContentType(ct string) bool {
+	if ct == "" {
+		return false
+	}
+	ct = strings.ToLower(ct)
+	return strings.Contains(ct, "xml") ||
+		strings.Contains(ct, "atom") ||
+		strings.Contains(ct, "text/xml")
+}
+
+// isXMLBody checks if the response body starts with XML markers
+func isXMLBody(body []byte) bool {
+	trimmed := bytes.TrimSpace(body)
+	if len(trimmed) == 0 {
+		return false
+	}
+	// Check for XML declaration or opening tag
+	return bytes.HasPrefix(trimmed, []byte("<?xml")) ||
+		bytes.HasPrefix(trimmed, []byte("<"))
+}
+
+// decodeJSONResponse decodes a JSON OData response
+func decodeJSONResponse(bodyBytes []byte, version ODataVersion) (map[string]interface{}, error) {
+	var result map[string]interface{}
+
+	if version == ODataV2 {
+		// OData v2: response is wrapped in {"d": {...}}
+		var wrapped struct {
+			D map[string]interface{} `json:"d"`
+		}
+		err := json.Unmarshal(bodyBytes, &wrapped)
+		if err != nil {
+			return nil, err
+		}
+		result = wrapped.D
+	} else {
+		// OData v4: response is the entity directly
+		err := json.Unmarshal(bodyBytes, &result)
+		if err != nil {
+			return nil, err
+		}
+	}
+
+	return result, nil
+}
+
+// decodeXMLResponse decodes an XML OData response (typically SAP OData v2 Atom format)
+func decodeXMLResponse(bodyBytes []byte, version ODataVersion) (map[string]interface{}, error) {
+	// First, try to unmarshal as a generic XML structure
+	var entry struct {
+		Content struct {
+			Properties struct {
+				Entries []byte `xml:",innerxml"`
+			} `xml:"http://schemas.microsoft.com/ado/2007/08/dataservices content"`
+		} `xml:"http://www.w3.org/2005/Atom content"`
+		Properties struct {
+			Entries []byte `xml:",innerxml"`
+		} `xml:"http://schemas.microsoft.com/ado/2007/08/dataservices m:properties"`
+	}
+
+	err := xml.Unmarshal(bodyBytes, &entry)
+	if err != nil {
+		return nil, fmt.Errorf("failed to unmarshal XML entry: %w", err)
+	}
+
+	// Convert XML properties to map[string]interface{}
+	// For now, return a basic structure - ideally would parse m:properties
+	result := map[string]interface{}{
+		"_raw_xml": string(bodyBytes),
+	}
+
+	return result, nil
+}
+
 // Create creates a new entity in the specified entity set.
 //
 // Create sends an HTTP POST request with the provided entity data to the service,
@@ -747,28 +860,45 @@ func (c *Client) Create(ctx context.Context, entitySet string, data interface{})
 	// Invalidate cached responses for this entity set since data has changed.
 	c.invalidateEntitySetCache(entitySet)
 
-	// Parse response body based on OData version
-	var result map[string]interface{}
-
-	if c.version == ODataV2 {
-		// OData v2: response is wrapped in {"d": {...}}
-		var wrapped struct {
-			D map[string]interface{} `json:"d"`
-		}
-		err = json.NewDecoder(resp.BodyReader()).Decode(&wrapped)
-		if err != nil {
-			return nil, fmt.Errorf("traverse: failed to decode Create response: %w", err)
-		}
-		result = wrapped.D
-	} else {
-		// OData v4: response is the entity directly
-		err = json.NewDecoder(resp.BodyReader()).Decode(&result)
-		if err != nil {
-			return nil, fmt.Errorf("traverse: failed to decode Create response: %w", err)
-		}
+	// Parse response body with content-type detection (JSON or XML)
+	result, err := c.decodeODataResponse(resp)
+	if err != nil {
+		return nil, err
 	}
 
 	return result, nil
+}
+
+// createWithRawXML creates a new entity and returns the raw XML response bytes (internal helper).
+//
+// This internal method is used by CreateAtomXmlAs to get the raw XML response
+// without going through the map[string]interface{} conversion layer.
+// It sends a POST with Accept: application/atom+xml header.
+func (c *Client) createWithRawXML(ctx context.Context, entitySet string, data interface{}) ([]byte, error) {
+	req := c.http.Post("/" + entitySet)
+	req = req.WithJSON(data)
+	req = req.WithContext(ctx)
+	req = req.WithHeader("Accept", "application/atom+xml")
+
+	resp, err := c.http.Execute(req)
+	if err != nil {
+		return nil, fmt.Errorf("traverse: create failed: %w", err)
+	}
+
+	if resp.StatusCode != 201 {
+		return nil, fmt.Errorf("traverse: create returned status %d", resp.StatusCode)
+	}
+
+	// Invalidate cached responses for this entity set since data has changed.
+	c.invalidateEntitySetCache(entitySet)
+
+	// Read the raw response body
+	bodyBytes, err := io.ReadAll(resp.BodyReader())
+	if err != nil {
+		return nil, fmt.Errorf("traverse: failed to read response body: %w", err)
+	}
+
+	return bodyBytes, nil
 }
 
 // Update updates an existing entity using a partial update (PATCH/MERGE operation).

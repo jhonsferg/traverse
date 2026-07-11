@@ -3,6 +3,8 @@ package sap
 import (
 	"context"
 	"fmt"
+	"io"
+	"strings"
 	"sync"
 	"time"
 
@@ -30,6 +32,12 @@ type CSRFMiddleware struct {
 	// mu.RLock before actually calling Fetch so that only one network round-trip
 	// is made even when many goroutines simultaneously observe an expired token.
 	fetchMu sync.Mutex
+
+	// lastMethod stores the HTTP method of the most recent request seen by
+	// WithWriteMethodDetection, so HandleResponseForWriteOps can determine
+	// whether the request was a write operation without relying on context
+	// (relay.WithOnBeforeRequest hooks cannot return a modified context).
+	lastMethod string
 }
 
 // NewCSRFMiddleware creates a new CSRF token middleware.
@@ -182,27 +190,186 @@ func (c *CSRFMiddleware) Hook() func(context.Context, *relay.Request) error {
 	}
 }
 
-// HandleResponse processes responses for CSRF-related errors.
-// If a 403 error is received, the token is invalidated (likely expired on server).
-// The caller should retry the request after invalidation.
-// This method can be used as a relay hook via WithOnAfterResponse.
+// HandleResponse processes responses and invalidates CSRF token only if it's a genuine CSRF error.
+// This method should be used as a relay hook via WithOnAfterResponse.
+//
+// A CSRF error is only considered genuine if:
+// 1. HTTP Status is 403 Forbidden
+// 2. The response body contains CSRF-specific language (e.g., "csrf", "token", "validation")
+//
+// This prevents false positives where SAP returns 403 for other reasons (e.g., authorization,
+// service not found) that have nothing to do with CSRF token validity.
 func (c *CSRFMiddleware) HandleResponse(ctx context.Context, resp *relay.Response, err error) error {
-	// Only handle successful responses that have CSRF-related errors
-	if resp == nil {
+	// Only handle 403 responses
+	if resp == nil || resp.StatusCode != 403 {
 		return err
 	}
 
-	// Status 403 Forbidden often means CSRF token is invalid/expired
-	if resp.StatusCode == 403 {
-		// Check if it's a CSRF error (look for token-related message)
-		// This is optional - we invalidate on any 403 as precaution
+	// Read response body to check for CSRF-specific errors
+	bodyBytes, readErr := readResponseBody(resp)
+	if readErr != nil || len(bodyBytes) == 0 {
+		// If we can't read the body or it's empty, assume it might be CSRF and refresh.
+		// This is a safe precaution for SAP systems.
 		c.InvalidateToken()
-
-		// Return a meaningful error that indicates retry might help
-		return fmt.Errorf("traverse: csrf token invalid (403 Forbidden), token invalidated - retry with new token")
+		return fmt.Errorf("traverse: 403 Forbidden received (token may be invalid) - token invalidated")
 	}
 
-	return err
+	// Check if the body contains CSRF-specific language
+	if isCsrfError(string(bodyBytes)) {
+		c.InvalidateToken()
+		return fmt.Errorf("traverse: CSRF token validation failed (403 Forbidden) - token invalidated, fresh token will be obtained on retry")
+	}
+
+	// This is a 403 but not CSRF-related - propagate the original error
+	// This allows SAP business errors to surface correctly
+	if err != nil {
+		return err
+	}
+
+	return fmt.Errorf("traverse: request rejected with 403 Forbidden (not CSRF-related)")
+}
+
+// readResponseBody safely reads response body bytes
+func readResponseBody(resp *relay.Response) ([]byte, error) {
+	if resp == nil {
+		return nil, fmt.Errorf("response is nil")
+	}
+
+	// Try to read from BodyReader
+	reader := resp.BodyReader()
+	if reader == nil {
+		return nil, fmt.Errorf("body reader is nil")
+	}
+
+	bodyBytes, err := io.ReadAll(reader)
+	return bodyBytes, err
+}
+
+// isCsrfError checks if the response body contains CSRF-related error messages
+func isCsrfError(body string) bool {
+	// Look for common CSRF error markers in SAP responses
+	lowerBody := strings.ToLower(body)
+
+	csrfMarkers := []string{
+		"csrf",
+		"token validation",
+		"token invalid",
+		"token expired",
+		"x-csrf-token",
+	}
+
+	for _, marker := range csrfMarkers {
+		if strings.Contains(lowerBody, marker) {
+			return true
+		}
+	}
+
+	return false
+}
+
+// ExecuteWithCSRFRetry executes a function that returns a relay.Response,
+// and automatically retries once if it receives a 403 CSRF error.
+//
+// This method implements transparent CSRF token refresh + retry:
+// 1. Call the provided function
+// 2. If 403 + CSRF error is detected:
+//    a. Invalidate current token
+//    b. Fetch fresh token
+//    c. Re-execute the function
+// 3. Return result (success or final error)
+//
+// This eliminates boilerplate retry logic from consumers and makes CSRF
+// token management completely transparent.
+//
+// Example usage in a middleware or client decorator:
+//
+//	result, err := csrfMiddleware.ExecuteWithCSRFRetry(ctx, func() (*relay.Response, error) {
+//		return httpClient.Execute(request)
+//	})
+//
+// The callback function is responsible for constructing and executing the HTTP request.
+// Token injection should still happen via the Hook() method (as a relay WithOnBeforeRequest hook).
+func (c *CSRFMiddleware) ExecuteWithCSRFRetry(ctx context.Context, fn func() (*relay.Response, error)) (*relay.Response, error) {
+	// First attempt
+	resp, err := fn()
+	if err != nil {
+		return resp, err
+	}
+
+	// Check if this is a genuine CSRF error
+	if resp.StatusCode == 403 {
+		// Check response body for CSRF markers
+		bodyBytes, readErr := readResponseBody(resp)
+		var bodyStr string
+		if readErr == nil {
+			bodyStr = string(bodyBytes)
+		}
+
+		if isCsrfError(bodyStr) {
+			// This is a genuine CSRF error - refresh token and retry
+			c.InvalidateToken()
+
+			// Fetch fresh token
+			_, getErr := c.GetToken(ctx)
+			if getErr != nil {
+				return resp, fmt.Errorf("traverse: CSRF token refresh failed after 403: %w", getErr)
+			}
+
+			// Retry the operation with fresh token
+			retryResp, retryErr := fn()
+			return retryResp, retryErr
+		}
+	}
+
+	return resp, err
+}
+
+// WithWriteMethodDetection returns a relay hook that records the HTTP method
+// of write-operation requests so that HandleResponseForWriteOps can apply
+// CSRF logic selectively.
+//
+// Write operations (POST, PATCH, PUT, DELETE) may have CSRF requirements.
+// Read operations (GET, HEAD, OPTIONS) never require CSRF handling.
+//
+// This hook should be registered via relay.WithOnBeforeRequest(...) on the
+// relay client. It stores the method in the middleware so that
+// HandleResponseForWriteOps can check it later.
+//
+// Example:
+//
+//	relay.WithOnBeforeRequest(csrfMiddleware.WithWriteMethodDetection())
+//	relay.WithOnAfterResponse(csrfMiddleware.HandleResponseForWriteOps())
+func (c *CSRFMiddleware) WithWriteMethodDetection() func(context.Context, *relay.Request) error {
+	return func(ctx context.Context, req *relay.Request) error {
+		c.mu.Lock()
+		c.lastMethod = req.Method()
+		c.mu.Unlock()
+		return nil
+	}
+}
+
+// HandleResponseForWriteOps is a method-aware version of HandleResponse that only
+// applies CSRF logic to write operations (POST, PATCH, PUT, DELETE).
+//
+// This prevents false positives where SAP returns 403 for non-CSRF reasons
+// (e.g., authorization, service not found) on read operations.
+//
+// Usage:
+//
+//	relay.WithOnAfterResponse(csrfMiddleware.HandleResponseForWriteOps())
+func (c *CSRFMiddleware) HandleResponseForWriteOps() func(context.Context, *relay.Response, error) error {
+	return func(ctx context.Context, resp *relay.Response, err error) error {
+		c.mu.RLock()
+		method := c.lastMethod
+		c.mu.RUnlock()
+
+		isWrite := method == "POST" || method == "PATCH" || method == "PUT" || method == "DELETE"
+		if !isWrite {
+			return err
+		}
+
+		return c.HandleResponse(ctx, resp, err)
+	}
 }
 
 // Token returns the current cached token without checking expiry.

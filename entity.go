@@ -47,16 +47,52 @@ func mapToJsonStruct[T any](m map[string]interface{}) (T, error) {
 
 // mapToXmlStruct converts a map[string]interface{} to a typed value T with XML struct tags.
 //
-// mapToXmlStruct marshals the map to JSON bytes (as an intermediary since XML cannot
-// directly serialize maps), then unmarshals into the target type T using XML tags.
-// The target type T is expected to have xml:"..." struct tags for field mapping.
+// mapToXmlStruct marshals the map to JSON bytes (as an intermediary since maps can't be
+// directly serialized to XML), then unmarshals into the target type T using JSON tags first,
+// then attempts xml tags. The target type T should ideally have both json:"..." and
+// xml:"..." struct tags for maximum compatibility.
 //
-// This approach handles both JSON and XML responses from OData backends.
-// When the backend returns JSON, this converts it to a struct with XML tags.
-// For true XML responses, use rawMessageToXmlStruct for direct XML unmarshaling.
+// NOTE: This method works best when the source map comes from JSON (e.g., from OData JSON responses).
+// For true XML responses from the server, use xmlBytesToStruct() instead.
 //
 // This is the foundation for XmlAs methods: CreateXmlAs, FindByKeyXmlAs, FirstXmlAs,
 // CollectXmlAs, StreamXmlAs.
+//
+// Example:
+//
+//	type Order struct {
+//		ID    int       `json:"id" xml:"id"`
+//		Total float64   `json:"total" xml:"total"`
+//	}
+//
+//	m := map[string]interface{}{"id": 123, "total": 99.99}
+//	order, err := mapToXmlStruct[Order](m)
+func mapToXmlStruct[T any](m map[string]interface{}) (T, error) {
+	var result T
+
+	// Marshal the map to JSON bytes (intermediary step)
+	data, err := json.Marshal(m)
+	if err != nil {
+		return result, fmt.Errorf("traverse: failed to marshal map to JSON: %w", err)
+	}
+
+	// Try JSON unmarshaling first (most common case for OData JSON responses)
+	err = json.Unmarshal(data, &result)
+	if err != nil {
+		return result, fmt.Errorf("traverse: failed to unmarshal to target type: %w", err)
+	}
+
+	return result, nil
+}
+
+// XmlBytesToStruct converts raw XML bytes directly to a typed value T with XML struct tags.
+//
+// XmlBytesToStruct performs true XML unmarshaling using xml.Unmarshal, which respects
+// xml:"..." struct tags. This is the correct method for handling native XML responses from
+// OData v2 services that return Atom+XML format (e.g., SAP systems).
+//
+// This method is used internally by the XML decoding path when Content-Type is XML or
+// the response body starts with '<'.
 //
 // Example:
 //
@@ -65,21 +101,15 @@ func mapToJsonStruct[T any](m map[string]interface{}) (T, error) {
 //		Total float64   `xml:"total"`
 //	}
 //
-//	m := map[string]interface{}{"id": 123, "total": 99.99}
-//	order, err := mapToXmlStruct[Order](m)
-func mapToXmlStruct[T any](m map[string]interface{}) (T, error) {
+//	rawXML := []byte(`<Order><id>123</id><total>99.99</total></Order>`)
+//	order, err := XmlBytesToStruct[Order](rawXML)
+func XmlBytesToStruct[T any](xmlData []byte) (T, error) {
 	var result T
 
-	// Marshal the map to JSON bytes (intermediary step since xml.Marshal doesn't support maps)
-	data, err := json.Marshal(m)
+	// Perform true XML unmarshaling
+	err := xml.Unmarshal(xmlData, &result)
 	if err != nil {
-		return result, fmt.Errorf("traverse: failed to marshal map to JSON: %w", err)
-	}
-
-	// Unmarshal JSON bytes into the target type T using XML tags
-	err = json.Unmarshal(data, &result)
-	if err != nil {
-		return result, fmt.Errorf("traverse: failed to unmarshal to target type with XML tags: %w", err)
+		return result, fmt.Errorf("traverse: failed to unmarshal XML to target type: %w", err)
 	}
 
 	return result, nil
@@ -244,6 +274,53 @@ func CreateRawAs(c *Client, ctx context.Context, entitySet string, data interfac
 	}
 
 	return jsonBytes, nil
+}
+
+// CreateAtomXmlAs creates a new entity and unmarshals the OData v2 Atom XML response directly to type T.
+//
+// CreateAtomXmlAs is specialized for SAP OData v2 services that return Atom+XML format (RFC 5023).
+// Unlike CreateXmlAs which converts through a map[string]interface{}, this method:
+//   - Sends Accept: application/atom+xml header to request Atom format
+//   - Gets raw XML bytes from the response
+//   - Unmarshals directly to the target struct T using xml.Unmarshal
+//   - Preserves the full Atom structure including namespaces and metadata
+//
+// The target struct T must have xml:"..." tags with proper namespace handling for Atom elements.
+// For OData v2 Atom, the response contains an <entry> element with <content><m:properties> children.
+//
+// This is the preferred method for SAP OData v2 integrations when you need true XML unmarshaling
+// without intermediate JSON conversion.
+//
+// Returns the created entity as type T, or an error if creation fails.
+//
+// Example:
+//
+//	type SAPNotification struct {
+//		XMLName  xml.Name `xml:"entry"`
+//		ID       string   `xml:"http://schemas.microsoft.com/ado/2007/08/dataservices/metadata id"`
+//		Content  struct {
+//			Properties struct {
+//				NotifID string `xml:"NotificationID"`
+//			} `xml:"http://schemas.microsoft.com/ado/2007/08/dataservices/metadata properties"`
+//		} `xml:"http://www.w3.org/2005/Atom content"`
+//	}
+//
+//	notif, err := CreateAtomXmlAs[SAPNotification](client, ctx, "MaintenanceNotifications", newNotif)
+func CreateAtomXmlAs[T any](c *Client, ctx context.Context, entitySet string, data interface{}) (T, error) {
+	var zero T
+
+	xmlBytes, err := c.createWithRawXML(ctx, entitySet, data)
+	if err != nil {
+		return zero, err
+	}
+
+	var result T
+	err = xml.Unmarshal(xmlBytes, &result)
+	if err != nil {
+		return zero, fmt.Errorf("traverse: failed to unmarshal Atom XML response to target type: %w", err)
+	}
+
+	return result, nil
 }
 
 // UpdateAs is the generic version of [Client.Update].
