@@ -111,7 +111,7 @@ jobs:
 
       - name: Comment PR with nancy results
         if: github.event_name == 'pull_request' && steps.nancy-check.outcome == 'failure'
-        uses: actions/github-script@v7
+        uses: actions/github-script@v9
         with:
           script: |
             github.rest.issues.createComment({
