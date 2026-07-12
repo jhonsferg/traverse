@@ -4,7 +4,7 @@
 
 **Do not file public issues for security vulnerabilities.**
 
-If you discover a security vulnerability in Traverse, please email [security@example.com](mailto:security@example.com) with:
+If you discover a security vulnerability in Traverse, please email the maintainers with:
 
 1. Description of the vulnerability
 2. Steps to reproduce (if possible)
@@ -35,7 +35,7 @@ When contributing, be mindful of:
 1. **Input validation**: Always validate and sanitize OData filter expressions
 2. **Credential handling**: Never log passwords, tokens, or sensitive data
 3. **CSRF protection**: Always require CSRF tokens for write operations
-4. **SQL injection prevention**: Avoid constructing filters from untrusted input
+4. **OData injection prevention**: Avoid constructing filters from untrusted input; use parameterized queries
 5. **Dependency updates**: Keep dependencies up-to-date
 
 ## Known Security Limitations
