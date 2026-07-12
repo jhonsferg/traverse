@@ -386,10 +386,14 @@ jobs:
 
           git fetch origin badges 2>/dev/null || true
 
+          # -f: some example go.mod files show as locally modified due to
+          # line-ending normalization from .gitattributes on checkout, which
+          # otherwise blocks the branch switch below. This job only writes
+          # coverage.json and never needs to preserve the checked-out tree.
           if git ls-remote --exit-code --heads origin badges > /dev/null 2>&1; then
-            git checkout -B badges origin/badges
+            git checkout -f -B badges origin/badges
           else
-            git checkout --orphan badges
+            git checkout -f --orphan badges
             git rm -rf . --quiet 2>/dev/null || true
           fi
 
