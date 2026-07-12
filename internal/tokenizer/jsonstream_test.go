@@ -153,7 +153,7 @@ func TestArrayStreamer_LifecycleV4Style(t *testing.T) {
 	body := `{"ID":1,"Name":"a"}
 {"ID":2,"Name":"b"}`
 	s := NewArrayStreamer(strings.NewReader(body), ODataV4)
-	defer s.Close()
+	defer func() { _ = s.Close() }()
 
 	var got []map[string]interface{}
 	for s.Next() {
