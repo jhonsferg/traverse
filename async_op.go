@@ -2,6 +2,7 @@ package traverse
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"net/http"
 	"strconv"
@@ -57,10 +58,10 @@ const DefaultPollInterval = 5 * time.Second
 const DefaultMaxPolls = 60
 
 // ErrAsyncOpFailed is returned when the async operation completes with a failure status.
-var ErrAsyncOpFailed = fmt.Errorf("traverse: async operation failed")
+var ErrAsyncOpFailed = errors.New("traverse: async operation failed")
 
 // ErrAsyncOpTimeout is returned when maxPolls is exhausted before the operation completes.
-var ErrAsyncOpTimeout = fmt.Errorf("traverse: async operation timed out after max polls")
+var ErrAsyncOpTimeout = errors.New("traverse: async operation timed out after max polls")
 
 // AsyncOpPoller polls an OData async operation status URL until completion.
 //
