@@ -50,7 +50,7 @@ func TestNew_Defaults(t *testing.T) {
 
 	cache, err := New(&Config{Addr: mr.Addr()})
 	require.NoError(t, err)
-	defer cache.Close()
+	defer func() { _ = cache.Close() }()
 
 	assert.Equal(t, "traverse:", cache.keyPrefix)
 	assert.Equal(t, time.Hour, cache.ttl)
@@ -67,7 +67,7 @@ func TestNew_NilConfig(t *testing.T) {
 	cfg := &Config{Addr: mr.Addr()}
 	cache, err := New(cfg)
 	require.NoError(t, err)
-	defer cache.Close()
+	defer func() { _ = cache.Close() }()
 	assert.NotNil(t, cache)
 }
 
@@ -199,11 +199,11 @@ func TestMiniredisCache_KeyPrefixIsolation(t *testing.T) {
 
 	cache1, err := New(&Config{Addr: mr.Addr(), KeyPrefix: "app1:"})
 	require.NoError(t, err)
-	defer cache1.Close()
+	defer func() { _ = cache1.Close() }()
 
 	cache2, err := New(&Config{Addr: mr.Addr(), KeyPrefix: "app2:"})
 	require.NoError(t, err)
-	defer cache2.Close()
+	defer func() { _ = cache2.Close() }()
 
 	cache1.Set("key", sampleMetadata("Product"))
 
