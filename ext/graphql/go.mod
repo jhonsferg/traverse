@@ -8,8 +8,8 @@ require (
 )
 
 require (
-	github.com/andybalholm/brotli v1.2.1 // indirect
-	github.com/jhonsferg/relay v0.3.1 // indirect
+	github.com/andybalholm/brotli v1.2.2 // indirect
+	github.com/jhonsferg/relay v0.4.5 // indirect
 	github.com/klauspost/compress v1.19.0 // indirect
 	golang.org/x/net v0.57.0 // indirect
 	golang.org/x/sync v0.22.0 // indirect
