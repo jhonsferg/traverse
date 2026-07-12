@@ -51,6 +51,10 @@ import (
 	"github.com/jhonsferg/relay"
 )
 
+// maxResponseBodySize limits how much data we read from a single OData response
+// to prevent memory exhaustion from unbounded payloads.
+const maxResponseBodySize = 100 * 1024 * 1024 // 100 MB
+
 // Client is the main OData client for querying and manipulating OData services.
 //
 // Client handles all OData operations with a comprehensive feature set including query building,
@@ -693,7 +697,7 @@ func (c *Client) fetchMetadata(ctx context.Context) (*Metadata, error) {
 // For XML responses (common in SAP OData v2), it converts to JSON first via intermediate unmarshaling.
 func (c *Client) decodeODataResponse(resp *relay.Response) (map[string]interface{}, error) {
 	// Read the response body into memory so we can inspect it
-	bodyBytes, err := io.ReadAll(resp.BodyReader())
+	bodyBytes, err := io.ReadAll(io.LimitReader(resp.BodyReader(), maxResponseBodySize))
 	if err != nil {
 		return nil, fmt.Errorf("traverse: failed to read response body: %w", err)
 	}
@@ -893,7 +897,7 @@ func (c *Client) createWithRawXML(ctx context.Context, entitySet string, data in
 	c.invalidateEntitySetCache(entitySet)
 
 	// Read the raw response body
-	bodyBytes, err := io.ReadAll(resp.BodyReader())
+	bodyBytes, err := io.ReadAll(io.LimitReader(resp.BodyReader(), maxResponseBodySize))
 	if err != nil {
 		return nil, fmt.Errorf("traverse: failed to read response body: %w", err)
 	}
