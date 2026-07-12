@@ -45,15 +45,11 @@ func mapToJsonStruct[T any](m map[string]interface{}) (T, error) {
 	return result, nil
 }
 
-// mapToXmlStruct converts a map[string]interface{} to a typed value T with XML struct tags.
+// mapToXmlStruct converts a map[string]interface{} to a typed value T.
 //
-// mapToXmlStruct marshals the map to JSON bytes (as an intermediary since maps can't be
-// directly serialized to XML), then unmarshals into the target type T using JSON tags first,
-// then attempts xml tags. The target type T should ideally have both json:"..." and
-// xml:"..." struct tags for maximum compatibility.
-//
-// NOTE: This method works best when the source map comes from JSON (e.g., from OData JSON responses).
-// For true XML responses from the server, use xmlBytesToStruct() instead.
+// Despite its name, mapToXmlStruct uses JSON marshal/unmarshal as the intermediary
+// because maps cannot be directly serialized to XML. For true XML responses from
+// the server, use XmlBytesToStruct() instead.
 //
 // This is the foundation for XmlAs methods: CreateXmlAs, FindByKeyXmlAs, FirstXmlAs,
 // CollectXmlAs, StreamXmlAs.
@@ -68,21 +64,7 @@ func mapToJsonStruct[T any](m map[string]interface{}) (T, error) {
 //	m := map[string]interface{}{"id": 123, "total": 99.99}
 //	order, err := mapToXmlStruct[Order](m)
 func mapToXmlStruct[T any](m map[string]interface{}) (T, error) {
-	var result T
-
-	// Marshal the map to JSON bytes (intermediary step)
-	data, err := json.Marshal(m)
-	if err != nil {
-		return result, fmt.Errorf("traverse: failed to marshal map to JSON: %w", err)
-	}
-
-	// Try JSON unmarshaling first (most common case for OData JSON responses)
-	err = json.Unmarshal(data, &result)
-	if err != nil {
-		return result, fmt.Errorf("traverse: failed to unmarshal to target type: %w", err)
-	}
-
-	return result, nil
+	return mapToJsonStruct[T](m)
 }
 
 // XmlBytesToStruct converts raw XML bytes directly to a typed value T with XML struct tags.
