@@ -542,7 +542,7 @@ func (b *BatchRequest) ExecuteStream(ctx context.Context) <-chan BatchResult {
 // Returns an error if the response cannot be parsed or if an HTTP error status is received.
 func (b *BatchRequest) streamMultipartResponse(ctx context.Context, resp *relay.Response, out chan<- BatchResult) error {
 	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
-		return fmt.Errorf("traverse: batch request failed with status %d", resp.StatusCode)
+		return fmt.Errorf("traverse: batch request failed with status %d: %w", resp.StatusCode, ErrBatchFailed)
 	}
 
 	// Extract boundary from Content-Type header
@@ -726,14 +726,14 @@ func (b *BatchRequest) writeBatchOperation(w *multipart.Writer, op *BatchOperati
 	// Serialize the operation as HTTP request
 	reqBuilder.WriteString(op.Method)
 	reqBuilder.WriteByte(' ')
-	reqBuilder.WriteString(op.URL)
+	reqBuilder.WriteString(sanitizeHeaderValue(op.URL))
 	reqBuilder.WriteString(" HTTP/1.1\r\n")
 
 	// Write headers
 	for k, v := range op.Headers {
-		reqBuilder.WriteString(k)
+		reqBuilder.WriteString(sanitizeHeaderValue(k))
 		reqBuilder.WriteString(": ")
-		reqBuilder.WriteString(v)
+		reqBuilder.WriteString(sanitizeHeaderValue(v))
 		reqBuilder.WriteString("\r\n")
 	}
 
@@ -804,13 +804,13 @@ func (b *BatchRequest) writeChangeset(w *multipart.Writer, cs *changeset, parent
 		}
 
 		// Serialize operation
-		if _, err := fmt.Fprintf(csPart, "%s %s HTTP/1.1\r\n", op.Method, op.URL); err != nil {
+		if _, err := fmt.Fprintf(csPart, "%s %s HTTP/1.1\r\n", op.Method, sanitizeHeaderValue(op.URL)); err != nil {
 			return err
 		}
 
 		// Write headers
 		for k, v := range op.Headers {
-			if _, err := fmt.Fprintf(csPart, "%s: %s\r\n", k, v); err != nil {
+			if _, err := fmt.Fprintf(csPart, "%s: %s\r\n", sanitizeHeaderValue(k), sanitizeHeaderValue(v)); err != nil {
 				return err
 			}
 		}
@@ -855,7 +855,7 @@ func (b *BatchRequest) writeChangeset(w *multipart.Writer, cs *changeset, parent
 // Returns a slice of [BatchResult] for each operation, or an error if parsing fails.
 func (b *BatchRequest) parseMultipartResponse(resp *relay.Response) ([]BatchResult, error) {
 	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
-		return nil, fmt.Errorf("traverse: batch request failed with status %d", resp.StatusCode)
+		return nil, fmt.Errorf("traverse: batch request failed with status %d: %w", resp.StatusCode, ErrBatchFailed)
 	}
 
 	// Extract boundary from Content-Type header
