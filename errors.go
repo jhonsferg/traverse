@@ -101,6 +101,15 @@ var (
 
 	// ErrClientClosed is returned when client is closed.
 	ErrClientClosed = errors.New("traverse: client closed")
+
+	// ErrUnauthorized is returned when authentication fails (HTTP 401).
+	ErrUnauthorized = errors.New("traverse: authentication required (401)")
+
+	// ErrForbidden is returned when authorization fails (HTTP 403).
+	ErrForbidden = errors.New("traverse: authorization denied (403)")
+
+	// ErrBatchFailed is returned when a batch request fails.
+	ErrBatchFailed = errors.New("traverse: batch request failed")
 )
 
 // SAPError represents a structured error from a SAP OData service.
