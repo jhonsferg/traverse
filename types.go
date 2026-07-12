@@ -212,6 +212,14 @@ func (g *Guid) UnmarshalJSON(b []byte) error {
 		return fmt.Errorf("invalid GUID format: %s", s)
 	}
 
+	// Validate expected segment lengths: 8-4-4-4-12
+	expectedLengths := []int{8, 4, 4, 4, 12}
+	for i, length := range expectedLengths {
+		if len(parts[i]) != length {
+			return fmt.Errorf("invalid GUID format: expected %d hex digits in segment %d, got %d: %s", length, i+1, len(parts[i]), s)
+		}
+	}
+
 	var result Guid
 	// Parse each segment: 8-4-4-4-12 hex digits
 	positions := []struct {
