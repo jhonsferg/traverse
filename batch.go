@@ -542,7 +542,7 @@ func (b *BatchRequest) ExecuteStream(ctx context.Context) <-chan BatchResult {
 // Returns an error if the response cannot be parsed or if an HTTP error status is received.
 func (b *BatchRequest) streamMultipartResponse(ctx context.Context, resp *relay.Response, out chan<- BatchResult) error {
 	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
-		return fmt.Errorf("traverse: batch request failed with status %d", resp.StatusCode)
+		return fmt.Errorf("traverse: batch request failed with status %d: %w", resp.StatusCode, ErrBatchFailed)
 	}
 
 	// Extract boundary from Content-Type header
