@@ -23,7 +23,8 @@ type searchTerm struct {
 
 func (s searchTerm) searchString() string {
 	if s.phrase {
-		return `"` + s.value + `"`
+		escaped := strings.ReplaceAll(s.value, `"`, `\"`)
+		return `"` + escaped + `"`
 	}
 	return s.value
 }

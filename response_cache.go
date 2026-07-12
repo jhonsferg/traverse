@@ -94,8 +94,10 @@ func (c *inMemoryResponseCache) Get(key string) (*ResponseCacheEntry, bool) {
 // Set stores entry for key. When ttl > 0, entry.ExpiresAt is set to now+ttl.
 // The stored entry is a copy to prevent mutation of the caller's value.
 func (c *inMemoryResponseCache) Set(key string, entry *ResponseCacheEntry, ttl time.Duration) {
+	bodyCopy := make([]byte, len(entry.Body))
+	copy(bodyCopy, entry.Body)
 	stored := &ResponseCacheEntry{
-		Body:         entry.Body,
+		Body:         bodyCopy,
 		ETag:         entry.ETag,
 		LastModified: entry.LastModified,
 	}
