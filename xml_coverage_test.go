@@ -115,7 +115,7 @@ func TestCreateWithRawXML(t *testing.T) {
 	if err != nil {
 		t.Fatalf("New error: %v", err)
 	}
-	defer client.Close()
+	defer func() { _ = client.Close() }()
 
 	body, err := client.createWithRawXML(context.Background(), "Items", map[string]string{"Name": "New Item"})
 	if err != nil {
@@ -144,7 +144,7 @@ func TestCreateWithRawXML_Error(t *testing.T) {
 	if err != nil {
 		t.Fatalf("New error: %v", err)
 	}
-	defer client.Close()
+	defer func() { _ = client.Close() }()
 
 	_, err = client.createWithRawXML(context.Background(), "Items", map[string]string{})
 	if err == nil {
@@ -228,7 +228,7 @@ func TestCreateXmlAs_Integration(t *testing.T) {
 	if err != nil {
 		t.Fatalf("New error: %v", err)
 	}
-	defer client.Close()
+	defer func() { _ = client.Close() }()
 
 	type Product struct {
 		ID    int     `json:"ID" xml:"ID"`
@@ -257,7 +257,7 @@ func TestCollectXmlAs_Integration(t *testing.T) {
 	if err != nil {
 		t.Fatalf("New error: %v", err)
 	}
-	defer client.Close()
+	defer func() { _ = client.Close() }()
 
 	type Item struct {
 		ID   int    `json:"ID" xml:"ID"`
@@ -288,7 +288,7 @@ func TestFirstXmlAs_Integration(t *testing.T) {
 	if err != nil {
 		t.Fatalf("New error: %v", err)
 	}
-	defer client.Close()
+	defer func() { _ = client.Close() }()
 
 	type Item struct {
 		ID   int    `json:"ID" xml:"ID"`
@@ -316,7 +316,7 @@ func TestFindByKeyXmlAs_Integration(t *testing.T) {
 	if err != nil {
 		t.Fatalf("New error: %v", err)
 	}
-	defer client.Close()
+	defer func() { _ = client.Close() }()
 
 	type Item struct {
 		ID   int    `json:"ID" xml:"ID"`
@@ -344,7 +344,7 @@ func TestStreamXmlAs_Integration(t *testing.T) {
 	if err != nil {
 		t.Fatalf("New error: %v", err)
 	}
-	defer client.Close()
+	defer func() { _ = client.Close() }()
 
 	type Item struct {
 		ID int `json:"ID" xml:"ID"`
@@ -386,7 +386,7 @@ func TestCreateAtomXmlAs_Integration(t *testing.T) {
 	if err != nil {
 		t.Fatalf("New error: %v", err)
 	}
-	defer client.Close()
+	defer func() { _ = client.Close() }()
 
 	type SAPNotification struct {
 		XMLName xml.Name `xml:"entry"`
@@ -418,7 +418,7 @@ func TestCreateAtomXmlAs_Error(t *testing.T) {
 	if err != nil {
 		t.Fatalf("New error: %v", err)
 	}
-	defer client.Close()
+	defer func() { _ = client.Close() }()
 
 	type Dummy struct {
 		XMLName xml.Name `xml:"entry"`
@@ -472,7 +472,7 @@ func TestCreateXmlAs_Error(t *testing.T) {
 	if err != nil {
 		t.Fatalf("New error: %v", err)
 	}
-	defer client.Close()
+	defer func() { _ = client.Close() }()
 
 	type Dummy struct {
 		ID int `json:"ID"`
@@ -512,7 +512,7 @@ func TestCreateWithRawXML_NetworkError(t *testing.T) {
 			return
 		}
 		conn, _, _ := hj.Hijack()
-		conn.Close()
+		_ = conn.Close()
 	}))
 	defer server.Close()
 
@@ -520,7 +520,7 @@ func TestCreateWithRawXML_NetworkError(t *testing.T) {
 	if err != nil {
 		t.Fatalf("New error: %v", err)
 	}
-	defer client.Close()
+	defer func() { _ = client.Close() }()
 
 	_, err = client.createWithRawXML(context.Background(), "Items", map[string]string{})
 	if err == nil {

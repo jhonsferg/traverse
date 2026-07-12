@@ -453,7 +453,7 @@ func TestExecuteFunctionXmlAs(t *testing.T) {
 	if err != nil {
 		t.Fatalf("New error: %v", err)
 	}
-	defer c.Close()
+	defer func() { _ = c.Close() }()
 
 	type Result struct {
 		Name  string  `json:"Name" xml:"Name"`
@@ -491,7 +491,7 @@ func TestExecuteActionXmlAs(t *testing.T) {
 	if err != nil {
 		t.Fatalf("New error: %v", err)
 	}
-	defer c.Close()
+	defer func() { _ = c.Close() }()
 
 	type ApprovalResult struct {
 		Approved bool   `json:"Approved" xml:"Approved"`
@@ -532,7 +532,7 @@ func TestExecuteFunctionImportXmlAs(t *testing.T) {
 	if err != nil {
 		t.Fatalf("New error: %v", err)
 	}
-	defer c.Close()
+	defer func() { _ = c.Close() }()
 
 	type Result struct {
 		Result string `json:"Result" xml:"Result"`
