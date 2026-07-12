@@ -855,7 +855,7 @@ func (b *BatchRequest) writeChangeset(w *multipart.Writer, cs *changeset, parent
 // Returns a slice of [BatchResult] for each operation, or an error if parsing fails.
 func (b *BatchRequest) parseMultipartResponse(resp *relay.Response) ([]BatchResult, error) {
 	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
-		return nil, fmt.Errorf("traverse: batch request failed with status %d", resp.StatusCode)
+		return nil, fmt.Errorf("traverse: batch request failed with status %d: %w", resp.StatusCode, ErrBatchFailed)
 	}
 
 	// Extract boundary from Content-Type header
