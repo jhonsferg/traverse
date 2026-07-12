@@ -10,6 +10,7 @@ on:
       - "**/go.sum"
       - "go.work"
       - "go.work.sum"
+      - ".github/workflows/api-check.yml"
 
 permissions:
   contents: read
