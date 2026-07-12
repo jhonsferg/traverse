@@ -2250,89 +2250,44 @@ func (q *QueryBuilder) buildURL() string {
 	hasParams := strings.Contains(q.entitySet, "?")
 
 	if len(q.selectFields) > 0 {
-		if !hasParams {
-			buf.WriteString("?")
-			hasParams = true
-		} else {
-			buf.WriteString("&")
-		}
+		writeParamSep(buf, &hasParams)
 		buf.WriteString("$select=")
-		for i, field := range q.selectFields {
-			if i > 0 {
-				buf.WriteString(",")
-			}
-			buf.WriteString(field)
-		}
+		writeJoined(buf, q.selectFields, ",")
 	}
 
 	if q.filterExpr != "" {
-		if !hasParams {
-			buf.WriteString("?")
-			hasParams = true
-		} else {
-			buf.WriteString("&")
-		}
+		writeParamSep(buf, &hasParams)
 		buf.WriteString("$filter=")
 		buf.WriteString(url.QueryEscape(q.filterExpr))
 	}
 
 	if q.orderByExpr != "" {
-		if !hasParams {
-			buf.WriteString("?")
-			hasParams = true
-		} else {
-			buf.WriteString("&")
-		}
+		writeParamSep(buf, &hasParams)
 		buf.WriteString("$orderby=")
 		buf.WriteString(url.QueryEscape(q.orderByExpr))
 	}
 
 	if len(q.expandProps) > 0 {
-		if !hasParams {
-			buf.WriteString("?")
-			hasParams = true
-		} else {
-			buf.WriteString("&")
-		}
+		writeParamSep(buf, &hasParams)
 		buf.WriteString("$expand=")
-		for i, prop := range q.expandProps {
-			if i > 0 {
-				buf.WriteString(",")
-			}
-			buf.WriteString(prop)
-		}
+		writeJoined(buf, q.expandProps, ",")
 	}
 
 	if q.top != nil {
-		if !hasParams {
-			buf.WriteString("?")
-			hasParams = true
-		} else {
-			buf.WriteString("&")
-		}
+		writeParamSep(buf, &hasParams)
 		buf.WriteString("$top=")
 		// ✅ Optimized: Use strconv instead of fmt.Sprintf
 		buf.WriteString(strconv.Itoa(*q.top))
 	}
 
 	if q.skip != nil {
-		if !hasParams {
-			buf.WriteString("?")
-			hasParams = true
-		} else {
-			buf.WriteString("&")
-		}
+		writeParamSep(buf, &hasParams)
 		buf.WriteString("$skip=")
 		buf.WriteString(strconv.Itoa(*q.skip))
 	}
 
 	if q.withCount {
-		if !hasParams {
-			buf.WriteString("?")
-			hasParams = true
-		} else {
-			buf.WriteString("&")
-		}
+		writeParamSep(buf, &hasParams)
 		// OData v2 uses $inlinecount=allpages; OData v4 uses $count=true
 		if q.client != nil && q.client.version == ODataV2 {
 			buf.WriteString("$inlinecount=allpages")
@@ -2342,57 +2297,32 @@ func (q *QueryBuilder) buildURL() string {
 	}
 
 	if q.search != "" {
-		if !hasParams {
-			buf.WriteString("?")
-			hasParams = true
-		} else {
-			buf.WriteString("&")
-		}
+		writeParamSep(buf, &hasParams)
 		buf.WriteString("$search=")
 		buf.WriteString(url.QueryEscape(q.search))
 	}
 
 	if q.apply != "" {
-		if !hasParams {
-			buf.WriteString("?")
-			hasParams = true
-		} else {
-			buf.WriteString("&")
-		}
+		writeParamSep(buf, &hasParams)
 		buf.WriteString("$apply=")
 		buf.WriteString(url.QueryEscape(q.apply))
 	}
 
 	if q.compute != "" {
-		if !hasParams {
-			buf.WriteString("?")
-			hasParams = true
-		} else {
-			buf.WriteString("&")
-		}
+		writeParamSep(buf, &hasParams)
 		buf.WriteString("$compute=")
 		buf.WriteString(url.QueryEscape(q.compute))
 	}
 
 	if q.deltaToken != "" {
-		if !hasParams {
-			buf.WriteString("?")
-			hasParams = true
-		} else {
-			buf.WriteString("&")
-		}
+		writeParamSep(buf, &hasParams)
 		buf.WriteString("$deltatoken=")
 		buf.WriteString(url.QueryEscape(q.deltaToken))
 	}
 
 	// ✅ Optimized: Custom parameters with minimal allocations
 	for k, v := range q.params {
-		if !hasParams {
-			buf.WriteString("?")
-			hasParams = true
-		} else {
-			buf.WriteString("&")
-		}
+		writeParamSep(buf, &hasParams)
 		buf.WriteString(url.QueryEscape(k))
 		buf.WriteString("=")
 		buf.WriteString(url.QueryEscape(v))
@@ -2403,6 +2333,31 @@ func (q *QueryBuilder) buildURL() string {
 	q.urlDirty = false
 
 	return q.urlCache
+}
+
+// writeParamSep writes the correct query-string separator ("?" for the first
+// parameter, "&" for subsequent ones) and flips hasParams to true.
+// Extracted from buildURL to collapse a dozen near-identical if/else blocks
+// into a single call each, which was the main driver of buildURL's cognitive
+// complexity.
+func writeParamSep(buf *bytes.Buffer, hasParams *bool) {
+	if !*hasParams {
+		buf.WriteString("?")
+		*hasParams = true
+	} else {
+		buf.WriteString("&")
+	}
+}
+
+// writeJoined writes vals to buf separated by sep, without allocating an
+// intermediate joined string (unlike strings.Join).
+func writeJoined(buf *bytes.Buffer, vals []string, sep string) {
+	for i, v := range vals {
+		if i > 0 {
+			buf.WriteString(sep)
+		}
+		buf.WriteString(v)
+	}
 }
 
 // ─────────────────────────────────────────────────────────────────────────
