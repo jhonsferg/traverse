@@ -10,7 +10,7 @@ This project adheres to the Contributor Covenant [Code of Conduct](CODE_OF_CONDU
 
 ### Prerequisites
 
-- Go 1.19 or higher
+- Go 1.25 or higher
 - Git
 - Basic understanding of OData and HTTP concepts
 

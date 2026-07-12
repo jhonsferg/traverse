@@ -84,7 +84,7 @@ func (c *Client) Function(name string) *FunctionBuilder {
 	return &FunctionBuilder{
 		client:     c,
 		name:       name,
-		parameters: make(map[string]interface{}),
+		parameters: make(map[string]interface{}, 4),
 	}
 }
 
@@ -105,7 +105,7 @@ func (c *Client) Action(name string) *ActionBuilder {
 	return &ActionBuilder{
 		client:     c,
 		name:       name,
-		parameters: make(map[string]interface{}),
+		parameters: make(map[string]interface{}, 4),
 	}
 }
 
@@ -124,7 +124,7 @@ func (c *Client) FunctionImport(name string) *FunctionImportBuilder {
 		client:     c,
 		name:       name,
 		method:     "GET",
-		parameters: make(map[string]interface{}),
+		parameters: make(map[string]interface{}, 4),
 	}
 }
 
