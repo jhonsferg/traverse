@@ -1344,7 +1344,7 @@ func (q *QueryBuilder) BoundFunction(name string) *FunctionBuilder {
 		client:     q.client,
 		name:       name,
 		basePath:   q.entitySet,
-		parameters: make(map[string]interface{}),
+		parameters: make(map[string]interface{}, 4),
 	}
 }
 
@@ -1365,7 +1365,7 @@ func (q *QueryBuilder) BoundAction(name string) *ActionBuilder {
 		client:     q.client,
 		name:       name,
 		basePath:   q.entitySet,
-		parameters: make(map[string]interface{}),
+		parameters: make(map[string]interface{}, 4),
 	}
 }
 
