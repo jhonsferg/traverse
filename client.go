@@ -51,6 +51,10 @@ import (
 	"github.com/jhonsferg/relay"
 )
 
+// maxResponseBodySize limits how much data we read from a single OData response
+// to prevent memory exhaustion from unbounded payloads.
+const maxResponseBodySize = 100 * 1024 * 1024 // 100 MB
+
 // Client is the main OData client for querying and manipulating OData services.
 //
 // Client handles all OData operations with a comprehensive feature set including query building,
@@ -214,6 +218,16 @@ func applyAuthOpts(cfg *clientConfig) {
 		cfg.relayOpts = append(cfg.relayOpts, relay.WithOnBeforeRequest(
 			func(_ context.Context, req *relay.Request) error {
 				req.WithBearerToken(token)
+				return nil
+			},
+		))
+	}
+
+	if cfg.apiKeyHeader != "" {
+		header, value := cfg.apiKeyHeader, cfg.apiKeyValue
+		cfg.relayOpts = append(cfg.relayOpts, relay.WithOnBeforeRequest(
+			func(_ context.Context, req *relay.Request) error {
+				req.WithHeader(header, value)
 				return nil
 			},
 		))
@@ -704,7 +718,7 @@ func (c *Client) fetchMetadata(ctx context.Context) (*Metadata, error) {
 // For XML responses (common in SAP OData v2), it converts to JSON first via intermediate unmarshaling.
 func (c *Client) decodeODataResponse(resp *relay.Response) (map[string]interface{}, error) {
 	// Read the response body into memory so we can inspect it
-	bodyBytes, err := io.ReadAll(resp.BodyReader())
+	bodyBytes, err := io.ReadAll(io.LimitReader(resp.BodyReader(), maxResponseBodySize))
 	if err != nil {
 		return nil, fmt.Errorf("traverse: failed to read response body: %w", err)
 	}
@@ -779,29 +793,57 @@ func decodeJSONResponse(bodyBytes []byte, version ODataVersion) (map[string]inte
 	return result, nil
 }
 
-// decodeXMLResponse decodes an XML OData response (typically SAP OData v2 Atom format)
+// decodeXMLResponse decodes an XML OData response (typically SAP OData v2 Atom format).
+// It uses token-by-token parsing to extract d:property elements from m:properties.
 func decodeXMLResponse(bodyBytes []byte, version ODataVersion) (map[string]interface{}, error) {
-	// First, try to unmarshal as a generic XML structure
-	var entry struct {
-		Content struct {
-			Properties struct {
-				Entries []byte `xml:",innerxml"`
-			} `xml:"http://schemas.microsoft.com/ado/2007/08/dataservices content"`
-		} `xml:"http://www.w3.org/2005/Atom content"`
-		Properties struct {
-			Entries []byte `xml:",innerxml"`
-		} `xml:"http://schemas.microsoft.com/ado/2007/08/dataservices m:properties"`
-	}
+	const (
+		atomNS = "http://www.w3.org/2005/Atom"
+		dataNS = "http://schemas.microsoft.com/ado/2007/08/dataservices"
+		metaNS = "http://schemas.microsoft.com/ado/2007/08/dataservices/metadata"
+	)
 
-	err := xml.Unmarshal(bodyBytes, &entry)
-	if err != nil {
-		return nil, fmt.Errorf("failed to unmarshal XML entry: %w", err)
-	}
+	dec := xml.NewDecoder(bytes.NewReader(bodyBytes))
+	result := make(map[string]interface{})
 
-	// Convert XML properties to map[string]interface{}
-	// For now, return a basic structure - ideally would parse m:properties
-	result := map[string]interface{}{
-		"_raw_xml": string(bodyBytes),
+	var inProperties, inProp bool
+	var currentProp string
+
+	for {
+		tok, err := dec.Token()
+		if err == io.EOF {
+			break
+		}
+		if err != nil {
+			return nil, fmt.Errorf("failed to parse XML: %w", err)
+		}
+
+		switch t := tok.(type) {
+		case xml.StartElement:
+			fullName := t.Name.Space + " " + t.Name.Local
+			switch {
+			case fullName == metaNS+" properties" || fullName == dataNS+" properties":
+				inProperties = true
+			case inProperties && t.Name.Space == dataNS:
+				inProp = true
+				currentProp = t.Name.Local
+			}
+		case xml.EndElement:
+			fullName := t.Name.Space + " " + t.Name.Local
+			switch {
+			case fullName == metaNS+" properties" || fullName == dataNS+" properties":
+				inProperties = false
+			case inProp && t.Name.Space == dataNS:
+				inProp = false
+				currentProp = ""
+			}
+		case xml.CharData:
+			if inProp && currentProp != "" {
+				val := strings.TrimSpace(string(t))
+				if val != "" {
+					result[currentProp] = val
+				}
+			}
+		}
 	}
 
 	return result, nil
@@ -864,7 +906,7 @@ func (c *Client) Create(ctx context.Context, entitySet string, data interface{})
 		return nil, fmt.Errorf("traverse: create failed: %w", err)
 	}
 
-	if resp.StatusCode != 201 {
+	if resp.StatusCode != 200 && resp.StatusCode != 201 {
 		return nil, fmt.Errorf("traverse: create returned status %d", resp.StatusCode)
 	}
 
@@ -896,7 +938,7 @@ func (c *Client) createWithRawXML(ctx context.Context, entitySet string, data in
 		return nil, fmt.Errorf("traverse: create failed: %w", err)
 	}
 
-	if resp.StatusCode != 201 {
+	if resp.StatusCode != 200 && resp.StatusCode != 201 {
 		return nil, fmt.Errorf("traverse: create returned status %d", resp.StatusCode)
 	}
 
@@ -904,7 +946,7 @@ func (c *Client) createWithRawXML(ctx context.Context, entitySet string, data in
 	c.invalidateEntitySetCache(entitySet)
 
 	// Read the raw response body
-	bodyBytes, err := io.ReadAll(resp.BodyReader())
+	bodyBytes, err := io.ReadAll(io.LimitReader(resp.BodyReader(), maxResponseBodySize))
 	if err != nil {
 		return nil, fmt.Errorf("traverse: failed to read response body: %w", err)
 	}
@@ -1131,7 +1173,7 @@ func (c *Client) Delete(ctx context.Context, entitySet string, key interface{}) 
 		return fmt.Errorf("traverse: delete failed: %w", err)
 	}
 
-	if resp.StatusCode != 204 {
+	if resp.StatusCode != 200 && resp.StatusCode != 204 {
 		return fmt.Errorf("traverse: delete returned status %d", resp.StatusCode)
 	}
 
@@ -1258,7 +1300,7 @@ func WithPageSize(n int) Option {
 // nextLink. This guards against servers that always return a nextLink (whether
 // by misconfiguration or malice), which would otherwise cause an infinite loop.
 //
-// The default is [defaultMaxPages] (10,000). Use 0 to keep the default.
+// The default is [defaultMaxPages] (10,000). Omit or pass a positive value.
 // A value of 1 fetches only the first page regardless of nextLink.
 //
 // Example:

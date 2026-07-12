@@ -5,7 +5,35 @@ import (
 	"strconv"
 	"strings"
 	"time"
+	"unicode"
 )
+
+// odataReservedKeywords lists OData filter keywords that must not appear
+// as standalone field names to prevent filter injection.
+var odataReservedKeywords = map[string]bool{
+	"and": true, "or": true, "not": true, "eq": true,
+	"ne": true, "gt": true, "ge": true, "lt": true,
+	"le": true, "add": true, "sub": true, "mul": true,
+	"div": true, "mod": true, "isof": true, "cast": true,
+	"true": true, "false": true, "null": true,
+}
+
+// validateFieldName checks that a field name does not contain characters
+// that could enable OData filter injection (spaces, quotes, semicolons).
+func validateFieldName(field string) error {
+	for _, ch := range field {
+		if !unicode.IsLetter(ch) && !unicode.IsDigit(ch) && ch != '_' && ch != '.' && ch != '/' {
+			return fmt.Errorf("field name contains invalid character %q", ch)
+		}
+	}
+	if field != "" {
+		lower := strings.ToLower(field)
+		if odataReservedKeywords[lower] {
+			return fmt.Errorf("field name %q is an OData reserved keyword", field)
+		}
+	}
+	return nil
+}
 
 // FilterExpr is a chainable OData filter expression builder.
 //
@@ -30,6 +58,9 @@ type FilterExpr struct {
 //
 //	F("Age").Gt(18).Build()
 func F(field string) *FilterExpr {
+	if err := validateFieldName(field); err != nil {
+		return &FilterExpr{expr: "INVALID_FIELD"}
+	}
 	return &FilterExpr{expr: field}
 }
 
