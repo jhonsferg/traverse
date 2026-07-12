@@ -1,0 +1,14 @@
+# Normalize line endings to LF in the repository, regardless of the
+# checkout platform, so gofmt/go vet and tooling see consistent files.
+* text=auto eol=lf
+
+*.go text eol=lf
+go.mod text eol=lf
+go.sum text eol=lf
+go.work text eol=lf
+go.work.sum text eol=lf
+
+# Binary assets — never touch
+*.png binary
+*.jpg binary
+*.ico binary
