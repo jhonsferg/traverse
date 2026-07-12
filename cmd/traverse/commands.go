@@ -327,25 +327,20 @@ func createClient(conn *Connection) (*traverse.Client, error) {
 }
 
 func formatOutput(data []map[string]interface{}, format string) error {
-	var err error
-	switch format {
-	case "json":
-		var output []byte
-		output, err = json.MarshalIndent(data, "", "  ")
-		if err != nil {
-			return err
-		}
-		fmt.Println(string(output))
-	case "table":
+	// "table" is the only format with its own renderer. Every other value -
+	// including "json", "text" (several commands default --format to
+	// "text"), "" (unset), and any unrecognized/typo'd value - intentionally
+	// falls back to JSON output: this CLI has no separate plain-text
+	// renderer, and it stays forgiving of typos rather than erroring out.
+	if format == "table" {
 		return formatTable(data)
-	default:
-		var output []byte
-		output, err = json.MarshalIndent(data, "", "  ")
-		if err != nil {
-			return err
-		}
-		fmt.Println(string(output))
 	}
+
+	output, err := json.MarshalIndent(data, "", "  ")
+	if err != nil {
+		return err
+	}
+	fmt.Println(string(output))
 	return nil
 }
 
