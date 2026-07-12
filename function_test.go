@@ -1,6 +1,10 @@
 package traverse
 
 import (
+	"context"
+	"io"
+	"net/http"
+	"net/http/httptest"
 	"strings"
 	"testing"
 )
@@ -439,11 +443,33 @@ func TestExecuteFunctionJsonAs(t *testing.T) {
 }
 
 func TestExecuteFunctionXmlAs(t *testing.T) {
-	t.Run("ExecuteFunctionXmlAs signature", func(t *testing.T) {
-		mockClient := &Client{}
-		fb := mockClient.Function("GetMaterials")
-		_ = fb
-	})
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = io.WriteString(w, `{"Name":"TopProduct","Price":99.99}`)
+	}))
+	defer server.Close()
+
+	c, err := New(WithBaseURL(server.URL))
+	if err != nil {
+		t.Fatalf("New error: %v", err)
+	}
+	defer func() { _ = c.Close() }()
+
+	type Result struct {
+		Name  string  `json:"Name" xml:"Name"`
+		Price float64 `json:"Price" xml:"Price"`
+	}
+
+	result, err := ExecuteFunctionXmlAs[Result](
+		c.Function("GetTopProducts"),
+		context.Background(),
+	)
+	if err != nil {
+		t.Fatalf("ExecuteFunctionXmlAs error: %v", err)
+	}
+	if result.Name != "TopProduct" {
+		t.Errorf("Name = %q, want TopProduct", result.Name)
+	}
 }
 
 func TestExecuteActionJsonAs(t *testing.T) {
@@ -455,11 +481,36 @@ func TestExecuteActionJsonAs(t *testing.T) {
 }
 
 func TestExecuteActionXmlAs(t *testing.T) {
-	t.Run("ExecuteActionXmlAs signature", func(t *testing.T) {
-		mockClient := &Client{}
-		ab := mockClient.Action("CreateMaterial")
-		_ = ab
-	})
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = io.WriteString(w, `{"Approved":true,"Message":"OK"}`)
+	}))
+	defer server.Close()
+
+	c, err := New(WithBaseURL(server.URL))
+	if err != nil {
+		t.Fatalf("New error: %v", err)
+	}
+	defer func() { _ = c.Close() }()
+
+	type ApprovalResult struct {
+		Approved bool   `json:"Approved" xml:"Approved"`
+		Message  string `json:"Message" xml:"Message"`
+	}
+
+	result, err := ExecuteActionXmlAs[ApprovalResult](
+		c.Action("ApproveOrder"),
+		context.Background(),
+	)
+	if err != nil {
+		t.Fatalf("ExecuteActionXmlAs error: %v", err)
+	}
+	if !result.Approved {
+		t.Error("Approved should be true")
+	}
+	if result.Message != "OK" {
+		t.Errorf("Message = %q, want OK", result.Message)
+	}
 }
 
 func TestExecuteFunctionImportJsonAs(t *testing.T) {
@@ -471,9 +522,30 @@ func TestExecuteFunctionImportJsonAs(t *testing.T) {
 }
 
 func TestExecuteFunctionImportXmlAs(t *testing.T) {
-	t.Run("ExecuteFunctionImportXmlAs signature", func(t *testing.T) {
-		mockClient := &Client{}
-		fib := mockClient.FunctionImport("GetSalesData")
-		_ = fib
-	})
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = io.WriteString(w, `{"Result":"done"}`)
+	}))
+	defer server.Close()
+
+	c, err := New(WithBaseURL(server.URL))
+	if err != nil {
+		t.Fatalf("New error: %v", err)
+	}
+	defer func() { _ = c.Close() }()
+
+	type Result struct {
+		Result string `json:"Result" xml:"Result"`
+	}
+
+	result, err := ExecuteFunctionImportXmlAs[Result](
+		c.FunctionImport("DoSomething"),
+		context.Background(),
+	)
+	if err != nil {
+		t.Fatalf("ExecuteFunctionImportXmlAs error: %v", err)
+	}
+	if result.Result != "done" {
+		t.Errorf("Result = %q, want done", result.Result)
+	}
 }
