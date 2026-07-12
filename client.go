@@ -778,38 +778,57 @@ func decodeJSONResponse(bodyBytes []byte, version ODataVersion) (map[string]inte
 	return result, nil
 }
 
-// decodeXMLResponse decodes an XML OData response (typically SAP OData v2 Atom format)
+// decodeXMLResponse decodes an XML OData response (typically SAP OData v2 Atom format).
+// It uses token-by-token parsing to extract d:property elements from m:properties.
 func decodeXMLResponse(bodyBytes []byte, version ODataVersion) (map[string]interface{}, error) {
-	type xmlProp struct {
-		XMLName xml.Name
-		Value   string `xml:",chardata"`
-	}
+	const (
+		atomNS = "http://www.w3.org/2005/Atom"
+		dataNS = "http://schemas.microsoft.com/ado/2007/08/dataservices"
+		metaNS = "http://schemas.microsoft.com/ado/2007/08/dataservices/metadata"
+	)
 
-	var entry struct {
-		Content struct {
-			Properties []xmlProp `xml:"http://schemas.microsoft.com/ado/2007/08/dataservices *"`
-		} `xml:"http://www.w3.org/2005/Atom content"`
-		Properties struct {
-			Properties []xmlProp `xml:"http://schemas.microsoft.com/ado/2007/08/dataservices *"`
-		} `xml:"http://schemas.microsoft.com/ado/2007/08/dataservices m:properties"`
-	}
+	dec := xml.NewDecoder(bytes.NewReader(bodyBytes))
+	result := make(map[string]interface{})
 
-	if err := xml.Unmarshal(bodyBytes, &entry); err != nil {
-		return nil, fmt.Errorf("failed to unmarshal XML entry: %w", err)
-	}
+	var inProperties, inProp bool
+	var currentProp string
 
-	props := entry.Content.Properties
-	if len(props) == 0 {
-		props = entry.Properties.Properties
-	}
-
-	result := make(map[string]interface{}, len(props))
-	for _, p := range props {
-		local := p.XMLName.Local
-		if idx := strings.Index(local, "."); idx >= 0 {
-			local = local[idx+1:]
+	for {
+		tok, err := dec.Token()
+		if err == io.EOF {
+			break
 		}
-		result[local] = p.Value
+		if err != nil {
+			return nil, fmt.Errorf("failed to parse XML: %w", err)
+		}
+
+		switch t := tok.(type) {
+		case xml.StartElement:
+			fullName := t.Name.Space + " " + t.Name.Local
+			switch {
+			case fullName == metaNS+" properties" || fullName == dataNS+" properties":
+				inProperties = true
+			case inProperties && t.Name.Space == dataNS:
+				inProp = true
+				currentProp = t.Name.Local
+			}
+		case xml.EndElement:
+			fullName := t.Name.Space + " " + t.Name.Local
+			switch {
+			case fullName == metaNS+" properties" || fullName == dataNS+" properties":
+				inProperties = false
+			case inProp && t.Name.Space == dataNS:
+				inProp = false
+				currentProp = ""
+			}
+		case xml.CharData:
+			if inProp && currentProp != "" {
+				val := strings.TrimSpace(string(t))
+				if val != "" {
+					result[currentProp] = val
+				}
+			}
+		}
 	}
 
 	return result, nil
