@@ -274,9 +274,12 @@ jobs:
 
           for mod_dir in "${!AFFECTED[@]}"; do
             if [[ "$mod_dir" == "." ]]; then
-              latest=$(git tag -l 'v[0-9]*.[0-9]*.[0-9]*' \
-                         | grep -v '/' | sed 's/^v//' | sort -V | tail -1 || true)
-              tag_prefix="v"
+              # Root-package tags + releases are handled by
+              # auto-version-release.yml, which applies stricter Conventional
+              # Commits gating (only feat/fix/perf/refactor/breaking bump;
+              # test/docs/ci/chore are skipped). Tagging root here too created
+              # orphan tags with no matching GitHub Release (e.g. v0.22.3/4).
+              continue
             else
               latest=$(git tag -l "${mod_dir}/v[0-9]*.[0-9]*.[0-9]*" \
                          | sed "s|^${mod_dir}/v||" | sort -V | tail -1 || true)
