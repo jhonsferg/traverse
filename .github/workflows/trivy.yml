@@ -4,9 +4,21 @@ on:
   push:
     branches:
       - master
+    paths:
+      - "**/*.go"
+      - "**/go.mod"
+      - "**/go.sum"
+      - "go.work"
+      - "go.work.sum"
   pull_request:
     branches:
       - master
+    paths:
+      - "**/*.go"
+      - "**/go.mod"
+      - "**/go.sum"
+      - "go.work"
+      - "go.work.sum"
   schedule:
     # Run daily at 2 AM UTC
     - cron: '0 2 * * *'

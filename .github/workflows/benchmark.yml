@@ -3,6 +3,12 @@ name: Benchmark Regression Gate
 on:
   pull_request:
     branches: [master]
+    paths:
+      - "**/*.go"
+      - "**/go.mod"
+      - "**/go.sum"
+      - "go.work"
+      - "go.work.sum"
 
 permissions:
   contents: read
