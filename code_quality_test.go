@@ -36,7 +36,7 @@ func TestUpdate_AcceptsStatus200(t *testing.T) {
 		WithBaseURL(srv.URL()),
 		WithODataVersion(ODataV2),
 	)
-	defer client.Close()
+	defer func() { _ = client.Close() }()
 
 	err := client.Update(context.Background(), "Products", 1, map[string]interface{}{"Name": "Updated"})
 	if err != nil {
@@ -54,7 +54,7 @@ func TestUpdate_AcceptsStatus204(t *testing.T) {
 		WithBaseURL(srv.URL()),
 		WithODataVersion(ODataV2),
 	)
-	defer client.Close()
+	defer func() { _ = client.Close() }()
 
 	err := client.Update(context.Background(), "Products", 1, map[string]interface{}{"Name": "Updated"})
 	if err != nil {
@@ -72,7 +72,7 @@ func TestReplace_AcceptsStatus200(t *testing.T) {
 		WithBaseURL(srv.URL()),
 		WithODataVersion(ODataV2),
 	)
-	defer client.Close()
+	defer func() { _ = client.Close() }()
 
 	err := client.Replace(context.Background(), "Products", 1, map[string]interface{}{"Name": "Replaced"})
 	if err != nil {
@@ -90,7 +90,7 @@ func TestReplace_AcceptsStatus201(t *testing.T) {
 		WithBaseURL(srv.URL()),
 		WithODataVersion(ODataV2),
 	)
-	defer client.Close()
+	defer func() { _ = client.Close() }()
 
 	err := client.Replace(context.Background(), "Products", 1, map[string]interface{}{"Name": "Replaced"})
 	if err != nil {
@@ -109,7 +109,7 @@ func TestMetadata_NoOpCache_SkipsCacheOperations(t *testing.T) {
 		WithODataVersion(ODataV4),
 		WithMetadataCache(&NoOpCache{}),
 	)
-	defer client.Close()
+	defer func() { _ = client.Close() }()
 
 	meta, err := client.Metadata(context.Background())
 	if err != nil {
@@ -133,7 +133,7 @@ func TestMetadata_MemoryCache_CachesResult(t *testing.T) {
 		WithODataVersion(ODataV4),
 		WithMetadataCache(cache),
 	)
-	defer client.Close()
+	defer func() { _ = client.Close() }()
 
 	_, err := client.Metadata(context.Background())
 	if err != nil {
