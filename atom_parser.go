@@ -80,7 +80,7 @@ func ParseAtomFeed(r io.Reader, page *Page) error {
 
 			case t.Name.Space == atomNS && t.Name.Local == "entry":
 				inEntry = true
-				currentEntry = make(map[string]interface{})
+				currentEntry = make(map[string]interface{}, 16)
 
 			case inEntry && t.Name.Space == metaNS && t.Name.Local == "properties":
 				inProperties = true
