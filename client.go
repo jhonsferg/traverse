@@ -625,6 +625,17 @@ func (c *Client) Service(ctx context.Context) (*ServiceDocument, error) {
 // only the first call fetches the metadata, while others wait for the result.
 func (c *Client) Metadata(ctx context.Context) (*Metadata, error) {
 	c.metadataOnce.Do(func() {
+		// Skip cache operations for NoOpCache to avoid unnecessary key generation
+		if _, isNoOp := c.metadataCache.(*NoOpCache); isNoOp {
+			metadata, err := c.fetchMetadata(ctx)
+			if err != nil {
+				c.metadataErr = err
+				return
+			}
+			c.metadata = metadata
+			return
+		}
+
 		// Use cache key based on baseURL
 		cacheKey := "metadata:" + c.baseURL
 
@@ -634,7 +645,7 @@ func (c *Client) Metadata(ctx context.Context) (*Metadata, error) {
 			return
 		}
 
-		// Cache miss or no-op cache, fetch from network
+		// Cache miss, fetch from network
 		metadata, err := c.fetchMetadata(ctx)
 		if err != nil {
 			c.metadataErr = err
@@ -923,7 +934,7 @@ func (c *Client) createWithRawXML(ctx context.Context, entitySet string, data in
 //   - MERGE (legacy) for OData v2
 //
 // Response:
-// Returns nil on success with HTTP 204 No Content (standard) or HTTP 200 OK with updated entity.
+// Returns nil on success with HTTP 200 OK (with updated entity) or HTTP 204 No Content (standard).
 // The method doesn't parse the response body for 204 responses.
 //
 // Concurrency Control:
@@ -971,7 +982,7 @@ func (c *Client) Update(ctx context.Context, entitySet string, key interface{}, 
 		return fmt.Errorf("traverse: update failed: %w", err)
 	}
 
-	if resp.StatusCode != 204 {
+	if resp.StatusCode != 200 && resp.StatusCode != 204 {
 		return fmt.Errorf("traverse: update returned status %d", resp.StatusCode)
 	}
 
@@ -1043,7 +1054,7 @@ func (c *Client) Replace(ctx context.Context, entitySet string, key interface{},
 		return fmt.Errorf("traverse: replace failed: %w", err)
 	}
 
-	if resp.StatusCode != 204 {
+	if resp.StatusCode != 200 && resp.StatusCode != 201 && resp.StatusCode != 204 {
 		return fmt.Errorf("traverse: replace returned status %d", resp.StatusCode)
 	}
 
