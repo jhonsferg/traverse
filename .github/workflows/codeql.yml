@@ -3,8 +3,22 @@ name: CodeQL
 on:
   push:
     branches: [master]
+    paths:
+      - "**/*.go"
+      - "**/go.mod"
+      - "**/go.sum"
+      - "go.work"
+      - "go.work.sum"
+      - ".github/workflows/codeql.yml"
   pull_request:
     branches: [master]
+    paths:
+      - "**/*.go"
+      - "**/go.mod"
+      - "**/go.sum"
+      - "go.work"
+      - "go.work.sum"
+      - ".github/workflows/codeql.yml"
   schedule:
     - cron: "30 1 * * 1"
 

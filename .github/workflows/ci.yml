@@ -3,8 +3,26 @@ name: CI
 on:
   push:
     branches: [master]
+    paths:
+      - "**/*.go"
+      - "**/go.mod"
+      - "**/go.sum"
+      - "go.work"
+      - "go.work.sum"
+      - "**/testdata/**"
+      - "codecov.yml"
+      - ".github/workflows/ci.yml"
   pull_request:
     branches: [master]
+    paths:
+      - "**/*.go"
+      - "**/go.mod"
+      - "**/go.sum"
+      - "go.work"
+      - "go.work.sum"
+      - "**/testdata/**"
+      - "codecov.yml"
+      - ".github/workflows/ci.yml"
 
 permissions:
   contents: read

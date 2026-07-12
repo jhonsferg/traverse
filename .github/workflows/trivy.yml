@@ -4,9 +4,23 @@ on:
   push:
     branches:
       - master
+    paths:
+      - "**/*.go"
+      - "**/go.mod"
+      - "**/go.sum"
+      - "go.work"
+      - "go.work.sum"
+      - ".github/workflows/trivy.yml"
   pull_request:
     branches:
       - master
+    paths:
+      - "**/*.go"
+      - "**/go.mod"
+      - "**/go.sum"
+      - "go.work"
+      - "go.work.sum"
+      - ".github/workflows/trivy.yml"
   schedule:
     # Run daily at 2 AM UTC
     - cron: '0 2 * * *'
