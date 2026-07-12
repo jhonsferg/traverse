@@ -76,6 +76,9 @@ func F(field string) *FilterExpr {
 func formatValue(v interface{}) string {
 	switch val := v.(type) {
 	case string:
+		if !strings.ContainsRune(val, '\'') {
+			return "'" + val + "'"
+		}
 		escaped := strings.ReplaceAll(val, "'", "''")
 		return "'" + escaped + "'"
 	case int:
@@ -242,4 +245,19 @@ func (f *FilterExpr) Build() string {
 // fmt.Print and other functions expecting Stringer.
 func (f *FilterExpr) String() string {
 	return f.expr
+}
+
+// Reset clears the filter expression, allowing the FilterExpr to be reused
+// for building a new expression without allocating a new object.
+//
+// Example:
+//
+//	expr := F("Name").Eq("Alice")
+//	filter1 := expr.Build()  // "Name eq 'Alice'"
+//	expr.Reset()
+//	expr.Eq("Bob")
+//	filter2 := expr.Build()  // "Name eq 'Bob'"
+func (f *FilterExpr) Reset() *FilterExpr {
+	f.expr = ""
+	return f
 }
