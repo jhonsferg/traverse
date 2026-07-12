@@ -803,7 +803,7 @@ func decodeXMLResponse(bodyBytes []byte, version ODataVersion) (map[string]inter
 	)
 
 	dec := xml.NewDecoder(bytes.NewReader(bodyBytes))
-	result := make(map[string]interface{})
+	result := make(map[string]interface{}, 16)
 
 	var inProperties, inProp bool
 	var currentProp string
