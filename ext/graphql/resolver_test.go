@@ -279,10 +279,10 @@ func TestMutationResolver_ResolveUpdate_UpdateError(t *testing.T) {
 
 func TestMutationResolver_ResolveUpdate_FetchAfterUpdateError(t *testing.T) {
 	client, ts := newTestClient(t, func(w http.ResponseWriter, r *http.Request) {
-		switch {
-		case r.Method == http.MethodPatch:
+		switch r.Method {
+		case http.MethodPatch:
 			w.WriteHeader(http.StatusNoContent)
-		case r.Method == http.MethodGet:
+		case http.MethodGet:
 			http.Error(w, "not found", http.StatusNotFound)
 		}
 	})
