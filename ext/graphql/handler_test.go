@@ -174,7 +174,7 @@ func newHandlerTestServer(t *testing.T) *GraphQLServer {
 
 func TestGraphQLServer_Handler_MethodNotAllowed(t *testing.T) {
 	server := newHandlerTestServer(t)
-	req := httptest.NewRequest(http.MethodGet, "/graphql", nil)
+	req := httptest.NewRequestWithContext(context.Background(), http.MethodGet, "/graphql", nil)
 	rec := httptest.NewRecorder()
 
 	server.Handler().ServeHTTP(rec, req)
@@ -186,7 +186,7 @@ func TestGraphQLServer_Handler_MethodNotAllowed(t *testing.T) {
 
 func TestGraphQLServer_Handler_InvalidJSON(t *testing.T) {
 	server := newHandlerTestServer(t)
-	req := httptest.NewRequest(http.MethodPost, "/graphql", bytes.NewBufferString("not json"))
+	req := httptest.NewRequestWithContext(context.Background(), http.MethodPost, "/graphql", bytes.NewBufferString("not json"))
 	rec := httptest.NewRecorder()
 
 	server.Handler().ServeHTTP(rec, req)
@@ -205,7 +205,7 @@ func TestGraphQLServer_Handler_Success(t *testing.T) {
 	if err != nil {
 		t.Fatalf("json.Marshal() error = %v", err)
 	}
-	req := httptest.NewRequest(http.MethodPost, "/graphql", bytes.NewReader(body))
+	req := httptest.NewRequestWithContext(context.Background(), http.MethodPost, "/graphql", bytes.NewReader(body))
 	rec := httptest.NewRecorder()
 
 	server.Handler().ServeHTTP(rec, req)
