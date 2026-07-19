@@ -3,7 +3,7 @@ module github.com/jhonsferg/traverse/ext/sap
 go 1.25.0
 
 require (
-	github.com/jhonsferg/relay v0.4.5
+	github.com/jhonsferg/relay v0.4.8
 	github.com/jhonsferg/traverse v0.1.0
 	github.com/jhonsferg/traverse/ext/oauth2 v0.1.0
 )
