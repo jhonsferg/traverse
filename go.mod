@@ -6,7 +6,7 @@ require github.com/jhonsferg/relay v0.4.5
 
 require (
 	github.com/andybalholm/brotli v1.2.2 // indirect
-	github.com/klauspost/compress v1.19.0 // indirect
+	github.com/klauspost/compress v1.19.2 // indirect
 	golang.org/x/net v0.57.0 // indirect
 )
 
