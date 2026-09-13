@@ -1,6 +1,6 @@
 module github.com/jhonsferg/traverse/ext/webhooks
 
-go 1.25.0
+go 1.26.0
 
 require github.com/jhonsferg/traverse v0.1.0
 
@@ -9,7 +9,7 @@ require (
 	github.com/jhonsferg/relay v0.4.5 // indirect
 	github.com/klauspost/compress v1.19.0 // indirect
 	golang.org/x/net v0.57.0 // indirect
-	golang.org/x/sync v0.22.0 // indirect
+	golang.org/x/sync v0.23.0 // indirect
 )
 
 replace github.com/jhonsferg/traverse v0.1.0 => ../../
